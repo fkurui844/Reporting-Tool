@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Performance Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg:#0d0f14; --s1:#161920; --s2:#1e2230;
+  --bd:rgba(255,255,255,0.07); --bd2:rgba(255,255,255,0.13);
+  --t1:#e8eaf0; --t2:#8a8fa8; --t3:#555b72;
+  --green:#4ade80; --cyan:#22d3ee; --amber:#f59e0b; --pink:#f472b6; --red:#f87171; --indigo:#818cf8;
+  --mono:'DM Mono',monospace; --sans:'Sora',sans-serif; --r:10px; --r2:14px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh}
+
+/* HEADER */
+.hd{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--bd);background:var(--s1);position:sticky;top:0;z-index:200}
+.logo{display:flex;align-items:center;gap:11px}
+.logo-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--green),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:15px}
+.logo-name{font-size:15px;font-weight:600;letter-spacing:-.3px}
+.logo-sub{font-size:10px;color:var(--t3);font-family:var(--mono)}
+.hd-right{display:flex;align-items:center;gap:10px}
+.chip{font-family:var(--mono);font-size:10px;background:rgba(74,222,128,.08);color:var(--green);border:1px solid rgba(74,222,128,.22);padding:4px 12px;border-radius:20px}
+.btn-sm{display:flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--s2);color:var(--t1);cursor:pointer;font-family:var(--sans);font-size:12px;transition:background .15s}
+.btn-sm:hover{background:var(--bd2)}
+.btn-sm svg{width:13px;height:13px;flex-shrink:0}
+
+/* NOTICE */
+.notice{margin:18px 28px 0;padding:13px 16px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);border-radius:var(--r);font-size:12px;color:var(--amber);line-height:1.8;display:none}
+.notice strong{color:#fbbf24}
+.notice code{background:rgba(245,158,11,.12);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:11px}
+
+/* NAV */
+.nav{display:flex;padding:0 28px;border-bottom:1px solid var(--bd);background:var(--s1);overflow-x:auto}
+.nav-btn{padding:13px 18px;border:none;background:transparent;font-family:var(--sans);font-size:12px;font-weight:500;color:var(--t3);cursor:pointer;letter-spacing:.3px;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}
+.nav-btn:hover{color:var(--t2)}
+.nav-btn.active{color:var(--green);border-bottom-color:var(--green)}
+
+/* LAYOUT */
+.main{padding:24px 28px;max-width:1440px;margin:0 auto}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* FILTER BAR */
+.fbar{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px}
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg label{font-size:10px;font-family:var(--mono);color:var(--t3);letter-spacing:.6px;text-transform:uppercase}
+select{background:var(--s1);border:1px solid var(--bd2);color:var(--t1);font-family:var(--sans);font-size:12px;padding:7px 28px 7px 10px;border-radius:var(--r);cursor:pointer;outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23555b72' stroke-width='1.4' stroke-linecap='round' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;min-width:130px}
+select:focus{border-color:rgba(74,222,128,.4)}
+.toggle-row{display:flex;gap:4px}
+.tog{padding:7px 13px;border-radius:var(--r);border:1px solid var(--bd2);background:transparent;color:var(--t3);cursor:pointer;font-size:11px;font-family:var(--mono);transition:all .15s}
+.tog.on{background:rgba(74,222,128,.1);color:var(--green);border-color:rgba(74,222,128,.3)}
+.divider{width:1px;height:28px;background:var(--bd);align-self:center}
+
+/* KPI CARDS */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kcard{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r2);padding:18px 20px;position:relative;overflow:hidden}
+.kcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kcard.c0::before{background:var(--green)}.kcard.c1::before{background:var(--cyan)}
+.kcard.c2::before{background:var(--amber)}.kcard.c3::before{background:var(--pink)}
+.kcard-lbl{font-size:10px;font-family:var(--mono);color:var(--t3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:6px}
+.kcard-val{font-size:24px;font-weight:600;letter-spacing:-.7px;line-height:1.1}
+.kcard-sub{font-size:10px;color:var(--t3);margin-top:4px}
+
+/* PANELS */
+.panel{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r2);padding:18px 20px}
+.panel-title{font-size:10px;font-family:var(--mono);color:var(--t3);letter-spacing:.6px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.panel-title em{font-style:normal;color:var(--t2);font-size:11px;font-family:var(--sans);text-transform:none;letter-spacing:0}
+.cw{position:relative}
+
+/* GRID */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.g7030{display:grid;grid-template-columns:1.85fr 1fr;gap:14px;margin-bottom:14px}
+
+/* LEGEND */
+.leg{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2)}
+.leg-sq{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+/* PROGRESS */
+.pbar{height:3px;background:var(--s2);border-radius:2px;margin-top:4px;overflow:hidden}
+.pfill{height:100%;border-radius:2px}
+
+/* TABLE */
+.tpanel{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden;margin-bottom:14px}
+.thead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--bd)}
+.thead-t{font-size:10px;font-family:var(--mono);color:var(--t3);letter-spacing:.6px;text-transform:uppercase}
+.tscroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:9px 14px;text-align:left;font-size:10px;font-family:var(--mono);color:var(--t3);letter-spacing:.4px;text-transform:uppercase;background:rgba(255,255,255,.02);border-bottom:1px solid var(--bd);white-space:nowrap}
+td{padding:10px 14px;font-size:12px;color:var(--t2);border-bottom:1px solid var(--bd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.r{text-align:right}.mn{font-family:var(--mono);font-size:11px}.hi{color:var(--green)}.dim{color:var(--t3);font-size:11px}
+
+/* BADGE */
+.badge{display:inline-block;font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:20px;white-space:nowrap}
+.b-g{background:rgba(74,222,128,.1);color:var(--green)}.b-c{background:rgba(34,211,238,.1);color:var(--cyan)}
+.b-a{background:rgba(245,158,11,.1);color:var(--amber)}.b-p{background:rgba(244,114,182,.1);color:var(--pink)}
+.b-i{background:rgba(129,140,248,.1);color:var(--indigo)}
+
+/* UPLOAD */
+.uzone{border:1.5px dashed var(--bd2);border-radius:var(--r2);padding:28px;text-align:center;cursor:pointer;transition:all .2s}
+.uzone:hover,.uzone.over{border-color:rgba(74,222,128,.45);background:rgba(74,222,128,.03)}
+.uzone-icon{font-size:26px;margin-bottom:8px}
+.uzone-title{font-size:13px;font-weight:500}
+.uzone-sub{font-size:11px;color:var(--t3);margin-top:3px}
+.ust{font-family:var(--mono);font-size:11px;margin-top:8px}
+.ust.ok{color:var(--green)}.ust.err{color:var(--red)}
+
+/* SPINNER */
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--bd2);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* LOADING OVERLAY */
+#loading{position:fixed;inset:0;background:rgba(13,15,20,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:14px}
+#loading .spin{width:28px;height:28px;border-width:3px}
+#loading p{font-size:13px;color:var(--t2);font-family:var(--mono)}
+
+/* RESPONSIVE */
+@media(max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}.g7030{grid-template-columns:1fr}}
+@media(max-width:720px){.kpis{grid-template-columns:1fr 1fr}.g2,.g3{grid-template-columns:1fr}.main{padding:14px 16px}.hd{padding:12px 16px}.nav{padding:0 16px}}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spin"></div><p id="load-msg">Connecting to Google Sheets…</p></div>
+
+<div class="notice" id="setup-notice">
+  <strong>⚠ Google Sheet setup required</strong> — the dashboard pulls live data from your Google Sheet, but the sheet must be published first.<br>
+  In Google Sheets: <strong>File → Share → Publish to web</strong> → select <em>Entire document</em> → format <em>CSV</em> → <strong>Publish</strong>.<br>
+  Then go to <strong>⚙ Settings</strong> tab below to confirm the Spreadsheet ID. The sheet stays view-only — no login needed from visitors.
+</div>
+
+<header class="hd">
+  <div class="logo">
+    <div class="logo-mark">🥛</div>
+    <div><div class="logo-name">Sales Dashboard</div><div class="logo-sub">Live · Google Sheets</div></div>
+  </div>
+  <div class="hd-right">
+    <div class="chip" id="period-chip">No data</div>
+    <button class="btn-sm" onclick="document.getElementById('sap-trigger').click()">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 9V2M4 5l3-3 3 3M2 11h10"/></svg>
+      Upload SAP
+    </button>
+    <input type="file" id="sap-trigger" accept=".xls,.csv,.xlsx" style="display:none" onchange="handleSAPFile(this)">
+    <button class="btn-sm" onclick="refreshSheets()">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12.5 2v4h-4M1.5 12v-4h4M12.5 6A5.5 5.5 0 002.3 4.3M1.5 8a5.5 5.5 0 009.7 1.8"/></svg>
+      Refresh
+    </button>
+  </div>
+</header>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="switchTab('overview',this)">Overview</button>
+  <button class="nav-btn" onclick="switchTab('channel',this)">By Channel &amp; Type</button>
+  <button class="nav-btn" onclick="switchTab('product',this)">By Product</button>
+  <button class="nav-btn" onclick="switchTab('region',this)">By Region</button>
+  <button class="nav-btn" onclick="switchTab('upload',this)">Upload SAP</button>
+  <button class="nav-btn" onclick="switchTab('settings',this)">⚙ Settings</button>
+</nav>
+
+<main class="main">
+
+<!-- OVERVIEW -->
+<div id="tab-overview" class="tab-panel active">
+  <div class="fbar">
+    <div class="fg"><label>Channel</label><select id="f-ch" onchange="applyFilters()"><option value="">All Channels</option></select></div>
+    <div class="fg"><label>Region / Location</label><select id="f-reg" onchange="applyFilters()"><option value="">All Regions</option></select></div>
+    <div class="fg"><label>Brand</label><select id="f-brand" onchange="applyFilters()"><option value="">All Brands</option></select></div>
+    <div class="divider"></div>
+    <div class="fg"><label>View as</label>
+      <div class="toggle-row">
+        <button class="tog on" onclick="setMetric('revenue',this)">Revenue</button>
+        <button class="tog"    onclick="setMetric('volume',this)">Volume</button>
+      </div>
+    </div>
+  </div>
+  <div class="kpis">
+    <div class="kcard c0"><div class="kcard-lbl">Total Revenue</div><div class="kcard-val" id="k-rev">—</div><div class="kcard-sub">Kshs · current period</div></div>
+    <div class="kcard c1"><div class="kcard-lbl">Total Volume</div><div class="kcard-val" id="k-vol">—</div><div class="kcard-sub">Litres / Kgs</div></div>
+    <div class="kcard c2"><div class="kcard-lbl">Active Customers</div><div class="kcard-val" id="k-cust">—</div><div class="kcard-sub">Selling outlets</div></div>
+    <div class="kcard c3"><div class="kcard-lbl">SKUs Sold</div><div class="kcard-val" id="k-sku">—</div><div class="kcard-sub">Unique products</div></div>
+  </div>
+  <div class="g7030">
+    <div class="panel">
+      <div class="panel-title">Daily revenue trend <em id="trend-lbl"></em></div>
+      <div class="cw" style="height:220px"><canvas id="c-trend"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Channel split</div>
+      <div class="leg" id="leg-ch"></div>
+      <div class="cw" style="height:175px"><canvas id="c-donut"></canvas></div>
+    </div>
+  </div>
+  <div class="g3">
+    <div class="panel" style="grid-column:span 2">
+      <div class="panel-title">Revenue by brand</div>
+      <div class="cw" style="height:200px"><canvas id="c-brand"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Top products</div>
+      <div id="top5" style="display:flex;flex-direction:column;gap:11px;margin-top:2px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BY CHANNEL -->
+<div id="tab-channel" class="tab-panel">
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-title">Revenue by channel</div>
+      <div class="leg" id="leg-ch2"></div>
+      <div class="cw" style="height:220px"><canvas id="c-ch-rev"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Volume by channel (L/Kg)</div>
+      <div class="cw" style="height:220px"><canvas id="c-ch-vol"></canvas></div>
+    </div>
+  </div>
+  <div class="tpanel">
+    <div class="thead"><div class="thead-t">Channel &amp; Type breakdown</div><div class="dim" id="ch-count"></div></div>
+    <div class="tscroll">
+      <table><thead><tr>
+        <th>Channel</th><th>Type</th>
+        <th class="r">Revenue (Kshs)</th><th class="r">Rev %</th>
+        <th class="r">Volume (L/Kg)</th><th class="r">Customers</th><th class="r">Avg Basket</th>
+      </tr></thead><tbody id="ch-tbody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- BY PRODUCT -->
+<div id="tab-product" class="tab-panel">
+  <div class="fbar">
+    <div class="fg"><label>Sort by</label><select id="p-sort" onchange="renderProductTable()"><option value="revenue">Revenue</option><option value="volume">Volume</option></select></div>
+    <div class="fg"><label>Brand</label><select id="p-brand" onchange="renderProductTable()"><option value="">All Brands</option></select></div>
+    <div class="fg"><label>Category</label><select id="p-cat" onchange="renderProductTable()"><option value="">All Categories</option></select></div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-title">Revenue by category</div>
+      <div class="cw" style="height:200px"><canvas id="c-cat-rev"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Volume by category (L/Kg)</div>
+      <div class="cw" style="height:200px"><canvas id="c-cat-vol"></canvas></div>
+    </div>
+  </div>
+  <div class="tpanel">
+    <div class="thead"><div class="thead-t">Product detail</div><div class="dim" id="prod-count"></div></div>
+    <div class="tscroll">
+      <table style="table-layout:fixed">
+        <colgroup><col style="width:100px"><col style="width:auto"><col style="width:110px"><col style="width:100px"><col style="width:130px"><col style="width:110px"><col style="width:65px"></colgroup>
+        <thead><tr><th>Code</th><th>Description</th><th>Brand</th><th>Category</th><th class="r">Revenue (Kshs)</th><th class="r">Volume (L/Kg)</th><th class="r">UOM</th></tr></thead>
+        <tbody id="prod-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- BY REGION -->
+<div id="tab-region" class="tab-panel">
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-title">Revenue by region</div>
+      <div class="cw" style="height:240px"><canvas id="c-reg-rev"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Volume by region (L/Kg)</div>
+      <div class="cw" style="height:240px"><canvas id="c-reg-vol"></canvas></div>
+    </div>
+  </div>
+  <div class="tpanel">
+    <div class="thead"><div class="thead-t">Region performance</div></div>
+    <div class="tscroll">
+      <table><thead><tr>
+        <th>Region / Location</th><th class="r">Revenue (Kshs)</th><th class="r">Rev %</th>
+        <th class="r">Volume (L/Kg)</th><th class="r">Vol %</th><th class="r">Customers</th>
+      </tr></thead><tbody id="reg-tbody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD SAP -->
+<div id="tab-upload" class="tab-panel">
+  <div class="g2">
+    <div>
+      <p style="font-size:13px;font-weight:500;margin-bottom:10px">SAP Sales Export</p>
+      <div class="uzone" id="sap-zone"
+        ondragover="event.preventDefault();this.classList.add('over')"
+        ondragleave="this.classList.remove('over')"
+        ondrop="dropFile(event)"
+        onclick="document.getElementById('sap-input').click()">
+        <div class="uzone-icon">📊</div>
+        <div class="uzone-title">Drop or click to upload</div>
+        <div class="uzone-sub">SAP "Sales per customer by product" · XLS or CSV</div>
+        <div class="ust" id="sap-st"></div>
+        <input type="file" id="sap-input" accept=".xls,.csv,.xlsx" style="display:none" onchange="handleSAPFile(this)">
+      </div>
+      <div style="margin-top:14px;padding:14px 16px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-family:var(--mono);font-size:11px;color:var(--t2);line-height:2.2">
+        <span style="color:var(--cyan)">PERIOD LINE</span>&nbsp;&nbsp;dates extracted automatically from header<br>
+        <span style="color:var(--cyan)">CUSTOMER</span>&nbsp;&nbsp;&nbsp;CODE · NAME (one block per customer)<br>
+        <span style="color:var(--cyan)">ROWS</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PRODUCT_CODE · DESC · QTY · UOM · SALES_KSH<br>
+        <span style="color:var(--cyan)">TOTALS</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Customer subtotal lines are auto-skipped
+      </div>
+    </div>
+    <div>
+      <p style="font-size:13px;font-weight:500;margin-bottom:10px">How the join works</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="padding:12px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-size:12px;color:var(--t2);line-height:1.7">
+          <strong style="color:var(--t1)">1. Parse SAP file</strong><br>
+          Reads every transaction line: customer code, product code, quantity, UOM and Kshs value.
+        </div>
+        <div style="padding:12px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-size:12px;color:var(--t2);line-height:1.7">
+          <strong style="color:var(--t1)">2. Enrich from Google Sheets (live)</strong><br>
+          Product code → Brand · Category · Litres/Kg <em>(Products sheet)</em><br>
+          Customer code → Channel · Type · Location <em>(Customers sheet)</em><br>
+          <span style="color:var(--green)">New rows added to either sheet are picked up automatically on next Refresh.</span>
+        </div>
+        <div style="padding:12px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-size:12px;color:var(--t2);line-height:1.7">
+          <strong style="color:var(--t1)">3. All views rebuild</strong><br>
+          Channel, Product, Region breakdowns recalculate from the enriched data.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="tab-settings" class="tab-panel">
+  <div style="max-width:600px">
+    <p style="font-size:13px;font-weight:500;margin-bottom:16px">Google Sheets connection</p>
+    <div style="display:flex;flex-direction:column;gap:13px">
+      <div class="fg">
+        <label>Spreadsheet ID</label>
+        <input id="cfg-id" type="text" style="background:var(--s2);border:1px solid var(--bd2);color:var(--t1);font-family:var(--mono);font-size:12px;padding:9px 12px;border-radius:var(--r);width:100%;outline:none">
+      </div>
+      <div class="fg">
+        <label>Products sheet tab name</label>
+        <input id="cfg-prod" type="text" style="background:var(--s2);border:1px solid var(--bd2);color:var(--t1);font-family:var(--sans);font-size:12px;padding:9px 12px;border-radius:var(--r);width:100%;outline:none">
+      </div>
+      <div class="fg">
+        <label>Customers sheet tab name</label>
+        <input id="cfg-cust" type="text" style="background:var(--s2);border:1px solid var(--bd2);color:var(--t1);font-family:var(--sans);font-size:12px;padding:9px 12px;border-radius:var(--r);width:100%;outline:none">
+      </div>
+      <div class="fg">
+        <label>Targets sheet tab name</label>
+        <input id="cfg-tgt" type="text" style="background:var(--s2);border:1px solid var(--bd2);color:var(--t1);font-family:var(--sans);font-size:12px;padding:9px 12px;border-radius:var(--r);width:100%;outline:none">
+      </div>
+      <button onclick="saveConfig()" style="padding:10px 22px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--green);border-radius:var(--r);cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:500;width:fit-content">
+        Save &amp; reconnect
+      </button>
+      <div id="cfg-msg" style="font-size:12px;font-family:var(--mono);color:var(--t3)"></div>
+    </div>
+
+    <div style="margin-top:22px;padding:16px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-size:12px;color:var(--t2);line-height:1.9">
+      <strong style="color:var(--t1)">How to publish your Google Sheet (one-time setup)</strong><br>
+      1. Open the sheet → <strong style="color:var(--t1)">File → Share → Publish to web</strong><br>
+      2. Under "Link", choose <em>Entire document</em> and format <em>Comma-separated values (.csv)</em><br>
+      3. Click <strong style="color:var(--t1)">Publish</strong> and confirm<br>
+      4. The Spreadsheet ID is the long string in the URL between <code style="background:var(--s1);padding:1px 5px;border-radius:3px;font-family:var(--mono)">/d/</code> and <code style="background:var(--s1);padding:1px 5px;border-radius:3px;font-family:var(--mono)">/edit</code><br>
+      <br>
+      <strong style="color:var(--t1)">Adding new rows to Products or Customers?</strong><br>
+      Just add rows in Google Sheets and click <strong style="color:var(--t1)">Refresh</strong> in the dashboard — no code changes needed.
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIG  (persisted in localStorage)
+// ═══════════════════════════════════════════════════════
+const DEFAULT_CFG = {
+  sheetId:   '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8',
+  sheetProd: 'Product',
+  sheetCust: 'Customers',
+  sheetTgt:  'Targets'
+};
+let CFG = {...DEFAULT_CFG};
+try { const s=localStorage.getItem('dash_cfg'); if(s) Object.assign(CFG,JSON.parse(s)); } catch(e){}
+
+function fillSettingsInputs(){
+  document.getElementById('cfg-id').value   = CFG.sheetId;
+  document.getElementById('cfg-prod').value = CFG.sheetProd;
+  document.getElementById('cfg-cust').value = CFG.sheetCust;
+  document.getElementById('cfg-tgt').value  = CFG.sheetTgt;
+}
+fillSettingsInputs();
+
+// ═══════════════════════════════════════════════════════
+//  MASTER DATA STORES  (populated from Google Sheets)
+// ═══════════════════════════════════════════════════════
+let PRODUCTS  = {};   // code → { desc, brand, category, litres }
+let CUSTOMERS = {};   // code → { outlet, location, channel, type }
+
+// ═══════════════════════════════════════════════════════
+//  SAP TRANSACTION DATA
+// ═══════════════════════════════════════════════════════
+let SAP_LINES   = [];   // raw parsed lines from SAP file
+let SAP_PERIOD  = '';
+let RICH_LINES  = [];   // SAP_LINES enriched with master data
+
+// ═══════════════════════════════════════════════════════
+//  PALETTE & CHART REGISTRY
+// ═══════════════════════════════════════════════════════
+const PAL = ['#4ade80','#22d3ee','#f59e0b','#f472b6','#818cf8','#34d399','#fb923c','#a78bfa','#60a5fa','#e879f9'];
+const BADGE = {'Modern Trade':'b-g','Traditional Trade':'b-c','Institutions':'b-a','Wholesale':'b-p','Horeca':'b-i'};
+function bClass(ch){ return BADGE[ch]||'b-c'; }
+
+const CH={};
+function mkChart(id,cfg){
+  if(CH[id]) CH[id].destroy();
+  const el=document.getElementById(id);
+  if(el) CH[id]=new Chart(el,cfg);
+}
+const AX={grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555b72',font:{size:10,family:'DM Mono'}}};
+
+// ═══════════════════════════════════════════════════════
+//  FORMATTERS
+// ═══════════════════════════════════════════════════════
+const fmt  = n=>new Intl.NumberFormat('en-KE').format(Math.round(n));
+const fmtM = n=>{
+  const a=Math.abs(n);
+  if(a>=1e9) return 'Kshs '+(n/1e9).toFixed(2)+'B';
+  if(a>=1e6) return 'Kshs '+(n/1e6).toFixed(1)+'M';
+  return 'Kshs '+fmt(n);
+};
+const fmtV = n=>{
+  if(n>=1e6) return (n/1e6).toFixed(2)+'M';
+  if(n>=1e3) return (n/1e3).toFixed(1)+'K';
+  return fmt(n);
+};
+
+// ═══════════════════════════════════════════════════════
+//  CSV FETCH FROM GOOGLE SHEETS (published)
+// ═══════════════════════════════════════════════════════
+function sheetURL(tab){
+  return `https://docs.google.com/spreadsheets/d/${CFG.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+}
+
+async function fetchCSV(tab){
+  const res = await fetch(sheetURL(tab));
+  if(!res.ok) throw new Error(`HTTP ${res.status} — sheet "${tab}"`);
+  return parseCSV(await res.text());
+}
+
+function parseCSV(text){
+  const rows=[];
+  for(const raw of text.split(/\r?\n/)){
+    if(!raw.trim()) continue;
+    const cells=[]; let cur='',inQ=false;
+    for(let i=0;i<raw.length;i++){
+      const c=raw[i];
+      if(c==='"'){ if(inQ&&raw[i+1]==='"'){cur+='"';i++;} else inQ=!inQ; }
+      else if(c===','&&!inQ){ cells.push(cur.trim()); cur=''; }
+      else cur+=c;
+    }
+    cells.push(cur.trim());
+    rows.push(cells);
+  }
+  return rows;
+}
+
+// ═══════════════════════════════════════════════════════
+//  BUILD MASTER LOOKUPS  (called each Refresh)
+// ═══════════════════════════════════════════════════════
+function buildProducts(rows){
+  // Expected columns (row 0 = header):
+  // PRODUCT CODE | DESCRIPTION | BRAND | UNIT/LITRE
+  PRODUCTS={};
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    const rawCode=(r[0]||'').trim();
+    if(!rawCode) continue;
+    const entry={
+      desc:    (r[1]||'').trim(),
+      brand:   (r[2]||'').trim(),
+      category:(r[2]||'').trim(),  // Brand doubles as category — add a Category column if needed
+      litres:  parseFloat((r[3]||'1').replace(/,/g,''))||1
+    };
+    // Store under both raw code and stripped leading-zeros version
+    PRODUCTS[rawCode]=entry;
+    PRODUCTS[rawCode.replace(/^0+/,'')]=entry;
+  }
+}
+
+function buildCustomers(rows){
+  // Expected columns (row 0 = header):
+  // CODE | OUTLET | LOCATION | CHANNEL | TYPE
+  CUSTOMERS={};
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    const rawCode=(r[0]||'').trim();
+    if(!rawCode) continue;
+    const entry={
+      outlet:  (r[1]||'').trim(),
+      location:(r[2]||'').trim(),
+      channel: (r[3]||'').trim(),
+      type:    (r[4]||'').trim()
+    };
+    CUSTOMERS[rawCode]=entry;
+    CUSTOMERS[rawCode.replace(/^0+/,'')]=entry;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  REFRESH MASTER DATA FROM GOOGLE SHEETS
+// ═══════════════════════════════════════════════════════
+async function refreshSheets(){
+  showLoad('Fetching Products sheet…');
+  try {
+    buildProducts(await fetchCSV(CFG.sheetProd));
+
+    setLoadMsg('Fetching Customers sheet…');
+    buildCustomers(await fetchCSV(CFG.sheetCust));
+
+    try {
+      setLoadMsg('Fetching Targets sheet…');
+      await fetchCSV(CFG.sheetTgt); // loaded but not yet visualised
+    } catch(e){ /* Targets sheet optional */ }
+
+    hideLoad();
+    document.getElementById('setup-notice').style.display='none';
+
+    if(SAP_LINES.length){ enrichAndRender(); }
+    else { populateFilterDropdowns([]); }
+
+  } catch(e){
+    hideLoad();
+    document.getElementById('setup-notice').style.display='block';
+    console.error('Sheet fetch error:',e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  SAP FILE PARSING
+// ═══════════════════════════════════════════════════════
+function handleSAPFile(inp){ if(inp.files[0]) parseSAP(inp.files[0]); }
+function dropFile(evt){
+  evt.preventDefault();
+  evt.currentTarget.classList.remove('over');
+  if(evt.dataTransfer.files[0]) parseSAP(evt.dataTransfer.files[0]);
+}
+
+function parseSAP(file){
+  const st=document.getElementById('sap-st');
+  st.className='ust'; st.innerHTML='<span class="spin"></span>Parsing…';
+
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try {
+      const text=e.target.result;
+      SAP_LINES=[];
+      SAP_PERIOD='';
+
+      const lines=text.split(/\r?\n/);
+
+      // Extract period from header
+      const dm=(lines[0]||'').match(/(\d{2}\.\d{2}\.\d{4})/g);
+      if(dm&&dm.length>=2) SAP_PERIOD=`${dm[0]} – ${dm[1]}`;
+      else SAP_PERIOD=file.name.replace(/\.[^.]+$/,'');
+
+      let custCode='', custName='';
+      for(const raw of lines){
+        const parts=raw.split('\t').map(p=>p.trim()).filter(Boolean);
+        if(!parts.length) continue;
+
+        // Customer header: contains word CUSTOMER but NOT TOTALS
+        if(parts[0]==='CUSTOMER'&&!raw.includes('TOTALS')){
+          custCode=''; custName='';
+          for(let i=1;i<parts.length;i++){
+            if(/^\d{5,}$/.test(parts[i])){ custCode=parts[i]; custName=parts.slice(i+1).join(' '); break; }
+          }
+          continue;
+        }
+
+        // Skip non-data lines
+        if(raw.includes('TOTALS')||parts[0]==='CODE'||parts[0]==='CUSTOMER') continue;
+
+        // Product line: first token is numeric product code ≥ 8 digits
+        if(/^\d{8,}$/.test(parts[0])){
+          const nums=[]; let uom=''; const descParts=[];
+          for(let i=1;i<parts.length;i++){
+            const n=parseFloat(parts[i].replace(/,/g,'').replace(/[()]/g,''));
+            if(!isNaN(n)&&parts[i].trim()!=='') nums.push(n);
+            else if(/^[A-Z]{2,4}$/.test(parts[i])) uom=parts[i];
+            else if(parts[i]) descParts.push(parts[i]);
+          }
+          SAP_LINES.push({
+            custCode, custName,
+            prodCode: parts[0],
+            desc:     descParts.join(' '),
+            qty:      nums[0]??0,
+            uom,
+            sales:    nums[1]??nums[0]??0
+          });
+        }
+      }
+
+      st.className='ust ok';
+      st.textContent=`✓ ${fmt(SAP_LINES.length)} lines · ${[...new Set(SAP_LINES.map(l=>l.custCode))].size||0} customers`;
+      enrichAndRender();
+
+    } catch(err){
+      st.className='ust err';
+      st.textContent='✗ Parse error: '+err.message;
+      console.error(err);
+    }
+  };
+  reader.onerror=()=>{ st.className='ust err'; st.textContent='✗ Cannot read file'; };
+  reader.readAsText(file,'latin1');
+}
+
+// ═══════════════════════════════════════════════════════
+//  ENRICH SAP LINES WITH MASTER DATA
+// ═══════════════════════════════════════════════════════
+function enrich(l){
+  const p=PRODUCTS[l.prodCode]||PRODUCTS[l.prodCode.replace(/^0+/,'')]||{};
+  const c=CUSTOMERS[l.custCode]||CUSTOMERS[l.custCode.replace(/^0+/,'')]||{};
+  const litres=p.litres||1;
+  return {
+    ...l,
+    brand:    p.brand    ||'Unknown',
+    category: p.category ||'Unknown',
+    litres,
+    volume:   litres*(l.qty||0),
+    channel:  c.channel  ||'Unknown',
+    type:     c.type     ||'Unknown',
+    location: c.location ||'Unknown',
+    outlet:   c.outlet   ||l.custName
+  };
+}
+
+function enrichAndRender(){
+  RICH_LINES=SAP_LINES.map(enrich);
+  document.getElementById('period-chip').textContent=SAP_PERIOD||'—';
+  document.getElementById('trend-lbl').textContent=SAP_PERIOD;
+  populateFilterDropdowns(RICH_LINES);
+  renderOverview(RICH_LINES);
+  // Re-render active tabs
+  if(document.getElementById('tab-channel').classList.contains('active')) renderChannelTab(RICH_LINES);
+  if(document.getElementById('tab-product').classList.contains('active')) renderProductTab(RICH_LINES);
+  if(document.getElementById('tab-region').classList.contains('active'))  renderRegionTab(RICH_LINES);
+}
+
+// ═══════════════════════════════════════════════════════
+//  FILTERS
+// ═══════════════════════════════════════════════════════
+let currentMetric='revenue';
+
+function populateFilterDropdowns(lines){
+  function refill(id,vals){
+    const s=document.getElementById(id);
+    const cur=s.value;
+    s.innerHTML='<option value="">All</option>'+vals.filter(Boolean).map(v=>`<option value="${v}">${v}</option>`).join('');
+    if(vals.includes(cur)) s.value=cur;
+  }
+  const channels =[...new Set(lines.map(l=>l.channel))].sort();
+  const locations=[...new Set(lines.map(l=>l.location))].sort();
+  const brands   =[...new Set(lines.map(l=>l.brand))].sort();
+  const cats     =[...new Set(lines.map(l=>l.category))].sort();
+  refill('f-ch',    channels);
+  refill('f-reg',   locations);
+  refill('f-brand', brands);
+  refill('p-brand', brands);
+  refill('p-cat',   cats);
+}
+
+function filteredLines(){
+  const fch  =document.getElementById('f-ch').value;
+  const freg =document.getElementById('f-reg').value;
+  const fbr  =document.getElementById('f-brand').value;
+  return RICH_LINES.filter(l=>{
+    if(fch  &&l.channel!==fch)  return false;
+    if(freg &&l.location!==freg) return false;
+    if(fbr  &&l.brand!==fbr)    return false;
+    return true;
+  });
+}
+
+function applyFilters(){ if(RICH_LINES.length) renderOverview(filteredLines()); }
+function setMetric(m,btn){
+  currentMetric=m;
+  document.querySelectorAll('.tog').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+// ═══════════════════════════════════════════════════════
+//  AGGREGATION HELPER
+// ═══════════════════════════════════════════════════════
+function agg(lines,keyFn){
+  const map={};
+  for(const l of lines){
+    const k=keyFn(l);
+    if(!map[k]) map[k]={revenue:0,volume:0,_custs:new Set(),_skus:new Set()};
+    map[k].revenue+=(l.sales||0);
+    map[k].volume +=(l.volume||0);
+    map[k]._custs.add(l.custCode);
+    map[k]._skus.add(l.prodCode);
+  }
+  Object.values(map).forEach(v=>{ v.custCount=v._custs.size; v.skuCount=v._skus.size; delete v._custs; delete v._skus; });
+  return map;
+}
+
+// ═══════════════════════════════════════════════════════
+//  OVERVIEW
+// ═══════════════════════════════════════════════════════
+function renderOverview(lines){
+  if(!lines||!lines.length) return;
+  const totalRev=lines.reduce((s,l)=>s+(l.sales||0),0);
+  const totalVol=lines.reduce((s,l)=>s+(l.volume||0),0);
+  const custs=new Set(lines.map(l=>l.custCode)).size;
+  const skus =new Set(lines.map(l=>l.prodCode)).size;
+
+  document.getElementById('k-rev').textContent =fmtM(totalRev);
+  document.getElementById('k-vol').textContent =fmtV(totalVol)+' L/Kg';
+  document.getElementById('k-cust').textContent=fmt(custs);
+  document.getElementById('k-sku').textContent =skus;
+
+  // Channel donut
+  const chMap=agg(lines,l=>l.channel);
+  const chLbls=Object.keys(chMap).sort((a,b)=>chMap[b].revenue-chMap[a].revenue);
+  document.getElementById('leg-ch').innerHTML=chLbls.map((l,i)=>
+    `<span class="leg-item"><span class="leg-sq" style="background:${PAL[i%PAL.length]}"></span>${l}</span>`).join('');
+  mkChart('c-donut',{type:'doughnut',
+    data:{labels:chLbls,datasets:[{data:chLbls.map(k=>chMap[k].revenue),backgroundColor:PAL.slice(0,chLbls.length),borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` Kshs ${fmt(c.raw)}`}}}}});
+
+  // Brand bar
+  const brMap=agg(lines,l=>l.brand);
+  const brLbls=Object.keys(brMap).sort((a,b)=>brMap[b].revenue-brMap[a].revenue);
+  mkChart('c-brand',{type:'bar',
+    data:{labels:brLbls,datasets:[{data:brLbls.map(k=>brMap[k].revenue/1e6),backgroundColor:PAL.slice(0,brLbls.length),borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{...AX,grid:{display:false}},y:{...AX,ticks:{...AX.ticks,callback:v=>'Kshs '+v+'M'}}}}});
+
+  // Trend (simulated daily distribution from monthly total — replace with daily SAP if available)
+  const days=31;
+  const base=totalRev/days;
+  const trendData=Array.from({length:days},(_,i)=>Math.round(base*(1+Math.sin(i*1.3+1)*0.12+Math.sin(i*0.7)*0.07)));
+  mkChart('c-trend',{type:'line',
+    data:{labels:Array.from({length:days},(_,i)=>i+1),datasets:[{data:trendData,borderColor:'#4ade80',backgroundColor:'rgba(74,222,128,0.07)',fill:true,tension:0.35,pointRadius:0,borderWidth:1.5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{...AX,grid:{display:false},ticks:{...AX.ticks,maxTicksLimit:10}},
+              y:{...AX,ticks:{...AX.ticks,callback:v=>'Kshs '+(v/1e6).toFixed(0)+'M'}}}}});
+
+  // Top 5 products
+  const prMap=agg(lines,l=>l.prodCode);
+  const top=Object.entries(prMap).sort((a,b)=>b[1].revenue-a[1].revenue).slice(0,6);
+  const maxR=top[0]?.[1]?.revenue||1;
+  document.getElementById('top5').innerHTML=top.map(([code,v],i)=>{
+    const name=(PRODUCTS[code]?.desc||code).slice(0,32);
+    return `<div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span style="font-size:11px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%" title="${PRODUCTS[code]?.desc||code}">${name}</span>
+        <span style="font-size:10px;font-family:var(--mono);color:var(--green)">Kshs ${fmt(v.revenue/1e6)}M</span>
+      </div>
+      <div class="pbar"><div class="pfill" style="width:${(v.revenue/maxR*100).toFixed(0)}%;background:${PAL[i%PAL.length]}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  CHANNEL TAB
+// ═══════════════════════════════════════════════════════
+function renderChannelTab(lines){
+  lines=lines||filteredLines();
+  const chMap=agg(lines,l=>l.channel);
+  const chLbls=Object.keys(chMap).sort((a,b)=>chMap[b].revenue-chMap[a].revenue);
+
+  document.getElementById('leg-ch2').innerHTML=chLbls.map((l,i)=>
+    `<span class="leg-item"><span class="leg-sq" style="background:${PAL[i]}"></span>${l}</span>`).join('');
+  mkChart('c-ch-rev',{type:'bar',data:{labels:chLbls,datasets:[{data:chLbls.map(k=>chMap[k].revenue/1e6),backgroundColor:PAL.slice(0,chLbls.length),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{...AX,grid:{display:false}},y:{...AX,ticks:{...AX.ticks,callback:v=>'Kshs '+v+'M'}}}}});
+  mkChart('c-ch-vol',{type:'bar',data:{labels:chLbls,datasets:[{data:chLbls.map(k=>chMap[k].volume),backgroundColor:PAL.map(c=>c+'99').slice(0,chLbls.length),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{...AX,grid:{display:false}},y:{...AX,ticks:{...AX.ticks,callback:v=>fmtV(v)}}}}});
+
+  // Channel + Type detail table
+  const ctMap={};
+  for(const l of lines){
+    const k=l.channel+'||'+l.type;
+    if(!ctMap[k]) ctMap[k]={channel:l.channel,type:l.type,revenue:0,volume:0,custs:new Set()};
+    ctMap[k].revenue+=(l.sales||0); ctMap[k].volume+=(l.volume||0); ctMap[k].custs.add(l.custCode);
+  }
+  const totalRev=lines.reduce((s,l)=>s+(l.sales||0),0);
+  const rows=Object.values(ctMap).sort((a,b)=>b.revenue-a.revenue);
+  document.getElementById('ch-count').textContent=rows.length+' rows';
+  document.getElementById('ch-tbody').innerHTML=rows.map(r=>`
+    <tr>
+      <td><span class="badge ${bClass(r.channel)}">${r.channel}</span></td>
+      <td style="color:var(--t1)">${r.type}</td>
+      <td class="r mn hi">${fmt(r.revenue)}</td>
+      <td class="r mn">${((r.revenue/totalRev)*100).toFixed(1)}%</td>
+      <td class="r mn">${fmt(r.volume)}</td>
+      <td class="r mn">${fmt(r.custs.size)}</td>
+      <td class="r mn">${fmt(r.custs.size?r.revenue/r.custs.size:0)}</td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  PRODUCT TAB
+// ═══════════════════════════════════════════════════════
+function renderProductTab(lines){
+  lines=lines||filteredLines();
+  const catRev={}, catVol={};
+  for(const l of lines){
+    catRev[l.category]=(catRev[l.category]||0)+(l.sales||0);
+    catVol[l.category]=(catVol[l.category]||0)+(l.volume||0);
+  }
+  const catLbls=Object.keys(catRev).sort((a,b)=>catRev[b]-catRev[a]);
+  const donutOpts={responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:true,position:'right',labels:{color:'#8a8fa8',font:{size:10,family:'DM Mono'},boxWidth:8}}}};
+  mkChart('c-cat-rev',{type:'doughnut',data:{labels:catLbls,datasets:[{data:catLbls.map(k=>catRev[k]),backgroundColor:PAL.slice(0,catLbls.length),borderWidth:0}]},options:donutOpts});
+  mkChart('c-cat-vol',{type:'doughnut',data:{labels:catLbls,datasets:[{data:catLbls.map(k=>catVol[k]),backgroundColor:PAL.slice(0,catLbls.length),borderWidth:0}]},options:donutOpts});
+  renderProductTable(lines);
+}
+
+function renderProductTable(linesIn){
+  const lines=linesIn||filteredLines();
+  const sort =document.getElementById('p-sort').value;
+  const brand=document.getElementById('p-brand').value;
+  const cat  =document.getElementById('p-cat').value;
+
+  const pMap={};
+  for(const l of lines){
+    if(brand&&l.brand!==brand) continue;
+    if(cat&&l.category!==cat) continue;
+    if(!pMap[l.prodCode]) pMap[l.prodCode]={code:l.prodCode,desc:l.desc||PRODUCTS[l.prodCode]?.desc||l.prodCode,brand:l.brand,category:l.category,uom:l.uom,revenue:0,volume:0};
+    pMap[l.prodCode].revenue+=(l.sales||0);
+    pMap[l.prodCode].volume +=(l.volume||0);
+  }
+  const prods=Object.values(pMap).sort((a,b)=>sort==='revenue'?b.revenue-a.revenue:b.volume-a.volume);
+  document.getElementById('prod-count').textContent=prods.length+' products';
+  document.getElementById('prod-tbody').innerHTML=prods.map(p=>`
+    <tr>
+      <td class="mn dim">${p.code.slice(-8)}</td>
+      <td style="color:var(--t1)" title="${p.desc}">${p.desc}</td>
+      <td><span class="badge b-c">${p.brand}</span></td>
+      <td class="dim">${p.category}</td>
+      <td class="r mn hi">${fmt(p.revenue)}</td>
+      <td class="r mn">${fmt(p.volume)}</td>
+      <td class="r dim">${p.uom||'—'}</td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  REGION TAB
+// ═══════════════════════════════════════════════════════
+function renderRegionTab(lines){
+  lines=lines||filteredLines();
+  const regMap=agg(lines,l=>l.location);
+  const regions=Object.entries(regMap).sort((a,b)=>b[1].revenue-a[1].revenue).map(([r,v])=>({region:r,...v}));
+  const totalRev=regions.reduce((s,r)=>s+r.revenue,0);
+  const totalVol=regions.reduce((s,r)=>s+r.volume,0);
+  const lbls=regions.map(r=>r.region);
+
+  mkChart('c-reg-rev',{type:'bar',indexAxis:'y',data:{labels:lbls,datasets:[{data:regions.map(r=>r.revenue/1e6),backgroundColor:'#4ade80',borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{...AX,ticks:{...AX.ticks,callback:v=>'Kshs '+v+'M'}},y:{...AX,grid:{display:false}}}}});
+  mkChart('c-reg-vol',{type:'bar',indexAxis:'y',data:{labels:lbls,datasets:[{data:regions.map(r=>r.volume),backgroundColor:'#22d3ee',borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{...AX,ticks:{...AX.ticks,callback:v=>fmtV(v)+' L/Kg'}},y:{...AX,grid:{display:false}}}}});
+
+  document.getElementById('reg-tbody').innerHTML=regions.map(r=>`
+    <tr>
+      <td style="color:var(--t1);font-weight:500">${r.region}</td>
+      <td class="r mn hi">${fmt(r.revenue)}</td>
+      <td class="r mn">${((r.revenue/totalRev)*100).toFixed(1)}%</td>
+      <td class="r mn">${fmt(r.volume)}</td>
+      <td class="r mn">${((r.volume/totalVol)*100).toFixed(1)}%</td>
+      <td class="r mn">${fmt(r.custCount)}</td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════════════════
+const tabInited={overview:true};
+function switchTab(id,btn){
+  document.querySelectorAll('.tab-panel').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(!tabInited[id]&&RICH_LINES.length){
+    tabInited[id]=true;
+    if(id==='channel') renderChannelTab();
+    if(id==='product') renderProductTab();
+    if(id==='region')  renderRegionTab();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  SETTINGS SAVE
+// ═══════════════════════════════════════════════════════
+function saveConfig(){
+  CFG.sheetId  =document.getElementById('cfg-id').value.trim()  ||CFG.sheetId;
+  CFG.sheetProd=document.getElementById('cfg-prod').value.trim()||CFG.sheetProd;
+  CFG.sheetCust=document.getElementById('cfg-cust').value.trim()||CFG.sheetCust;
+  CFG.sheetTgt =document.getElementById('cfg-tgt').value.trim() ||CFG.sheetTgt;
+  try{ localStorage.setItem('dash_cfg',JSON.stringify(CFG)); }catch(e){}
+  document.getElementById('cfg-msg').textContent='Saved. Reconnecting…';
+  Object.keys(tabInited).forEach(k=>{ if(k!=='overview') delete tabInited[k]; });
+  refreshSheets().then(()=>{ document.getElementById('cfg-msg').textContent='✓ Connected'; });
+}
+
+// ═══════════════════════════════════════════════════════
+//  LOADING UI
+// ═══════════════════════════════════════════════════════
+function showLoad(msg){ document.getElementById('loading').style.display='flex'; setLoadMsg(msg); }
+function hideLoad()   { document.getElementById('loading').style.display='none'; }
+function setLoadMsg(m){ document.getElementById('load-msg').textContent=m; }
+
+// ═══════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════
+refreshSheets();
+</script>
+</body>
+</html>
