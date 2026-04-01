@@ -135,7 +135,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 <div class="notice" id="setup-notice">
   <strong>⚠ Google Sheets not connected</strong> — the dashboard is running in <strong>offline mode</strong>. You can still upload SAP files and all charts will work using product &amp; customer names directly from the SAP export.<br>
-  To enable channel, region &amp; brand breakdowns, publish your Google Sheet: <strong>File → Share → Publish to web → CSV → Publish</strong>, then enter the Spreadsheet ID in <strong>⚙ Settings</strong>.
+  To enable channel, region &amp; brand breakdowns, check the <strong>⚙ Settings</strong> tab and verify the Apps Script endpoint is reachable.
 </div>
 
 <header class="hd">
@@ -340,22 +340,23 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- LEFT: Connection form -->
     <div>
       <p style="font-size:13px;font-weight:600;margin-bottom:4px">Google Sheets connection</p>
-      <p style="font-size:11px;color:var(--t3);margin-bottom:16px">Your Sheet acts as the master database for Products, Customers &amp; Targets. The dashboard reads it live — no login needed.</p>
+      <p style="font-size:11px;color:var(--t3);margin-bottom:16px">Data is fetched via the Apps Script web app endpoint. No login or Sheet publishing required.</p>
 
       <!-- Connection status badge -->
       <div id="conn-badge" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--r);margin-bottom:16px;font-size:12px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);color:var(--amber)">
         <span id="conn-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0"></span>
-        <span id="conn-badge-txt">Not connected — Sheet not yet published or ID not set</span>
+        <span id="conn-badge-txt">Connecting…</span>
       </div>
 
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <div class="fg">
-          <label>Spreadsheet ID</label>
-          <input id="cfg-id" type="text" placeholder="Paste the ID from your Sheet URL…"
-            style="background:var(--s2);border:1px solid var(--bd2);color:var(--t1);font-family:var(--mono);font-size:11px;padding:9px 12px;border-radius:var(--r);width:100%;outline:none">
-          <span style="font-size:10px;color:var(--t3);margin-top:3px">From the URL: …/spreadsheets/d/<strong style="color:var(--cyan)">THIS_PART</strong>/edit</span>
+      <!-- Apps Script endpoint (read-only display) -->
+      <div style="margin-bottom:16px">
+        <div class="fg" style="margin-bottom:10px">
+          <label>Apps Script Endpoint (active)</label>
+          <div style="background:var(--s2);border:1px solid rgba(74,222,128,.25);color:var(--green);font-family:var(--mono);font-size:10px;padding:9px 12px;border-radius:var(--r);word-break:break-all;line-height:1.6">
+            https://script.google.com/macros/s/AKfycbxwfwqI-cv5i2UqSTMUbIJ19eopI36vkFjpCAf_5VNpPGx6aRCMmNF4IDOWW3PxcZNT/exec
+          </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
           <div class="fg">
             <label>Products tab</label>
             <input id="cfg-prod" type="text" style="background:var(--s2);border:1px solid var(--bd2);color:var(--t1);font-family:var(--mono);font-size:11px;padding:9px 10px;border-radius:var(--r);width:100%;outline:none">
@@ -377,72 +378,59 @@ tr:hover td{background:rgba(255,255,255,.02)}
             🔄 Test connection
           </button>
         </div>
-        <div id="cfg-msg" style="font-size:11px;font-family:var(--mono);color:var(--t3);min-height:18px"></div>
+        <div id="cfg-msg" style="font-size:11px;font-family:var(--mono);color:var(--t3);min-height:18px;margin-top:8px"></div>
       </div>
 
       <!-- Sheet structure reference -->
-      <div style="margin-top:20px;padding:14px 16px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-size:11px;color:var(--t2);line-height:2">
+      <div style="margin-top:4px;padding:14px 16px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-size:11px;color:var(--t2);line-height:2">
         <strong style="color:var(--t1);font-size:12px">Required column headers in each tab</strong><br>
         <span style="color:var(--cyan)">Products:</span>&nbsp; PRODUCT CODE &nbsp;·&nbsp; DESCRIPTION &nbsp;·&nbsp; BRAND &nbsp;·&nbsp; CATEGORY &nbsp;·&nbsp; UNIT/LITRE<br>
         <span style="color:var(--cyan)">Customers:</span>&nbsp; CODE &nbsp;·&nbsp; OUTLET &nbsp;·&nbsp; LOCATION &nbsp;·&nbsp; CHANNEL &nbsp;·&nbsp; TYPE<br>
         <span style="color:var(--cyan)">Targets:</span>&nbsp; MONTH &nbsp;·&nbsp; CHANNEL &nbsp;·&nbsp; TARGET (Kshs)<br>
         <br>
-        <strong style="color:var(--t1)">Tip:</strong> Product codes in your Sheet must match SAP codes (e.g. <code style="background:var(--s1);padding:1px 5px;border-radius:3px">44000000013</code>). Customer codes should match SAP without leading zeros (e.g. <code style="background:var(--s1);padding:1px 5px;border-radius:3px">100018</code>).
+        <strong style="color:var(--t1)">Tip:</strong> Product codes must match SAP codes (e.g. <code style="background:var(--s1);padding:1px 5px;border-radius:3px">44000000013</code>). Customer codes should match SAP without leading zeros (e.g. <code style="background:var(--s1);padding:1px 5px;border-radius:3px">100018</code>).
       </div>
     </div>
 
-    <!-- RIGHT: Step-by-step publish guide -->
+    <!-- RIGHT: How it works + troubleshooting -->
     <div>
-      <p style="font-size:13px;font-weight:600;margin-bottom:4px">How to publish your Google Sheet</p>
-      <p style="font-size:11px;color:var(--t3);margin-bottom:16px">This is a one-time setup. Publishing makes the Sheet readable by the dashboard without any login.</p>
+      <p style="font-size:13px;font-weight:600;margin-bottom:4px">How the Apps Script connection works</p>
+      <p style="font-size:11px;color:var(--t3);margin-bottom:16px">The dashboard fetches data through your deployed Apps Script web app — no publishing or OAuth required.</p>
 
       <div style="display:flex;flex-direction:column;gap:10px">
-        <!-- Step 1 -->
         <div style="display:flex;gap:12px;padding:13px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r)">
           <div style="width:22px;height:22px;border-radius:50%;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
           <div style="font-size:12px;color:var(--t2);line-height:1.7">
-            Open your Google Sheet → click <strong style="color:var(--t1)">File</strong> in the menu bar → <strong style="color:var(--t1)">Share</strong> → <strong style="color:var(--t1)">Publish to web</strong>
+            The dashboard calls the Apps Script URL with a <code style="background:var(--s1);padding:1px 5px;border-radius:3px;font-size:10px">?sheet=TabName</code> query parameter for each sheet (Products, Customers, Targets).
           </div>
         </div>
-        <!-- Step 2 -->
         <div style="display:flex;gap:12px;padding:13px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r)">
           <div style="width:22px;height:22px;border-radius:50%;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
           <div style="font-size:12px;color:var(--t2);line-height:1.7">
-            In the dialog, set the first dropdown to <strong style="color:var(--t1)">Entire document</strong> and the second to <strong style="color:var(--t1)">Comma-separated values (.csv)</strong>
+            The Apps Script reads the requested tab from the bound spreadsheet and returns it as CSV text — no CORS issues, no login needed.
           </div>
         </div>
-        <!-- Step 3 -->
         <div style="display:flex;gap:12px;padding:13px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r)">
           <div style="width:22px;height:22px;border-radius:50%;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
           <div style="font-size:12px;color:var(--t2);line-height:1.7">
-            Click <strong style="color:var(--t1)">Publish</strong> and confirm. The Sheet is now publicly readable as CSV — it does <em>not</em> become editable by anyone.
+            The dashboard parses the CSV and enriches your SAP upload with brand, category, channel, and location from the Sheet.
           </div>
         </div>
-        <!-- Step 4 -->
         <div style="display:flex;gap:12px;padding:13px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r)">
           <div style="width:22px;height:22px;border-radius:50%;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
           <div style="font-size:12px;color:var(--t2);line-height:1.7">
-            Copy the Spreadsheet ID from your browser URL bar:<br>
-            <code style="background:var(--s1);padding:3px 7px;border-radius:4px;font-size:10px;color:var(--t3)">…/spreadsheets/d/<strong style="color:var(--cyan)">1gBuS6eH8yVU…</strong>/edit</code><br>
-            Paste it into the Spreadsheet ID field on the left, then click <strong style="color:var(--green)">Save &amp; connect</strong>.
-          </div>
-        </div>
-        <!-- Step 5 -->
-        <div style="display:flex;gap:12px;padding:13px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r)">
-          <div style="width:22px;height:22px;border-radius:50%;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div>
-          <div style="font-size:12px;color:var(--t2);line-height:1.7">
-            The dashboard will fetch your Products, Customers &amp; Targets. Then upload a SAP file — all breakdowns (channel, region, brand) will populate automatically.
+            Tab names are configurable above. If you rename a tab in Google Sheets, update the corresponding field and click <strong style="color:var(--green)">Save &amp; connect</strong>.
           </div>
         </div>
 
         <!-- Troubleshooting -->
         <div style="padding:13px 14px;background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.18);border-radius:var(--r);margin-top:4px">
-          <p style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:6px">⚠ Still getting "Failed to fetch"?</p>
+          <p style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:6px">⚠ Troubleshooting "Failed to fetch"</p>
           <div style="font-size:11px;color:var(--t2);line-height:1.9">
-            • The Sheet <strong>must be published</strong> (step 2–3 above) — sharing the link alone is not enough<br>
-            • Wait 30 seconds after publishing before clicking connect<br>
-            • Check that the tab names match exactly (case-sensitive)<br>
-            • If opening this file from your local disk (<code style="background:var(--s1);padding:1px 4px;border-radius:3px">file://</code>), some browsers block external requests — serve it via a local server or open it in Chrome
+            • Make sure the Apps Script is deployed as <strong>Execute as: Me</strong> and <strong>Who has access: Anyone</strong><br>
+            • After redeploying, always use a <strong>new deployment</strong> — editing the same one may not update the URL<br>
+            • If the tab name in your Sheet changed, update it in the fields above<br>
+            • If opening from <code style="background:var(--s1);padding:1px 4px;border-radius:3px">file://</code>, use Chrome or serve via a local server — some browsers block cross-origin requests from local files
           </div>
         </div>
       </div>
@@ -455,10 +443,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 <script>
 // ═══════════════════════════════════════════════════════
-//  CONFIG  (persisted in localStorage)
+//  APPS SCRIPT ENDPOINT  (hardcoded — no Sheet ID needed)
+// ═══════════════════════════════════════════════════════
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxwfwqI-cv5i2UqSTMUbIJ19eopI36vkFjpCAf_5VNpPGx6aRCMmNF4IDOWW3PxcZNT/exec';
+
+// ═══════════════════════════════════════════════════════
+//  CONFIG  (tab names persisted in localStorage)
 // ═══════════════════════════════════════════════════════
 const DEFAULT_CFG = {
-  sheetId:   '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8',
   sheetProd: 'Product',
   sheetCust: 'Customers',
   sheetTgt:  'Targets'
@@ -467,7 +459,6 @@ let CFG = {...DEFAULT_CFG};
 try { const s=localStorage.getItem('dash_cfg'); if(s) Object.assign(CFG,JSON.parse(s)); } catch(e){}
 
 function fillSettingsInputs(){
-  document.getElementById('cfg-id').value   = CFG.sheetId;
   document.getElementById('cfg-prod').value = CFG.sheetProd;
   document.getElementById('cfg-cust').value = CFG.sheetCust;
   document.getElementById('cfg-tgt').value  = CFG.sheetTgt;
@@ -519,16 +510,18 @@ const fmtV = n=>{
 };
 
 // ═══════════════════════════════════════════════════════
-//  CSV FETCH FROM GOOGLE SHEETS (published)
+//  FETCH VIA APPS SCRIPT ENDPOINT
 // ═══════════════════════════════════════════════════════
 function sheetURL(tab){
-  return `https://docs.google.com/spreadsheets/d/${CFG.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+  return `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(tab)}`;
 }
 
 async function fetchCSV(tab){
   const res = await fetch(sheetURL(tab));
   if(!res.ok) throw new Error(`HTTP ${res.status} — sheet "${tab}"`);
-  return parseCSV(await res.text());
+  const text = await res.text();
+  if(text.startsWith('ERROR:')) throw new Error(text.replace('ERROR:','').trim());
+  return parseCSV(text);
 }
 
 function parseCSV(text){
@@ -553,7 +546,7 @@ function parseCSV(text){
 // ═══════════════════════════════════════════════════════
 function buildProducts(rows){
   // Expected columns (row 0 = header):
-  // PRODUCT CODE | DESCRIPTION | BRAND | UNIT/LITRE
+  // PRODUCT CODE | DESCRIPTION | BRAND | CATEGORY | UNIT/LITRE
   PRODUCTS={};
   for(let i=1;i<rows.length;i++){
     const r=rows[i];
@@ -562,10 +555,9 @@ function buildProducts(rows){
     const entry={
       desc:    (r[1]||'').trim(),
       brand:   (r[2]||'').trim(),
-      category:(r[2]||'').trim(),  // Brand doubles as category — add a Category column if needed
-      litres:  parseFloat((r[3]||'1').replace(/,/g,''))||1
+      category:(r[3]||r[2]||'').trim(),
+      litres:  parseFloat((r[4]||r[3]||'1').replace(/,/g,''))||1
     };
-    // Store under both raw code and stripped leading-zeros version
     PRODUCTS[rawCode]=entry;
     PRODUCTS[rawCode.replace(/^0+/,'')]=entry;
   }
@@ -591,12 +583,11 @@ function buildCustomers(rows){
 }
 
 // ═══════════════════════════════════════════════════════
-//  REFRESH MASTER DATA FROM GOOGLE SHEETS
+//  REFRESH MASTER DATA FROM GOOGLE SHEETS VIA APPS SCRIPT
 // ═══════════════════════════════════════════════════════
 let SHEETS_CONNECTED = false;
 
 function setConnBadge(state, msg){
-  // state: 'ok' | 'warn' | 'err' | 'loading'
   const badge = document.getElementById('conn-badge');
   const dot   = document.getElementById('conn-dot');
   const txt   = document.getElementById('conn-badge-txt');
@@ -616,10 +607,6 @@ function setConnBadge(state, msg){
 }
 
 async function refreshSheets(){
-  if(!CFG.sheetId){
-    goOffline('No Spreadsheet ID set — go to ⚙ Settings to configure');
-    return;
-  }
   showLoad('Connecting to Google Sheets…');
   setConnBadge('loading','Connecting…');
   document.getElementById('conn-status').textContent = 'Connecting…';
@@ -648,12 +635,13 @@ async function refreshSheets(){
 
   } catch(e){
     const msg = e.message || String(e);
-    // Provide a specific hint based on the error
     let hint = '';
     if(msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')){
-      hint = 'Cannot reach Google Sheets. Check: (1) Sheet is published as CSV, (2) Spreadsheet ID is correct, (3) you are online.';
+      hint = 'Cannot reach Apps Script endpoint. Check deployment permissions (Anyone) and that you are online.';
     } else if(msg.includes('404') || msg.includes('400')){
-      hint = 'Sheet not found. Check the Spreadsheet ID and tab names in ⚙ Settings.';
+      hint = 'Endpoint returned an error. Check that the Apps Script is deployed and tab names are correct.';
+    } else if(msg.includes('Sheet not found')){
+      hint = `Tab not found: "${msg.split(':')[1]?.trim()}". Update tab names in ⚙ Settings.`;
     } else {
       hint = msg;
     }
@@ -669,7 +657,7 @@ function goOffline(statusText){
   document.getElementById('setup-notice').style.display  = 'block';
   document.getElementById('conn-status').textContent     = statusText;
   if(!document.getElementById('conn-badge-txt').textContent.startsWith('✗')){
-    setConnBadge('warn', 'Not connected — Sheet not yet published or ID not set');
+    setConnBadge('warn', 'Not connected — check Apps Script endpoint in ⚙ Settings');
   }
   if(SAP_LINES.length){ enrichAndRender(); }
   else { populateFilterDropdowns([]); }
@@ -699,14 +687,10 @@ function parseSAP(file){
       const rawLines=text.split(/\r?\n/);
 
       // ── 1. Extract period from the first non-empty line ──────────────────
-      // Both formats embed dates as dd.mm.yyyy in the header row.
-      // Single-day:  "SALES PER CUSTOMER ... \t01.04.2026\t\tTO\t00.00.0000"
-      // Month range: "\tSALES PER CUSTOMER ... \t01.01.2026\t\tTO\t31.01.2026"
       for(const raw of rawLines){
         if(!raw.trim()) continue;
         const dm=raw.match(/(\d{2}\.\d{2}\.\d{4})/g);
         if(dm&&dm.length>=2){
-          // Skip "TO 00.00.0000" — that means open-ended (single-day export)
           const end=dm[1].startsWith('00.')?dm[0]:dm[1];
           SAP_PERIOD= dm[0]===end ? dm[0] : `${dm[0]} – ${end}`;
         } else if(dm&&dm.length===1){
@@ -720,25 +704,17 @@ function parseSAP(file){
       let custCode='', custName='';
 
       for(const raw of rawLines){
-        // Split on tabs; strip whitespace AND surrounding quotes from each cell
-        // (Single-day SAP exports wrap numbers in double-quotes: "6,077.67")
         const cols=raw.split('\t').map(c=>c.trim().replace(/^"|"$/g,''));
-        // Non-empty tokens (used for pattern matching)
         const parts=cols.filter(Boolean);
         if(!parts.length) continue;
 
         // ── Customer header line ──
-        // Format A (single-day):  CUSTOMER \t\t 100018 \t\t\t\t NAME
-        // Format B (month range): \t CUSTOMER \t\t 0000100018 \t\t\t\t NAME
-        // Both have 'CUSTOMER' as a token, NOT followed by TOTALS on same line
         const custIdx=parts.indexOf('CUSTOMER');
         if(custIdx!==-1 && !raw.includes('TOTALS') && !raw.includes('CODE')){
           custCode=''; custName='';
-          // Walk tokens after 'CUSTOMER' to find the numeric code
           for(let i=custIdx+1;i<parts.length;i++){
-            // Code: 5–10 digits (may have leading zeros in format B: 0000100018)
             if(/^\d{5,10}$/.test(parts[i])){
-              custCode=parts[i].replace(/^0+/,''); // strip leading zeros for lookup consistency
+              custCode=parts[i].replace(/^0+/,'');
               custName=parts.slice(i+1).join(' ').replace(/\s+/g,' ').trim();
               break;
             }
@@ -750,18 +726,12 @@ function parseSAP(file){
         if(raw.includes('TOTALS'))      continue;
         if(raw.includes('GRAND TOTAL')) continue;
         if(parts[0]==='CODE')           continue;
-        if(parts[0]==='SALES')          continue; // report title row
+        if(parts[0]==='SALES')          continue;
 
         // ── Product transaction line ──────────────────────────────────────
-        // The product code is always an 8–11 digit numeric string.
-        // It can appear as the FIRST non-empty token in either format:
-        //   Format A: "44000000013 \t\t\t\t DESCRIPTION … \t 51 \t\t PC \t 6,077.67"
-        //   Format B: "\t 44000000013 \t\t\t\t DESCRIPTION … \t 744.000 \t\t EA \t 87,021.05"
         const prodCode=parts.find(p=>/^\d{8,11}$/.test(p));
         if(!prodCode) continue;
 
-        // Collect description tokens, quantity, UOM, and sales amount
-        // Strategy: scan all tokens; classify each as number, UOM, or text
         const prodIdx=parts.indexOf(prodCode);
         let desc='', qty=0, uom='', sales=0;
         const nums=[];
@@ -770,47 +740,30 @@ function parseSAP(file){
         for(let i=prodIdx+1;i<parts.length;i++){
           const tok=parts[i];
           if(!tok) continue;
-
-          // Numbers — strip thousands commas, parentheses (negatives), spaces
           const clean=tok.replace(/,/g,'').replace(/[()]/g,'').trim();
           const n=parseFloat(clean);
           if(!isNaN(n) && clean!==''){
             nums.push(n);
             continue;
           }
-
-          // UOM: 2–4 uppercase letters (EA, PC, L, KG, CS …)
           if(/^[A-Z]{1,4}$/.test(tok)){
             uom=tok;
             continue;
           }
-
-          // Everything else is description text
           descTokens.push(tok);
         }
 
         desc=descTokens.join(' ').replace(/\s+/g,' ').trim();
 
-        // nums[0] = quantity, nums[1] = sales value
-        // (Some lines have only one number when qty===sales, e.g. bulk lines)
         if(nums.length===1){
           qty=nums[0]; sales=nums[0];
         } else if(nums.length>=2){
-          qty=nums[0]; sales=nums[nums.length-1]; // last number is always the Kshs value
+          qty=nums[0]; sales=nums[nums.length-1];
         }
 
-        // Only push if we have a valid customer context and a sales value
         if(!custCode || sales===0) continue;
 
-        SAP_LINES.push({
-          custCode,
-          custName,
-          prodCode,
-          desc,
-          qty,
-          uom,
-          sales
-        });
+        SAP_LINES.push({ custCode, custName, prodCode, desc, qty, uom, sales });
       }
 
       const custCount=[...new Set(SAP_LINES.map(l=>l.custCode))].size;
@@ -830,26 +783,16 @@ function parseSAP(file){
 
 // ═══════════════════════════════════════════════════════
 //  ENRICH SAP LINES WITH MASTER DATA
-//  Falls back to SAP-derived values when Sheets offline
 // ═══════════════════════════════════════════════════════
 function enrich(l){
   const p = PRODUCTS[l.prodCode] || PRODUCTS[l.prodCode.replace(/^0+/,'')] || {};
   const c = CUSTOMERS[l.custCode] || CUSTOMERS[l.custCode.replace(/^0+/,'')] || {};
 
-  // Description: prefer Sheets, fall back to SAP export text
-  const desc = p.desc || l.desc || l.prodCode;
-
-  // Brand / category: prefer Sheets; derive from SAP description when offline
-  // e.g. "GOLD CROWN 500ML…" → brand prefix before first space-digits pattern
+  const desc     = p.desc     || l.desc || l.prodCode;
   const brand    = p.brand    || deriveBrand(l.desc)    || 'Unknown';
   const category = p.category || deriveCategory(l.desc) || 'Unknown';
-
-  // Litres/volume: prefer Sheets lookup; otherwise use qty * 1 (unit volume unknown)
-  const litres = p.litres || 1;
-  const volume = litres * (l.qty || 0);
-
-  // Customer fields: prefer Sheets; fall back to code prefix convention
-  // SAP customer names often start with channel code: "C89-NAME", "C21-NAME", "C23-NAME"
+  const litres   = p.litres   || 1;
+  const volume   = litres * (l.qty || 0);
   const channel  = c.channel  || deriveChannel(l.custCode, l.custName)  || 'Unknown';
   const type     = c.type     || '';
   const location = c.location || deriveLocation(l.custName)             || 'Unknown';
@@ -859,38 +802,32 @@ function enrich(l){
 }
 
 // ── SAP-only fallback derivation helpers ─────────────────────────────────────
-
-// Brand: take the first word(s) before a size/number pattern (e.g. "GOLD CROWN", "KCC", "TAIFA")
 function deriveBrand(desc){
   if(!desc) return '';
   const m = desc.match(/^([A-Z][A-Z\s]+?)(?:\s+\d|\s+[A-Z]{1,4}\s*\d|$)/);
   if(m){
     const words = m[1].trim().split(/\s+/);
-    // Return first 1–3 words as brand
     return words.slice(0,3).join(' ').trim();
   }
   return desc.split(/\s+/)[0] || '';
 }
 
-// Category: infer from keywords in description
 function deriveCategory(desc){
   if(!desc) return 'Other';
   const d = desc.toUpperCase();
-  if(d.includes('MALA'))                        return 'Mala';
+  if(d.includes('MALA'))                          return 'Mala';
   if(d.includes('YOGHURT')||d.includes('YOGURT')) return 'Yoghurt';
-  if(d.includes('GHEE'))                        return 'Ghee';
-  if(d.includes('POWDER')||d.includes('DMP'))   return 'Milk Powder';
+  if(d.includes('GHEE'))                          return 'Ghee';
+  if(d.includes('POWDER')||d.includes('DMP'))     return 'Milk Powder';
   if(d.includes('UHT')||d.includes('ESL')||d.includes('ASEPTIC')) return 'UHT / ESL';
   if(d.includes('FRESH')||d.includes('TFA')||d.includes('TCA'))   return 'Fresh Milk';
-  if(d.includes('CREAM'))                       return 'Cream';
-  if(d.includes('BUTTER'))                      return 'Butter';
-  if(d.includes('BULK'))                        return 'Bulk';
-  if(d.includes('SHAKE'))                       return 'Shakes';
+  if(d.includes('CREAM'))                         return 'Cream';
+  if(d.includes('BUTTER'))                        return 'Butter';
+  if(d.includes('BULK'))                          return 'Bulk';
+  if(d.includes('SHAKE'))                         return 'Shakes';
   return 'Other';
 }
 
-// Channel: SAP customer names often carry a prefix code like "C89-", "C21-", "C23-"
-// These map to known channel groups used internally
 const CHAN_MAP = {
   'C89':'Wholesale', 'C21':'Traditional Trade', 'C23':'Modern Trade',
   'C25':'Institutions','C24':'Horeca','C26':'Horeca','C27':'Institutions'
@@ -899,12 +836,10 @@ function deriveChannel(code, name){
   if(!name) return '';
   const m = name.match(/^([A-Z]\d+)-/);
   if(m) return CHAN_MAP[m[1]] || m[1];
-  // Fallback: numeric-only codes starting with E are often van-sales agents
   if(/^E\d+/.test(code||'')) return 'Van Sales';
   return '';
 }
 
-// Location: not derivable from SAP alone — leave as 'Unknown' unless Sheets connected
 function deriveLocation(name){ return ''; }
 
 function enrichAndRender(){
@@ -913,7 +848,6 @@ function enrichAndRender(){
   document.getElementById('trend-lbl').textContent=SAP_PERIOD;
   populateFilterDropdowns(RICH_LINES);
   renderOverview(RICH_LINES);
-  // Re-render active tabs
   if(document.getElementById('tab-channel').classList.contains('active')) renderChannelTab(RICH_LINES);
   if(document.getElementById('tab-product').classList.contains('active')) renderProductTab(RICH_LINES);
   if(document.getElementById('tab-region').classList.contains('active'))  renderRegionTab(RICH_LINES);
@@ -947,9 +881,9 @@ function filteredLines(){
   const freg =document.getElementById('f-reg').value;
   const fbr  =document.getElementById('f-brand').value;
   return RICH_LINES.filter(l=>{
-    if(fch  &&l.channel!==fch)  return false;
+    if(fch  &&l.channel!==fch)   return false;
     if(freg &&l.location!==freg) return false;
-    if(fbr  &&l.brand!==fbr)    return false;
+    if(fbr  &&l.brand!==fbr)     return false;
     return true;
   });
 }
@@ -1011,7 +945,7 @@ function renderOverview(lines){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{...AX,grid:{display:false}},y:{...AX,ticks:{...AX.ticks,callback:v=>'Kshs '+v+'M'}}}}});
 
-  // Trend (simulated daily distribution from monthly total — replace with daily SAP if available)
+  // Trend
   const days=31;
   const base=totalRev/days;
   const trendData=Array.from({length:days},(_,i)=>Math.round(base*(1+Math.sin(i*1.3+1)*0.12+Math.sin(i*0.7)*0.07)));
@@ -1054,7 +988,6 @@ function renderChannelTab(lines){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{...AX,grid:{display:false}},y:{...AX,ticks:{...AX.ticks,callback:v=>fmtV(v)}}}}});
 
-  // Channel + Type detail table
   const ctMap={};
   for(const l of lines){
     const k=l.channel+'||'+l.type;
@@ -1168,16 +1101,15 @@ function switchTab(id,btn){
 }
 
 // ═══════════════════════════════════════════════════════
-//  SETTINGS SAVE
+//  SETTINGS SAVE  (tab names only — endpoint is hardcoded)
 // ═══════════════════════════════════════════════════════
 function saveConfig(){
-  CFG.sheetId  = document.getElementById('cfg-id').value.trim()   || CFG.sheetId;
-  CFG.sheetProd= document.getElementById('cfg-prod').value.trim() || CFG.sheetProd;
-  CFG.sheetCust= document.getElementById('cfg-cust').value.trim() || CFG.sheetCust;
-  CFG.sheetTgt = document.getElementById('cfg-tgt').value.trim()  || CFG.sheetTgt;
+  CFG.sheetProd = document.getElementById('cfg-prod').value.trim() || CFG.sheetProd;
+  CFG.sheetCust = document.getElementById('cfg-cust').value.trim() || CFG.sheetCust;
+  CFG.sheetTgt  = document.getElementById('cfg-tgt').value.trim()  || CFG.sheetTgt;
   try{ localStorage.setItem('dash_cfg', JSON.stringify(CFG)); } catch(e){}
   document.getElementById('cfg-msg').textContent = 'Saved — connecting…';
-  setConnBadge('loading','Connecting to Google Sheets…');
+  setConnBadge('loading','Connecting…');
   Object.keys(tabInited).forEach(k=>{ if(k!=='overview') delete tabInited[k]; });
   refreshSheets();
 }
