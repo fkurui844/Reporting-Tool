@@ -1,1130 +1,705 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sales Performance Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<style>
-:root {
-  --bg:#0d0f14; --s1:#161920; --s2:#1e2230;
-  --bd:rgba(255,255,255,0.07); --bd2:rgba(255,255,255,0.13);
-  --t1:#e8eaf0; --t2:#8a8fa8; --t3:#555b72;
-  --green:#4ade80; --cyan:#22d3ee; --amber:#f59e0b; --pink:#f472b6; --red:#f87171; --indigo:#818cf8;
-  --mono:'DM Mono',monospace; --sans:'Sora',sans-serif; --r:10px; --r2:14px;
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--t1);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh}
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Manager</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy:      #0f2744;
+      --navy-mid:  #1a3c5e;
+      --navy-light:#2a5282;
+      --accent:    #f6ad2b;
+      --accent2:   #e8f4fd;
+      --green:     #1db87a;
+      --red:       #e53e3e;
+      --orange:    #dd6b20;
+      --surface:   #ffffff;
+      --bg:        #eef2f7;
+      --border:    #dde3ec;
+      --text:      #1a202c;
+      --muted:     #718096;
+      --radius:    10px;
+      --shadow:    0 2px 12px rgba(15,39,68,0.10);
+    }
 
-/* HEADER */
-.hd{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--bd);background:var(--s1);position:sticky;top:0;z-index:200}
-.logo{display:flex;align-items:center;gap:11px}
-.logo-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--green),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:15px}
-.logo-name{font-size:15px;font-weight:600;letter-spacing:-.3px}
-.logo-sub{font-size:10px;color:var(--t3);font-family:var(--mono)}
-.hd-right{display:flex;align-items:center;gap:10px}
-.chip{font-family:var(--mono);font-size:10px;background:rgba(74,222,128,.08);color:var(--green);border:1px solid rgba(74,222,128,.22);padding:4px 12px;border-radius:20px}
-.btn-sm{display:flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--s2);color:var(--t1);cursor:pointer;font-family:var(--sans);font-size:12px;transition:background .15s}
-.btn-sm:hover{background:var(--bd2)}
-.btn-sm svg{width:13px;height:13px;flex-shrink:0}
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* NOTICE */
-.notice{margin:18px 28px 0;padding:13px 16px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);border-radius:var(--r);font-size:12px;color:var(--amber);line-height:1.8;display:none}
-.notice strong{color:#fbbf24}
-.notice code{background:rgba(245,158,11,.12);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:11px}
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
 
-/* NAV */
-.nav{display:flex;padding:0 28px;border-bottom:1px solid var(--bd);background:var(--s1);overflow-x:auto}
-.nav-btn{padding:13px 18px;border:none;background:transparent;font-family:var(--sans);font-size:12px;font-weight:500;color:var(--t3);cursor:pointer;letter-spacing:.3px;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s}
-.nav-btn:hover{color:var(--t2)}
-.nav-btn.active{color:var(--green);border-bottom-color:var(--green)}
+    /* ── Header ── */
+    header {
+      background: var(--navy);
+      padding: 0 28px;
+      height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 2px 16px rgba(15,39,68,0.25);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      width: 34px; height: 34px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+    }
+    .logo-text { color: #fff; font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+    .logo-text span { color: var(--accent); }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .last-sync { color: rgba(255,255,255,0.5); font-size: 12px; font-family: 'DM Mono', monospace; }
+    .btn-refresh-header {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: background 0.2s;
+    }
+    .btn-refresh-header:hover { background: rgba(255,255,255,0.2); }
 
-/* LAYOUT */
-.main{padding:24px 28px;max-width:1440px;margin:0 auto}
-.tab-panel{display:none}
-.tab-panel.active{display:block}
+    /* ── Stats Bar ── */
+    .stats-bar {
+      background: var(--navy-mid);
+      padding: 14px 28px;
+      display: flex;
+      gap: 0;
+    }
+    .stat {
+      flex: 1;
+      text-align: center;
+      border-right: 1px solid rgba(255,255,255,0.1);
+      padding: 0 16px;
+    }
+    .stat:first-child { text-align: left; padding-left: 0; }
+    .stat:last-child  { border-right: none; text-align: right; padding-right: 0; }
+    .stat-label { color: rgba(255,255,255,0.5); font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+    .stat-value { color: #fff; font-size: 20px; font-weight: 700; }
+    .stat-value.accent { color: var(--accent); }
 
-/* FILTER BAR */
-.fbar{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px}
-.fg{display:flex;flex-direction:column;gap:3px}
-.fg label{font-size:10px;font-family:var(--mono);color:var(--t3);letter-spacing:.6px;text-transform:uppercase}
-select{background:var(--s1);border:1px solid var(--bd2);color:var(--t1);font-family:var(--sans);font-size:12px;padding:7px 28px 7px 10px;border-radius:var(--r);cursor:pointer;outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23555b72' stroke-width='1.4' stroke-linecap='round' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;min-width:130px}
-select:focus{border-color:rgba(74,222,128,.4)}
-.toggle-row{display:flex;gap:4px}
-.tog{padding:7px 13px;border-radius:var(--r);border:1px solid var(--bd2);background:transparent;color:var(--t3);cursor:pointer;font-size:11px;font-family:var(--mono);transition:all .15s}
-.tog.on{background:rgba(74,222,128,.1);color:var(--green);border-color:rgba(74,222,128,.3)}
-.divider{width:1px;height:28px;background:var(--bd);align-self:center}
+    /* ── Toolbar ── */
+    .toolbar {
+      background: var(--surface);
+      padding: 12px 28px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .search-wrap {
+      flex: 1;
+      min-width: 220px;
+      position: relative;
+    }
+    .search-wrap svg {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--muted);
+    }
+    .search-input {
+      width: 100%;
+      padding: 9px 12px 9px 36px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      transition: border 0.2s;
+    }
+    .search-input:focus { outline: none; border-color: var(--navy-light); background: #fff; }
+    .search-input::placeholder { color: var(--muted); }
 
-/* KPI CARDS */
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-.kcard{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r2);padding:18px 20px;position:relative;overflow:hidden}
-.kcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
-.kcard.c0::before{background:var(--green)}.kcard.c1::before{background:var(--cyan)}
-.kcard.c2::before{background:var(--amber)}.kcard.c3::before{background:var(--pink)}
-.kcard-lbl{font-size:10px;font-family:var(--mono);color:var(--t3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:6px}
-.kcard-val{font-size:24px;font-weight:600;letter-spacing:-.7px;line-height:1.1}
-.kcard-sub{font-size:10px;color:var(--t3);margin-top:4px}
+    .btn {
+      padding: 9px 18px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.18s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .btn-primary   { background: var(--navy); color: #fff; }
+    .btn-primary:hover { background: var(--navy-light); }
+    .btn-add       { background: var(--green); color: #fff; }
+    .btn-add:hover { background: #17a36c; }
+    .btn-edit      { background: var(--accent2); color: var(--navy); border: 1px solid #bee3f8; font-size: 12px; padding: 5px 10px; }
+    .btn-edit:hover { background: #bee3f8; }
+    .btn-del       { background: #fff5f5; color: var(--red); border: 1px solid #fed7d7; font-size: 12px; padding: 5px 10px; }
+    .btn-del:hover { background: #fed7d7; }
 
-/* PANELS */
-.panel{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r2);padding:18px 20px}
-.panel-title{font-size:10px;font-family:var(--mono);color:var(--t3);letter-spacing:.6px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
-.panel-title em{font-style:normal;color:var(--t2);font-size:11px;font-family:var(--sans);text-transform:none;letter-spacing:0}
-.cw{position:relative}
+    /* ── Table ── */
+    .table-container {
+      padding: 20px 28px;
+    }
+    .table-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .table-header {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .table-title { font-weight: 700; font-size: 14px; color: var(--navy); }
+    .count-badge {
+      background: var(--navy);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 20px;
+      font-family: 'DM Mono', monospace;
+    }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    thead tr { background: var(--bg); }
+    th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    th.num, td.num { text-align: right; }
+    td {
+      padding: 11px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr { transition: background 0.12s; }
+    tbody tr:hover { background: #f7faff; }
 
-/* GRID */
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
-.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
-.g7030{display:grid;grid-template-columns:1.85fr 1fr;gap:14px;margin-bottom:14px}
+    .sap-code {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      background: var(--bg);
+      padding: 3px 8px;
+      border-radius: 5px;
+      color: var(--navy-mid);
+      border: 1px solid var(--border);
+    }
+    .row-num { color: var(--muted); font-size: 12px; font-family: 'DM Mono', monospace; }
+    .actions { display: flex; gap: 6px; }
 
-/* LEGEND */
-.leg{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
-.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2)}
-.leg-sq{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+    /* positive / negative amounts */
+    .positive { color: var(--text); }
+    .negative { color: var(--red); }
 
-/* PROGRESS */
-.pbar{height:3px;background:var(--s2);border-radius:2px;margin-top:4px;overflow:hidden}
-.pfill{height:100%;border-radius:2px}
+    /* ── States ── */
+    .state-box {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .state-box .icon { font-size: 40px; margin-bottom: 12px; }
+    .state-box p { font-size: 15px; font-weight: 500; }
+    .state-box small { font-size: 13px; opacity: 0.7; }
 
-/* TABLE */
-.tpanel{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden;margin-bottom:14px}
-.thead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--bd)}
-.thead-t{font-size:10px;font-family:var(--mono);color:var(--t3);letter-spacing:.6px;text-transform:uppercase}
-.tscroll{overflow-x:auto}
-table{width:100%;border-collapse:collapse}
-th{padding:9px 14px;text-align:left;font-size:10px;font-family:var(--mono);color:var(--t3);letter-spacing:.4px;text-transform:uppercase;background:rgba(255,255,255,.02);border-bottom:1px solid var(--bd);white-space:nowrap}
-td{padding:10px 14px;font-size:12px;color:var(--t2);border-bottom:1px solid var(--bd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(255,255,255,.02)}
-.r{text-align:right}.mn{font-family:var(--mono);font-size:11px}.hi{color:var(--green)}.dim{color:var(--t3);font-size:11px}
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--navy);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-/* BADGE */
-.badge{display:inline-block;font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:20px;white-space:nowrap}
-.b-g{background:rgba(74,222,128,.1);color:var(--green)}.b-c{background:rgba(34,211,238,.1);color:var(--cyan)}
-.b-a{background:rgba(245,158,11,.1);color:var(--amber)}.b-p{background:rgba(244,114,182,.1);color:var(--pink)}
-.b-i{background:rgba(129,140,248,.1);color:var(--indigo)}
+    /* ── Modal ── */
+    .overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(15,39,68,0.55);
+      backdrop-filter: blur(3px);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 20px 60px rgba(15,39,68,0.25);
+      animation: slideUp 0.22s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(18px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .modal-head {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-head h3 { font-size: 16px; font-weight: 700; color: var(--navy); }
+    .modal-close {
+      background: var(--bg);
+      border: none;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted);
+      transition: background 0.15s;
+    }
+    .modal-close:hover { background: var(--border); }
+    .modal-body { padding: 20px 24px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group:last-child { margin-bottom: 0; }
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 10px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      transition: border 0.18s, box-shadow 0.18s;
+      background: #fff;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--navy-light);
+      box-shadow: 0 0 0 3px rgba(42,82,130,0.12);
+    }
+    .form-group input:disabled {
+      background: var(--bg);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+    .modal-foot {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .btn-cancel {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 9px 18px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      transition: background 0.15s;
+    }
+    .btn-cancel:hover { background: var(--border); }
 
-/* UPLOAD */
-.uzone{border:1.5px dashed var(--bd2);border-radius:var(--r2);padding:28px;text-align:center;cursor:pointer;transition:all .2s}
-.uzone:hover,.uzone.over{border-color:rgba(74,222,128,.45);background:rgba(74,222,128,.03)}
-.uzone-icon{font-size:26px;margin-bottom:8px}
-.uzone-title{font-size:13px;font-weight:500}
-.uzone-sub{font-size:11px;color:var(--t3);margin-top:3px}
-.ust{font-family:var(--mono);font-size:11px;margin-top:8px}
-.ust.ok{color:var(--green)}.ust.err{color:var(--red)}
+    /* ── Delete Confirm Modal ── */
+    .del-modal { max-width: 380px; }
+    .del-body { padding: 24px; text-align: center; }
+    .del-icon { font-size: 40px; margin-bottom: 10px; }
+    .del-body h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .del-body p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .del-name { font-weight: 600; color: var(--red); }
+    .del-foot {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border);
+      display: flex; gap: 10px; justify-content: center;
+    }
+    .btn-confirm-del { background: var(--red); color: #fff; padding: 9px 22px; border-radius: var(--radius); border: none; font-weight: 700; font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.15s; }
+    .btn-confirm-del:hover { background: #c53030; }
 
-/* SPINNER */
-.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--bd2);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
-@keyframes spin{to{transform:rotate(360deg)}}
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 28px; right: 28px;
+      background: var(--navy);
+      color: #fff;
+      padding: 13px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(15,39,68,0.25);
+      transform: translateY(20px);
+      opacity: 0;
+      transition: all 0.25s;
+      z-index: 999;
+      display: flex; align-items: center; gap: 8px;
+      max-width: 320px;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: var(--green); }
+    .toast.error   { background: var(--red); }
 
-/* LOADING OVERLAY */
-#loading{position:fixed;inset:0;background:rgba(13,15,20,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:14px}
-#loading .spin{width:28px;height:28px;border-width:3px}
-#loading p{font-size:13px;color:var(--t2);font-family:var(--mono)}
-
-/* RESPONSIVE */
-@media(max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}.g7030{grid-template-columns:1fr}}
-@media(max-width:720px){.kpis{grid-template-columns:1fr 1fr}.g2,.g3{grid-template-columns:1fr}.main{padding:14px 16px}.hd{padding:12px 16px}.nav{padding:0 16px}}
-::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}
-</style>
+    @media (max-width: 600px) {
+      header, .toolbar, .stats-bar, .table-container { padding-left: 16px; padding-right: 16px; }
+      .form-row { grid-template-columns: 1fr; }
+      .stat-label { font-size: 10px; }
+      .stat-value { font-size: 16px; }
+    }
+  </style>
 </head>
 <body>
 
-<div id="loading"><div class="spin"></div><p id="load-msg">Connecting to Google Sheets…</p></div>
-
-<div class="notice" id="setup-notice">
-  <strong>⚠ Google Sheets not connected</strong> — the dashboard is running in <strong>offline mode</strong>. You can still upload SAP files and all charts will work using product &amp; customer names directly from the SAP export.<br>
-  To enable channel, region &amp; brand breakdowns, check the <strong>⚙ Settings</strong> tab and verify the Apps Script endpoint is reachable.
-</div>
-
-<header class="hd">
+<!-- HEADER -->
+<header>
   <div class="logo">
-    <div class="logo-mark">🥛</div>
-    <div><div class="logo-name">Sales Dashboard</div><div class="logo-sub" id="conn-status">Connecting…</div></div>
+    <div class="logo-icon">📋</div>
+    <div class="logo-text">Customer<span>DB</span></div>
   </div>
-  <div class="hd-right">
-    <div class="chip" id="period-chip">No data</div>
-    <button class="btn-sm" onclick="document.getElementById('sap-trigger').click()">
-      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 9V2M4 5l3-3 3 3M2 11h10"/></svg>
-      Upload SAP
-    </button>
-    <input type="file" id="sap-trigger" accept=".xls,.csv,.xlsx" style="display:none" onchange="handleSAPFile(this)">
-    <button class="btn-sm" onclick="refreshSheets()">
-      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12.5 2v4h-4M1.5 12v-4h4M12.5 6A5.5 5.5 0 002.3 4.3M1.5 8a5.5 5.5 0 009.7 1.8"/></svg>
-      Refresh
-    </button>
+  <div class="header-right">
+    <span class="last-sync" id="lastSync">—</span>
+    <button class="btn-refresh-header" onclick="loadCustomers()">↺ Refresh</button>
   </div>
 </header>
 
-<nav class="nav">
-  <button class="nav-btn active" onclick="switchTab('overview',this)">Overview</button>
-  <button class="nav-btn" onclick="switchTab('channel',this)">By Channel &amp; Type</button>
-  <button class="nav-btn" onclick="switchTab('product',this)">By Product</button>
-  <button class="nav-btn" onclick="switchTab('region',this)">By Region</button>
-  <button class="nav-btn" onclick="switchTab('upload',this)">Upload SAP</button>
-  <button class="nav-btn" onclick="switchTab('settings',this)">⚙ Settings</button>
-</nav>
-
-<main class="main">
-
-<!-- OVERVIEW -->
-<div id="tab-overview" class="tab-panel active">
-  <div class="fbar">
-    <div class="fg"><label>Channel</label><select id="f-ch" onchange="applyFilters()"><option value="">All Channels</option></select></div>
-    <div class="fg"><label>Region / Location</label><select id="f-reg" onchange="applyFilters()"><option value="">All Regions</option></select></div>
-    <div class="fg"><label>Brand</label><select id="f-brand" onchange="applyFilters()"><option value="">All Brands</option></select></div>
-    <div class="divider"></div>
-    <div class="fg"><label>View as</label>
-      <div class="toggle-row">
-        <button class="tog on" onclick="setMetric('revenue',this)">Revenue</button>
-        <button class="tog"    onclick="setMetric('volume',this)">Volume</button>
-      </div>
-    </div>
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-label">Total Customers</div>
+    <div class="stat-value" id="sTot">—</div>
   </div>
-  <div class="kpis">
-    <div class="kcard c0"><div class="kcard-lbl">Total Revenue</div><div class="kcard-val" id="k-rev">—</div><div class="kcard-sub">Kshs · current period</div></div>
-    <div class="kcard c1"><div class="kcard-lbl">Total Volume</div><div class="kcard-val" id="k-vol">—</div><div class="kcard-sub">Litres / Kgs</div></div>
-    <div class="kcard c2"><div class="kcard-lbl">Active Customers</div><div class="kcard-val" id="k-cust">—</div><div class="kcard-sub">Selling outlets</div></div>
-    <div class="kcard c3"><div class="kcard-lbl">SKUs Sold</div><div class="kcard-val" id="k-sku">—</div><div class="kcard-sub">Unique products</div></div>
+  <div class="stat">
+    <div class="stat-label">Total Volume (Ltrs/Kgs)</div>
+    <div class="stat-value" id="sVol">—</div>
   </div>
-  <div class="g7030">
-    <div class="panel">
-      <div class="panel-title">Daily revenue trend <em id="trend-lbl"></em></div>
-      <div class="cw" style="height:220px"><canvas id="c-trend"></canvas></div>
-    </div>
-    <div class="panel">
-      <div class="panel-title">Channel split</div>
-      <div class="leg" id="leg-ch"></div>
-      <div class="cw" style="height:175px"><canvas id="c-donut"></canvas></div>
-    </div>
-  </div>
-  <div class="g3">
-    <div class="panel" style="grid-column:span 2">
-      <div class="panel-title">Revenue by brand</div>
-      <div class="cw" style="height:200px"><canvas id="c-brand"></canvas></div>
-    </div>
-    <div class="panel">
-      <div class="panel-title">Top products</div>
-      <div id="top5" style="display:flex;flex-direction:column;gap:11px;margin-top:2px"></div>
-    </div>
+  <div class="stat">
+    <div class="stat-label">Total Amount (KSH)</div>
+    <div class="stat-value accent" id="sAmt">—</div>
   </div>
 </div>
 
-<!-- BY CHANNEL -->
-<div id="tab-channel" class="tab-panel">
-  <div class="g2">
-    <div class="panel">
-      <div class="panel-title">Revenue by channel</div>
-      <div class="leg" id="leg-ch2"></div>
-      <div class="cw" style="height:220px"><canvas id="c-ch-rev"></canvas></div>
-    </div>
-    <div class="panel">
-      <div class="panel-title">Volume by channel (L/Kg)</div>
-      <div class="cw" style="height:220px"><canvas id="c-ch-vol"></canvas></div>
-    </div>
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input class="search-input" id="searchInput" type="text" placeholder="Search by SAP Code or Customer Name…" oninput="handleSearch()">
   </div>
-  <div class="tpanel">
-    <div class="thead"><div class="thead-t">Channel &amp; Type breakdown</div><div class="dim" id="ch-count"></div></div>
-    <div class="tscroll">
-      <table><thead><tr>
-        <th>Channel</th><th>Type</th>
-        <th class="r">Revenue (Kshs)</th><th class="r">Rev %</th>
-        <th class="r">Volume (L/Kg)</th><th class="r">Customers</th><th class="r">Avg Basket</th>
-      </tr></thead><tbody id="ch-tbody"></tbody></table>
-    </div>
-  </div>
+  <button class="btn btn-add" onclick="openAdd()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
+    Add Customer
+  </button>
 </div>
 
-<!-- BY PRODUCT -->
-<div id="tab-product" class="tab-panel">
-  <div class="fbar">
-    <div class="fg"><label>Sort by</label><select id="p-sort" onchange="renderProductTable()"><option value="revenue">Revenue</option><option value="volume">Volume</option></select></div>
-    <div class="fg"><label>Brand</label><select id="p-brand" onchange="renderProductTable()"><option value="">All Brands</option></select></div>
-    <div class="fg"><label>Category</label><select id="p-cat" onchange="renderProductTable()"><option value="">All Categories</option></select></div>
-  </div>
-  <div class="g2">
-    <div class="panel">
-      <div class="panel-title">Revenue by category</div>
-      <div class="cw" style="height:200px"><canvas id="c-cat-rev"></canvas></div>
+<!-- TABLE -->
+<div class="table-container">
+  <div class="table-card">
+    <div class="table-header">
+      <span class="table-title">Customer Records</span>
+      <span class="count-badge" id="rowCount">0</span>
     </div>
-    <div class="panel">
-      <div class="panel-title">Volume by category (L/Kg)</div>
-      <div class="cw" style="height:200px"><canvas id="c-cat-vol"></canvas></div>
-    </div>
-  </div>
-  <div class="tpanel">
-    <div class="thead"><div class="thead-t">Product detail</div><div class="dim" id="prod-count"></div></div>
-    <div class="tscroll">
-      <table style="table-layout:fixed">
-        <colgroup><col style="width:100px"><col style="width:auto"><col style="width:110px"><col style="width:100px"><col style="width:130px"><col style="width:110px"><col style="width:65px"></colgroup>
-        <thead><tr><th>Code</th><th>Description</th><th>Brand</th><th>Category</th><th class="r">Revenue (Kshs)</th><th class="r">Volume (L/Kg)</th><th class="r">UOM</th></tr></thead>
-        <tbody id="prod-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- BY REGION -->
-<div id="tab-region" class="tab-panel">
-  <div class="g2">
-    <div class="panel">
-      <div class="panel-title">Revenue by region</div>
-      <div class="cw" style="height:240px"><canvas id="c-reg-rev"></canvas></div>
-    </div>
-    <div class="panel">
-      <div class="panel-title">Volume by region (L/Kg)</div>
-      <div class="cw" style="height:240px"><canvas id="c-reg-vol"></canvas></div>
-    </div>
-  </div>
-  <div class="tpanel">
-    <div class="thead"><div class="thead-t">Region performance</div></div>
-    <div class="tscroll">
-      <table><thead><tr>
-        <th>Region / Location</th><th class="r">Revenue (Kshs)</th><th class="r">Rev %</th>
-        <th class="r">Volume (L/Kg)</th><th class="r">Vol %</th><th class="r">Customers</th>
-      </tr></thead><tbody id="reg-tbody"></tbody></table>
-    </div>
-  </div>
-</div>
-
-<!-- UPLOAD SAP -->
-<div id="tab-upload" class="tab-panel">
-  <div class="g2">
-    <div>
-      <p style="font-size:13px;font-weight:500;margin-bottom:10px">SAP Sales Export</p>
-      <div class="uzone" id="sap-zone"
-        ondragover="event.preventDefault();this.classList.add('over')"
-        ondragleave="this.classList.remove('over')"
-        ondrop="dropFile(event)"
-        onclick="document.getElementById('sap-input').click()">
-        <div class="uzone-icon">📊</div>
-        <div class="uzone-title">Drop or click to upload</div>
-        <div class="uzone-sub">SAP "Sales per customer by product" · XLS or CSV</div>
-        <div class="ust" id="sap-st"></div>
-        <input type="file" id="sap-input" accept=".xls,.csv,.xlsx" style="display:none" onchange="handleSAPFile(this)">
-      </div>
-      <div style="margin-top:14px;padding:14px 16px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-family:var(--mono);font-size:11px;color:var(--t2);line-height:2.2">
-        <span style="color:var(--cyan)">PERIOD LINE</span>&nbsp;&nbsp;dates extracted automatically from header<br>
-        <span style="color:var(--cyan)">CUSTOMER</span>&nbsp;&nbsp;&nbsp;CODE · NAME (one block per customer)<br>
-        <span style="color:var(--cyan)">ROWS</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PRODUCT_CODE · DESC · QTY · UOM · SALES_KSH<br>
-        <span style="color:var(--cyan)">TOTALS</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Customer subtotal lines are auto-skipped
-      </div>
-    </div>
-    <div>
-      <p style="font-size:13px;font-weight:500;margin-bottom:10px">How the join works</p>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div style="padding:12px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-size:12px;color:var(--t2);line-height:1.7">
-          <strong style="color:var(--t1)">1. Parse SAP file</strong><br>
-          Reads every transaction line: customer code, product code, quantity, UOM and Kshs value.
-        </div>
-        <div style="padding:12px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-size:12px;color:var(--t2);line-height:1.7">
-          <strong style="color:var(--t1)">2. Enrich from Google Sheets (live)</strong><br>
-          Product code → Brand · Category · Litres/Kg <em>(Products sheet)</em><br>
-          Customer code → Channel · Type · Location <em>(Customers sheet)</em><br>
-          <span style="color:var(--green)">New rows added to either sheet are picked up automatically on next Refresh.</span>
-        </div>
-        <div style="padding:12px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-size:12px;color:var(--t2);line-height:1.7">
-          <strong style="color:var(--t1)">3. All views rebuild</strong><br>
-          Channel, Product, Region breakdowns recalculate from the enriched data.
+    <div class="table-scroll">
+      <div id="tableWrap">
+        <div class="state-box">
+          <div class="spinner"></div>
+          <p>Loading from Google Sheet…</p>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- SETTINGS -->
-<div id="tab-settings" class="tab-panel">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:1000px">
-
-    <!-- LEFT: Connection form -->
-    <div>
-      <p style="font-size:13px;font-weight:600;margin-bottom:4px">Google Sheets connection</p>
-      <p style="font-size:11px;color:var(--t3);margin-bottom:16px">Data is fetched via the Apps Script web app endpoint. No login or Sheet publishing required.</p>
-
-      <!-- Connection status badge -->
-      <div id="conn-badge" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--r);margin-bottom:16px;font-size:12px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);color:var(--amber)">
-        <span id="conn-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0"></span>
-        <span id="conn-badge-txt">Connecting…</span>
-      </div>
-
-      <!-- Apps Script endpoint (read-only display) -->
-      <div style="margin-bottom:16px">
-        <div class="fg" style="margin-bottom:10px">
-          <label>Apps Script Endpoint (active)</label>
-          <div style="background:var(--s2);border:1px solid rgba(74,222,128,.25);color:var(--green);font-family:var(--mono);font-size:10px;padding:9px 12px;border-radius:var(--r);word-break:break-all;line-height:1.6">
-            https://script.google.com/macros/s/AKfycbxwfwqI-cv5i2UqSTMUbIJ19eopI36vkFjpCAf_5VNpPGx6aRCMmNF4IDOWW3PxcZNT/exec
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
-          <div class="fg">
-            <label>Products tab</label>
-            <input id="cfg-prod" type="text" style="background:var(--s2);border:1px solid var(--bd2);color:var(--t1);font-family:var(--mono);font-size:11px;padding:9px 10px;border-radius:var(--r);width:100%;outline:none">
-          </div>
-          <div class="fg">
-            <label>Customers tab</label>
-            <input id="cfg-cust" type="text" style="background:var(--s2);border:1px solid var(--bd2);color:var(--t1);font-family:var(--mono);font-size:11px;padding:9px 10px;border-radius:var(--r);width:100%;outline:none">
-          </div>
-          <div class="fg">
-            <label>Targets tab</label>
-            <input id="cfg-tgt" type="text" style="background:var(--s2);border:1px solid var(--bd2);color:var(--t1);font-family:var(--mono);font-size:11px;padding:9px 10px;border-radius:var(--r);width:100%;outline:none">
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <button onclick="saveConfig()" style="padding:9px 20px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--green);border-radius:var(--r);cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:500">
-            💾 Save &amp; connect
-          </button>
-          <button onclick="refreshSheets()" style="padding:9px 20px;background:var(--s2);border:1px solid var(--bd2);color:var(--t2);border-radius:var(--r);cursor:pointer;font-family:var(--sans);font-size:12px">
-            🔄 Test connection
-          </button>
-        </div>
-        <div id="cfg-msg" style="font-size:11px;font-family:var(--mono);color:var(--t3);min-height:18px;margin-top:8px"></div>
-      </div>
-
-      <!-- Sheet structure reference -->
-      <div style="margin-top:4px;padding:14px 16px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);font-size:11px;color:var(--t2);line-height:2">
-        <strong style="color:var(--t1);font-size:12px">Required column headers in each tab</strong><br>
-        <span style="color:var(--cyan)">Products:</span>&nbsp; PRODUCT CODE &nbsp;·&nbsp; DESCRIPTION &nbsp;·&nbsp; BRAND &nbsp;·&nbsp; CATEGORY &nbsp;·&nbsp; UNIT/LITRE<br>
-        <span style="color:var(--cyan)">Customers:</span>&nbsp; CODE &nbsp;·&nbsp; OUTLET &nbsp;·&nbsp; LOCATION &nbsp;·&nbsp; CHANNEL &nbsp;·&nbsp; TYPE<br>
-        <span style="color:var(--cyan)">Targets:</span>&nbsp; MONTH &nbsp;·&nbsp; CHANNEL &nbsp;·&nbsp; TARGET (Kshs)<br>
-        <br>
-        <strong style="color:var(--t1)">Tip:</strong> Product codes must match SAP codes (e.g. <code style="background:var(--s1);padding:1px 5px;border-radius:3px">44000000013</code>). Customer codes should match SAP without leading zeros (e.g. <code style="background:var(--s1);padding:1px 5px;border-radius:3px">100018</code>).
-      </div>
+<!-- ADD / EDIT MODAL -->
+<div class="overlay" id="formOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">Add New Customer</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
-
-    <!-- RIGHT: How it works + troubleshooting -->
-    <div>
-      <p style="font-size:13px;font-weight:600;margin-bottom:4px">How the Apps Script connection works</p>
-      <p style="font-size:11px;color:var(--t3);margin-bottom:16px">The dashboard fetches data through your deployed Apps Script web app — no publishing or OAuth required.</p>
-
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div style="display:flex;gap:12px;padding:13px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r)">
-          <div style="width:22px;height:22px;border-radius:50%;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
-          <div style="font-size:12px;color:var(--t2);line-height:1.7">
-            The dashboard calls the Apps Script URL with a <code style="background:var(--s1);padding:1px 5px;border-radius:3px;font-size:10px">?sheet=TabName</code> query parameter for each sheet (Products, Customers, Targets).
-          </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>SAP Code *</label>
+        <input type="text" id="fSap" placeholder="e.g. 0000301237" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label>Customer Name *</label>
+        <input type="text" id="fName" placeholder="e.g. KHETIA SUPERMARKET LTD">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ltrs / Kgs</label>
+          <input type="number" id="fLtrs" placeholder="0" min="0">
         </div>
-        <div style="display:flex;gap:12px;padding:13px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r)">
-          <div style="width:22px;height:22px;border-radius:50%;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
-          <div style="font-size:12px;color:var(--t2);line-height:1.7">
-            The Apps Script reads the requested tab from the bound spreadsheet and returns it as CSV text — no CORS issues, no login needed.
-          </div>
-        </div>
-        <div style="display:flex;gap:12px;padding:13px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r)">
-          <div style="width:22px;height:22px;border-radius:50%;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
-          <div style="font-size:12px;color:var(--t2);line-height:1.7">
-            The dashboard parses the CSV and enriches your SAP upload with brand, category, channel, and location from the Sheet.
-          </div>
-        </div>
-        <div style="display:flex;gap:12px;padding:13px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--r)">
-          <div style="width:22px;height:22px;border-radius:50%;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
-          <div style="font-size:12px;color:var(--t2);line-height:1.7">
-            Tab names are configurable above. If you rename a tab in Google Sheets, update the corresponding field and click <strong style="color:var(--green)">Save &amp; connect</strong>.
-          </div>
-        </div>
-
-        <!-- Troubleshooting -->
-        <div style="padding:13px 14px;background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.18);border-radius:var(--r);margin-top:4px">
-          <p style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:6px">⚠ Troubleshooting "Failed to fetch"</p>
-          <div style="font-size:11px;color:var(--t2);line-height:1.9">
-            • Make sure the Apps Script is deployed as <strong>Execute as: Me</strong> and <strong>Who has access: Anyone</strong><br>
-            • After redeploying, always use a <strong>new deployment</strong> — editing the same one may not update the URL<br>
-            • If the tab name in your Sheet changed, update it in the fields above<br>
-            • If opening from <code style="background:var(--s1);padding:1px 4px;border-radius:3px">file://</code>, use Chrome or serve via a local server — some browsers block cross-origin requests from local files
-          </div>
+        <div class="form-group">
+          <label>Amount (KSH)</label>
+          <input type="number" id="fAmt" placeholder="0">
         </div>
       </div>
     </div>
-
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-add" id="saveBtn" onclick="saveCustomer()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+        <span id="saveBtnText">Add Customer</span>
+      </button>
+    </div>
   </div>
 </div>
 
-</main>
+<!-- DELETE CONFIRM MODAL -->
+<div class="overlay" id="delOverlay">
+  <div class="modal del-modal">
+    <div class="del-body">
+      <div class="del-icon">🗑️</div>
+      <h3>Delete Customer?</h3>
+      <p>You are about to permanently delete<br><span class="del-name" id="delName"></span><br>This action cannot be undone.</p>
+    </div>
+    <div class="del-foot">
+      <button class="btn-cancel" onclick="closeDelModal()">Cancel</button>
+      <button class="btn-confirm-del" id="delConfirmBtn" onclick="doDelete()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-//  APPS SCRIPT ENDPOINT  (hardcoded — no Sheet ID needed)
-// ═══════════════════════════════════════════════════════
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxwfwqI-cv5i2UqSTMUbIJ19eopI36vkFjpCAf_5VNpPGx6aRCMmNF4IDOWW3PxcZNT/exec';
+  let allCustomers = [];
+  let isEditMode   = false;
+  let pendingDelete = null;
 
-// ═══════════════════════════════════════════════════════
-//  CONFIG  (tab names persisted in localStorage)
-// ═══════════════════════════════════════════════════════
-const DEFAULT_CFG = {
-  sheetProd: 'Product',
-  sheetCust: 'Customers',
-  sheetTgt:  'Targets'
-};
-let CFG = {...DEFAULT_CFG};
-try { const s=localStorage.getItem('dash_cfg'); if(s) Object.assign(CFG,JSON.parse(s)); } catch(e){}
-
-function fillSettingsInputs(){
-  document.getElementById('cfg-prod').value = CFG.sheetProd;
-  document.getElementById('cfg-cust').value = CFG.sheetCust;
-  document.getElementById('cfg-tgt').value  = CFG.sheetTgt;
-}
-fillSettingsInputs();
-
-// ═══════════════════════════════════════════════════════
-//  MASTER DATA STORES  (populated from Google Sheets)
-// ═══════════════════════════════════════════════════════
-let PRODUCTS  = {};   // code → { desc, brand, category, litres }
-let CUSTOMERS = {};   // code → { outlet, location, channel, type }
-
-// ═══════════════════════════════════════════════════════
-//  SAP TRANSACTION DATA
-// ═══════════════════════════════════════════════════════
-let SAP_LINES   = [];   // raw parsed lines from SAP file
-let SAP_PERIOD  = '';
-let RICH_LINES  = [];   // SAP_LINES enriched with master data
-
-// ═══════════════════════════════════════════════════════
-//  PALETTE & CHART REGISTRY
-// ═══════════════════════════════════════════════════════
-const PAL = ['#4ade80','#22d3ee','#f59e0b','#f472b6','#818cf8','#34d399','#fb923c','#a78bfa','#60a5fa','#e879f9'];
-const BADGE = {'Modern Trade':'b-g','Traditional Trade':'b-c','Institutions':'b-a','Wholesale':'b-p','Horeca':'b-i'};
-function bClass(ch){ return BADGE[ch]||'b-c'; }
-
-const CH={};
-function mkChart(id,cfg){
-  if(CH[id]) CH[id].destroy();
-  const el=document.getElementById(id);
-  if(el) CH[id]=new Chart(el,cfg);
-}
-const AX={grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#555b72',font:{size:10,family:'DM Mono'}}};
-
-// ═══════════════════════════════════════════════════════
-//  FORMATTERS
-// ═══════════════════════════════════════════════════════
-const fmt  = n=>new Intl.NumberFormat('en-KE').format(Math.round(n));
-const fmtM = n=>{
-  const a=Math.abs(n);
-  if(a>=1e9) return 'Kshs '+(n/1e9).toFixed(2)+'B';
-  if(a>=1e6) return 'Kshs '+(n/1e6).toFixed(1)+'M';
-  return 'Kshs '+fmt(n);
-};
-const fmtV = n=>{
-  if(n>=1e6) return (n/1e6).toFixed(2)+'M';
-  if(n>=1e3) return (n/1e3).toFixed(1)+'K';
-  return fmt(n);
-};
-
-// ═══════════════════════════════════════════════════════
-//  FETCH VIA APPS SCRIPT ENDPOINT
-// ═══════════════════════════════════════════════════════
-function sheetURL(tab){
-  return `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(tab)}`;
-}
-
-async function fetchCSV(tab){
-  const res = await fetch(sheetURL(tab));
-  if(!res.ok) throw new Error(`HTTP ${res.status} — sheet "${tab}"`);
-  const text = await res.text();
-  if(text.startsWith('ERROR:')) throw new Error(text.replace('ERROR:','').trim());
-  return parseCSV(text);
-}
-
-function parseCSV(text){
-  const rows=[];
-  for(const raw of text.split(/\r?\n/)){
-    if(!raw.trim()) continue;
-    const cells=[]; let cur='',inQ=false;
-    for(let i=0;i<raw.length;i++){
-      const c=raw[i];
-      if(c==='"'){ if(inQ&&raw[i+1]==='"'){cur+='"';i++;} else inQ=!inQ; }
-      else if(c===','&&!inQ){ cells.push(cur.trim()); cur=''; }
-      else cur+=c;
-    }
-    cells.push(cur.trim());
-    rows.push(cells);
+  // ── Load ─────────────────────────────────────────────────
+  function loadCustomers() {
+    setTableState('loading');
+    google.script.run
+      .withSuccessHandler(onLoaded)
+      .withFailureHandler(e => { setTableState('error', e.message); })
+      .getAllCustomers();
   }
-  return rows;
-}
 
-// ═══════════════════════════════════════════════════════
-//  BUILD MASTER LOOKUPS  (called each Refresh)
-// ═══════════════════════════════════════════════════════
-function buildProducts(rows){
-  // Expected columns (row 0 = header):
-  // PRODUCT CODE | DESCRIPTION | BRAND | CATEGORY | UNIT/LITRE
-  PRODUCTS={};
-  for(let i=1;i<rows.length;i++){
-    const r=rows[i];
-    const rawCode=(r[0]||'').trim();
-    if(!rawCode) continue;
-    const entry={
-      desc:    (r[1]||'').trim(),
-      brand:   (r[2]||'').trim(),
-      category:(r[3]||r[2]||'').trim(),
-      litres:  parseFloat((r[4]||r[3]||'1').replace(/,/g,''))||1
+  function onLoaded(data) {
+    allCustomers = data;
+    renderStats(data);
+    renderTable(data);
+    document.getElementById('lastSync').textContent = 'Synced ' + new Date().toLocaleTimeString();
+  }
+
+  // ── Stats ─────────────────────────────────────────────────
+  function renderStats(data) {
+    const vol = data.reduce((s,c) => s + (Number(c.ltrsKgs)||0), 0);
+    const amt = data.reduce((s,c) => s + (Number(c.amtKsh)||0), 0);
+    document.getElementById('sTot').textContent = data.length.toLocaleString();
+    document.getElementById('sVol').textContent = vol.toLocaleString();
+    document.getElementById('sAmt').textContent = 'KSH ' + amt.toLocaleString();
+  }
+
+  // ── Table ─────────────────────────────────────────────────
+  function renderTable(data) {
+    document.getElementById('rowCount').textContent = data.length;
+    if (!data.length) { setTableState('empty'); return; }
+
+    let rows = data.map((c, i) => {
+      const neg = Number(c.amtKsh) < 0;
+      return `<tr>
+        <td class="row-num">${i+1}</td>
+        <td><span class="sap-code">${esc(c.sapCode)}</span></td>
+        <td>${esc(c.name)}</td>
+        <td class="num">${Number(c.ltrsKgs).toLocaleString()}</td>
+        <td class="num ${neg?'negative':'positive'}">${Number(c.amtKsh).toLocaleString()}</td>
+        <td>
+          <div class="actions">
+            <button class="btn btn-edit" onclick='openEdit(${JSON.stringify(c)})'>✏️ Edit</button>
+            <button class="btn btn-del"  onclick="askDelete('${esc(c.sapCode)}','${esc(c.name.replace(/'/g,"\\'"))}')">🗑️</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('tableWrap').innerHTML = `
+      <table>
+        <thead><tr>
+          <th>#</th><th>SAP Code</th><th>Name</th>
+          <th class="num">Ltrs/Kgs</th><th class="num">Amt KSH</th><th>Actions</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function setTableState(state, msg) {
+    const map = {
+      loading: `<div class="state-box"><div class="spinner"></div><p>Loading from Google Sheet…</p></div>`,
+      empty:   `<div class="state-box"><div class="icon">📭</div><p>No customers found.</p><small>Click "Add Customer" to get started.</small></div>`,
+      error:   `<div class="state-box"><div class="icon">⚠️</div><p>Failed to load</p><small>${msg||''}</small></div>`
     };
-    PRODUCTS[rawCode]=entry;
-    PRODUCTS[rawCode.replace(/^0+/,'')]=entry;
+    document.getElementById('tableWrap').innerHTML = map[state] || '';
   }
-}
 
-function buildCustomers(rows){
-  // Expected columns (row 0 = header):
-  // CODE | OUTLET | LOCATION | CHANNEL | TYPE
-  CUSTOMERS={};
-  for(let i=1;i<rows.length;i++){
-    const r=rows[i];
-    const rawCode=(r[0]||'').trim();
-    if(!rawCode) continue;
-    const entry={
-      outlet:  (r[1]||'').trim(),
-      location:(r[2]||'').trim(),
-      channel: (r[3]||'').trim(),
-      type:    (r[4]||'').trim()
+  // ── Search ────────────────────────────────────────────────
+  function handleSearch() {
+    const q = document.getElementById('searchInput').value.toLowerCase().trim();
+    const filtered = q
+      ? allCustomers.filter(c => c.sapCode.toLowerCase().includes(q) || c.name.toLowerCase().includes(q))
+      : allCustomers;
+    renderTable(filtered);
+    document.getElementById('rowCount').textContent = filtered.length;
+  }
+
+  // ── Add / Edit Modal ──────────────────────────────────────
+  function openAdd() {
+    isEditMode = false;
+    document.getElementById('modalTitle').textContent   = 'Add New Customer';
+    document.getElementById('saveBtnText').textContent  = 'Add Customer';
+    document.getElementById('fSap').value   = '';
+    document.getElementById('fName').value  = '';
+    document.getElementById('fLtrs').value  = '';
+    document.getElementById('fAmt').value   = '';
+    document.getElementById('fSap').disabled = false;
+    document.getElementById('formOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('fSap').focus(), 100);
+  }
+
+  function openEdit(c) {
+    isEditMode = true;
+    document.getElementById('modalTitle').textContent  = 'Edit Customer';
+    document.getElementById('saveBtnText').textContent = 'Save Changes';
+    document.getElementById('fSap').value   = c.sapCode;
+    document.getElementById('fName').value  = c.name;
+    document.getElementById('fLtrs').value  = c.ltrsKgs;
+    document.getElementById('fAmt').value   = c.amtKsh;
+    document.getElementById('fSap').disabled = true;
+    document.getElementById('formOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('fName').focus(), 100);
+  }
+
+  function closeModal() {
+    document.getElementById('formOverlay').classList.remove('open');
+  }
+
+  function saveCustomer() {
+    const sap  = document.getElementById('fSap').value.trim();
+    const name = document.getElementById('fName').value.trim();
+    if (!sap || !name) { showToast('SAP Code and Name are required.', 'error'); return; }
+
+    const payload = {
+      sapCode: sap, name,
+      ltrsKgs: document.getElementById('fLtrs').value || 0,
+      amtKsh:  document.getElementById('fAmt').value  || 0
     };
-    CUSTOMERS[rawCode]=entry;
-    CUSTOMERS[rawCode.replace(/^0+/,'')]=entry;
+
+    document.getElementById('saveBtn').disabled = true;
+    document.getElementById('saveBtnText').textContent = 'Saving…';
+
+    const fn = isEditMode ? 'updateCustomer' : 'addCustomer';
+    google.script.run
+      .withSuccessHandler(res => {
+        document.getElementById('saveBtn').disabled = false;
+        document.getElementById('saveBtnText').textContent = isEditMode ? 'Save Changes' : 'Add Customer';
+        if (res.success) { closeModal(); showToast(res.message, 'success'); loadCustomers(); }
+        else              showToast(res.message, 'error');
+      })
+      .withFailureHandler(e => {
+        document.getElementById('saveBtn').disabled = false;
+        document.getElementById('saveBtnText').textContent = isEditMode ? 'Save Changes' : 'Add Customer';
+        showToast('Error: ' + e.message, 'error');
+      })
+      [fn](payload);
   }
-}
 
-// ═══════════════════════════════════════════════════════
-//  REFRESH MASTER DATA FROM GOOGLE SHEETS VIA APPS SCRIPT
-// ═══════════════════════════════════════════════════════
-let SHEETS_CONNECTED = false;
-
-function setConnBadge(state, msg){
-  const badge = document.getElementById('conn-badge');
-  const dot   = document.getElementById('conn-dot');
-  const txt   = document.getElementById('conn-badge-txt');
-  if(!badge) return;
-  const styles = {
-    ok:      {bg:'rgba(74,222,128,.07)',  bd:'rgba(74,222,128,.25)',  col:'var(--green)', dot:'var(--green)'},
-    warn:    {bg:'rgba(245,158,11,.07)', bd:'rgba(245,158,11,.22)',  col:'var(--amber)', dot:'var(--amber)'},
-    err:     {bg:'rgba(248,113,113,.07)',bd:'rgba(248,113,113,.22)', col:'var(--red)',   dot:'var(--red)'},
-    loading: {bg:'rgba(255,255,255,.03)',bd:'rgba(255,255,255,.1)',  col:'var(--t2)',    dot:'var(--t3)'}
-  };
-  const s = styles[state] || styles.warn;
-  badge.style.background  = s.bg;
-  badge.style.borderColor = s.bd;
-  badge.style.color       = s.col;
-  dot.style.background    = s.dot;
-  txt.textContent         = msg;
-}
-
-async function refreshSheets(){
-  showLoad('Connecting to Google Sheets…');
-  setConnBadge('loading','Connecting…');
-  document.getElementById('conn-status').textContent = 'Connecting…';
-
-  try {
-    setLoadMsg('Fetching Products…');
-    buildProducts(await fetchCSV(CFG.sheetProd));
-
-    setLoadMsg('Fetching Customers…');
-    buildCustomers(await fetchCSV(CFG.sheetCust));
-
-    try {
-      setLoadMsg('Fetching Targets…');
-      await fetchCSV(CFG.sheetTgt);
-    } catch(e){ /* Targets optional */ }
-
-    SHEETS_CONNECTED = true;
-    hideLoad();
-    document.getElementById('setup-notice').style.display = 'none';
-    document.getElementById('conn-status').textContent    = 'Live · Google Sheets';
-    setConnBadge('ok', `✓ Connected — ${Object.keys(PRODUCTS).length} products, ${Object.keys(CUSTOMERS).length} customers loaded`);
-    document.getElementById('cfg-msg').textContent = '';
-
-    if(SAP_LINES.length){ enrichAndRender(); }
-    else { populateFilterDropdowns([]); }
-
-  } catch(e){
-    const msg = e.message || String(e);
-    let hint = '';
-    if(msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')){
-      hint = 'Cannot reach Apps Script endpoint. Check deployment permissions (Anyone) and that you are online.';
-    } else if(msg.includes('404') || msg.includes('400')){
-      hint = 'Endpoint returned an error. Check that the Apps Script is deployed and tab names are correct.';
-    } else if(msg.includes('Sheet not found')){
-      hint = `Tab not found: "${msg.split(':')[1]?.trim()}". Update tab names in ⚙ Settings.`;
-    } else {
-      hint = msg;
-    }
-    setConnBadge('err', '✗ ' + hint);
-    document.getElementById('cfg-msg').textContent = '⚠ ' + hint;
-    goOffline('Not connected · SAP-only mode');
+  // ── Delete ────────────────────────────────────────────────
+  function askDelete(sapCode, name) {
+    pendingDelete = sapCode;
+    document.getElementById('delName').textContent = name + ' (' + sapCode + ')';
+    document.getElementById('delOverlay').classList.add('open');
   }
-}
 
-function goOffline(statusText){
-  SHEETS_CONNECTED = false;
-  hideLoad();
-  document.getElementById('setup-notice').style.display  = 'block';
-  document.getElementById('conn-status').textContent     = statusText;
-  if(!document.getElementById('conn-badge-txt').textContent.startsWith('✗')){
-    setConnBadge('warn', 'Not connected — check Apps Script endpoint in ⚙ Settings');
+  function closeDelModal() {
+    pendingDelete = null;
+    document.getElementById('delOverlay').classList.remove('open');
   }
-  if(SAP_LINES.length){ enrichAndRender(); }
-  else { populateFilterDropdowns([]); }
-}
 
-// ═══════════════════════════════════════════════════════
-//  SAP FILE PARSING
-// ═══════════════════════════════════════════════════════
-function handleSAPFile(inp){ if(inp.files[0]) parseSAP(inp.files[0]); }
-function dropFile(evt){
-  evt.preventDefault();
-  evt.currentTarget.classList.remove('over');
-  if(evt.dataTransfer.files[0]) parseSAP(evt.dataTransfer.files[0]);
-}
-
-function parseSAP(file){
-  const st=document.getElementById('sap-st');
-  st.className='ust'; st.innerHTML='<span class="spin"></span>Parsing…';
-
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try {
-      const text=e.target.result;
-      SAP_LINES=[];
-      SAP_PERIOD='';
-
-      const rawLines=text.split(/\r?\n/);
-
-      // ── 1. Extract period from the first non-empty line ──────────────────
-      for(const raw of rawLines){
-        if(!raw.trim()) continue;
-        const dm=raw.match(/(\d{2}\.\d{2}\.\d{4})/g);
-        if(dm&&dm.length>=2){
-          const end=dm[1].startsWith('00.')?dm[0]:dm[1];
-          SAP_PERIOD= dm[0]===end ? dm[0] : `${dm[0]} – ${end}`;
-        } else if(dm&&dm.length===1){
-          SAP_PERIOD=dm[0];
-        }
-        if(SAP_PERIOD) break;
-      }
-      if(!SAP_PERIOD) SAP_PERIOD=file.name.replace(/\.[^.]+$/,'');
-
-      // ── 2. Parse every line ──────────────────────────────────────────────
-      let custCode='', custName='';
-
-      for(const raw of rawLines){
-        const cols=raw.split('\t').map(c=>c.trim().replace(/^"|"$/g,''));
-        const parts=cols.filter(Boolean);
-        if(!parts.length) continue;
-
-        // ── Customer header line ──
-        const custIdx=parts.indexOf('CUSTOMER');
-        if(custIdx!==-1 && !raw.includes('TOTALS') && !raw.includes('CODE')){
-          custCode=''; custName='';
-          for(let i=custIdx+1;i<parts.length;i++){
-            if(/^\d{5,10}$/.test(parts[i])){
-              custCode=parts[i].replace(/^0+/,'');
-              custName=parts.slice(i+1).join(' ').replace(/\s+/g,' ').trim();
-              break;
-            }
-          }
-          continue;
-        }
-
-        // ── Skip header / subtotal / grand-total lines ────────────────────
-        if(raw.includes('TOTALS'))      continue;
-        if(raw.includes('GRAND TOTAL')) continue;
-        if(parts[0]==='CODE')           continue;
-        if(parts[0]==='SALES')          continue;
-
-        // ── Product transaction line ──────────────────────────────────────
-        const prodCode=parts.find(p=>/^\d{8,11}$/.test(p));
-        if(!prodCode) continue;
-
-        const prodIdx=parts.indexOf(prodCode);
-        let desc='', qty=0, uom='', sales=0;
-        const nums=[];
-        const descTokens=[];
-
-        for(let i=prodIdx+1;i<parts.length;i++){
-          const tok=parts[i];
-          if(!tok) continue;
-          const clean=tok.replace(/,/g,'').replace(/[()]/g,'').trim();
-          const n=parseFloat(clean);
-          if(!isNaN(n) && clean!==''){
-            nums.push(n);
-            continue;
-          }
-          if(/^[A-Z]{1,4}$/.test(tok)){
-            uom=tok;
-            continue;
-          }
-          descTokens.push(tok);
-        }
-
-        desc=descTokens.join(' ').replace(/\s+/g,' ').trim();
-
-        if(nums.length===1){
-          qty=nums[0]; sales=nums[0];
-        } else if(nums.length>=2){
-          qty=nums[0]; sales=nums[nums.length-1];
-        }
-
-        if(!custCode || sales===0) continue;
-
-        SAP_LINES.push({ custCode, custName, prodCode, desc, qty, uom, sales });
-      }
-
-      const custCount=[...new Set(SAP_LINES.map(l=>l.custCode))].size;
-      st.className='ust ok';
-      st.textContent=`✓ ${fmt(SAP_LINES.length)} lines · ${fmt(custCount)} customers`;
-      enrichAndRender();
-
-    } catch(err){
-      st.className='ust err';
-      st.textContent='✗ Parse error: '+err.message;
-      console.error(err);
-    }
-  };
-  reader.onerror=()=>{ st.className='ust err'; st.textContent='✗ Cannot read file'; };
-  reader.readAsText(file,'latin1');
-}
-
-// ═══════════════════════════════════════════════════════
-//  ENRICH SAP LINES WITH MASTER DATA
-// ═══════════════════════════════════════════════════════
-function enrich(l){
-  const p = PRODUCTS[l.prodCode] || PRODUCTS[l.prodCode.replace(/^0+/,'')] || {};
-  const c = CUSTOMERS[l.custCode] || CUSTOMERS[l.custCode.replace(/^0+/,'')] || {};
-
-  const desc     = p.desc     || l.desc || l.prodCode;
-  const brand    = p.brand    || deriveBrand(l.desc)    || 'Unknown';
-  const category = p.category || deriveCategory(l.desc) || 'Unknown';
-  const litres   = p.litres   || 1;
-  const volume   = litres * (l.qty || 0);
-  const channel  = c.channel  || deriveChannel(l.custCode, l.custName)  || 'Unknown';
-  const type     = c.type     || '';
-  const location = c.location || deriveLocation(l.custName)             || 'Unknown';
-  const outlet   = c.outlet   || l.custName || l.custCode;
-
-  return { ...l, desc, brand, category, litres, volume, channel, type, location, outlet };
-}
-
-// ── SAP-only fallback derivation helpers ─────────────────────────────────────
-function deriveBrand(desc){
-  if(!desc) return '';
-  const m = desc.match(/^([A-Z][A-Z\s]+?)(?:\s+\d|\s+[A-Z]{1,4}\s*\d|$)/);
-  if(m){
-    const words = m[1].trim().split(/\s+/);
-    return words.slice(0,3).join(' ').trim();
+  function doDelete() {
+    if (!pendingDelete) return;
+    document.getElementById('delConfirmBtn').textContent = 'Deleting…';
+    document.getElementById('delConfirmBtn').disabled = true;
+    google.script.run
+      .withSuccessHandler(res => {
+        document.getElementById('delConfirmBtn').textContent = 'Yes, Delete';
+        document.getElementById('delConfirmBtn').disabled = false;
+        closeDelModal();
+        showToast(res.message, res.success ? 'success' : 'error');
+        if (res.success) loadCustomers();
+      })
+      .withFailureHandler(e => {
+        document.getElementById('delConfirmBtn').textContent = 'Yes, Delete';
+        document.getElementById('delConfirmBtn').disabled = false;
+        showToast('Error: ' + e.message, 'error');
+      })
+      .deleteCustomer(pendingDelete);
   }
-  return desc.split(/\s+/)[0] || '';
-}
 
-function deriveCategory(desc){
-  if(!desc) return 'Other';
-  const d = desc.toUpperCase();
-  if(d.includes('MALA'))                          return 'Mala';
-  if(d.includes('YOGHURT')||d.includes('YOGURT')) return 'Yoghurt';
-  if(d.includes('GHEE'))                          return 'Ghee';
-  if(d.includes('POWDER')||d.includes('DMP'))     return 'Milk Powder';
-  if(d.includes('UHT')||d.includes('ESL')||d.includes('ASEPTIC')) return 'UHT / ESL';
-  if(d.includes('FRESH')||d.includes('TFA')||d.includes('TCA'))   return 'Fresh Milk';
-  if(d.includes('CREAM'))                         return 'Cream';
-  if(d.includes('BUTTER'))                        return 'Butter';
-  if(d.includes('BULK'))                          return 'Bulk';
-  if(d.includes('SHAKE'))                         return 'Shakes';
-  return 'Other';
-}
-
-const CHAN_MAP = {
-  'C89':'Wholesale', 'C21':'Traditional Trade', 'C23':'Modern Trade',
-  'C25':'Institutions','C24':'Horeca','C26':'Horeca','C27':'Institutions'
-};
-function deriveChannel(code, name){
-  if(!name) return '';
-  const m = name.match(/^([A-Z]\d+)-/);
-  if(m) return CHAN_MAP[m[1]] || m[1];
-  if(/^E\d+/.test(code||'')) return 'Van Sales';
-  return '';
-}
-
-function deriveLocation(name){ return ''; }
-
-function enrichAndRender(){
-  RICH_LINES=SAP_LINES.map(enrich);
-  document.getElementById('period-chip').textContent=SAP_PERIOD||'—';
-  document.getElementById('trend-lbl').textContent=SAP_PERIOD;
-  populateFilterDropdowns(RICH_LINES);
-  renderOverview(RICH_LINES);
-  if(document.getElementById('tab-channel').classList.contains('active')) renderChannelTab(RICH_LINES);
-  if(document.getElementById('tab-product').classList.contains('active')) renderProductTab(RICH_LINES);
-  if(document.getElementById('tab-region').classList.contains('active'))  renderRegionTab(RICH_LINES);
-}
-
-// ═══════════════════════════════════════════════════════
-//  FILTERS
-// ═══════════════════════════════════════════════════════
-let currentMetric='revenue';
-
-function populateFilterDropdowns(lines){
-  function refill(id,vals){
-    const s=document.getElementById(id);
-    const cur=s.value;
-    s.innerHTML='<option value="">All</option>'+vals.filter(Boolean).map(v=>`<option value="${v}">${v}</option>`).join('');
-    if(vals.includes(cur)) s.value=cur;
+  // ── Toast ─────────────────────────────────────────────────
+  let toastTimer;
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+    t.innerHTML = (icons[type]||'') + ' ' + msg;
+    t.className = 'toast ' + type + ' show';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = 'toast ' + type; }, 3500);
   }
-  const channels =[...new Set(lines.map(l=>l.channel))].sort();
-  const locations=[...new Set(lines.map(l=>l.location))].sort();
-  const brands   =[...new Set(lines.map(l=>l.brand))].sort();
-  const cats     =[...new Set(lines.map(l=>l.category))].sort();
-  refill('f-ch',    channels);
-  refill('f-reg',   locations);
-  refill('f-brand', brands);
-  refill('p-brand', brands);
-  refill('p-cat',   cats);
-}
 
-function filteredLines(){
-  const fch  =document.getElementById('f-ch').value;
-  const freg =document.getElementById('f-reg').value;
-  const fbr  =document.getElementById('f-brand').value;
-  return RICH_LINES.filter(l=>{
-    if(fch  &&l.channel!==fch)   return false;
-    if(freg &&l.location!==freg) return false;
-    if(fbr  &&l.brand!==fbr)     return false;
-    return true;
+  // ── Util ──────────────────────────────────────────────────
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Close overlays on background click ───────────────────
+  document.getElementById('formOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
   });
-}
+  document.getElementById('delOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeDelModal();
+  });
 
-function applyFilters(){ if(RICH_LINES.length) renderOverview(filteredLines()); }
-function setMetric(m,btn){
-  currentMetric=m;
-  document.querySelectorAll('.tog').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-}
-
-// ═══════════════════════════════════════════════════════
-//  AGGREGATION HELPER
-// ═══════════════════════════════════════════════════════
-function agg(lines,keyFn){
-  const map={};
-  for(const l of lines){
-    const k=keyFn(l);
-    if(!map[k]) map[k]={revenue:0,volume:0,_custs:new Set(),_skus:new Set()};
-    map[k].revenue+=(l.sales||0);
-    map[k].volume +=(l.volume||0);
-    map[k]._custs.add(l.custCode);
-    map[k]._skus.add(l.prodCode);
-  }
-  Object.values(map).forEach(v=>{ v.custCount=v._custs.size; v.skuCount=v._skus.size; delete v._custs; delete v._skus; });
-  return map;
-}
-
-// ═══════════════════════════════════════════════════════
-//  OVERVIEW
-// ═══════════════════════════════════════════════════════
-function renderOverview(lines){
-  if(!lines||!lines.length) return;
-  const totalRev=lines.reduce((s,l)=>s+(l.sales||0),0);
-  const totalVol=lines.reduce((s,l)=>s+(l.volume||0),0);
-  const custs=new Set(lines.map(l=>l.custCode)).size;
-  const skus =new Set(lines.map(l=>l.prodCode)).size;
-
-  document.getElementById('k-rev').textContent =fmtM(totalRev);
-  document.getElementById('k-vol').textContent =fmtV(totalVol)+' L/Kg';
-  document.getElementById('k-cust').textContent=fmt(custs);
-  document.getElementById('k-sku').textContent =skus;
-
-  // Channel donut
-  const chMap=agg(lines,l=>l.channel);
-  const chLbls=Object.keys(chMap).sort((a,b)=>chMap[b].revenue-chMap[a].revenue);
-  document.getElementById('leg-ch').innerHTML=chLbls.map((l,i)=>
-    `<span class="leg-item"><span class="leg-sq" style="background:${PAL[i%PAL.length]}"></span>${l}</span>`).join('');
-  mkChart('c-donut',{type:'doughnut',
-    data:{labels:chLbls,datasets:[{data:chLbls.map(k=>chMap[k].revenue),backgroundColor:PAL.slice(0,chLbls.length),borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` Kshs ${fmt(c.raw)}`}}}}});
-
-  // Brand bar
-  const brMap=agg(lines,l=>l.brand);
-  const brLbls=Object.keys(brMap).sort((a,b)=>brMap[b].revenue-brMap[a].revenue);
-  mkChart('c-brand',{type:'bar',
-    data:{labels:brLbls,datasets:[{data:brLbls.map(k=>brMap[k].revenue/1e6),backgroundColor:PAL.slice(0,brLbls.length),borderRadius:4,borderSkipped:false}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{...AX,grid:{display:false}},y:{...AX,ticks:{...AX.ticks,callback:v=>'Kshs '+v+'M'}}}}});
-
-  // Trend
-  const days=31;
-  const base=totalRev/days;
-  const trendData=Array.from({length:days},(_,i)=>Math.round(base*(1+Math.sin(i*1.3+1)*0.12+Math.sin(i*0.7)*0.07)));
-  mkChart('c-trend',{type:'line',
-    data:{labels:Array.from({length:days},(_,i)=>i+1),datasets:[{data:trendData,borderColor:'#4ade80',backgroundColor:'rgba(74,222,128,0.07)',fill:true,tension:0.35,pointRadius:0,borderWidth:1.5}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{...AX,grid:{display:false},ticks:{...AX.ticks,maxTicksLimit:10}},
-              y:{...AX,ticks:{...AX.ticks,callback:v=>'Kshs '+(v/1e6).toFixed(0)+'M'}}}}});
-
-  // Top 5 products
-  const prMap=agg(lines,l=>l.prodCode);
-  const top=Object.entries(prMap).sort((a,b)=>b[1].revenue-a[1].revenue).slice(0,6);
-  const maxR=top[0]?.[1]?.revenue||1;
-  document.getElementById('top5').innerHTML=top.map(([code,v],i)=>{
-    const name=(PRODUCTS[code]?.desc||code).slice(0,32);
-    return `<div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-        <span style="font-size:11px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%" title="${PRODUCTS[code]?.desc||code}">${name}</span>
-        <span style="font-size:10px;font-family:var(--mono);color:var(--green)">Kshs ${fmt(v.revenue/1e6)}M</span>
-      </div>
-      <div class="pbar"><div class="pfill" style="width:${(v.revenue/maxR*100).toFixed(0)}%;background:${PAL[i%PAL.length]}"></div></div>
-    </div>`;
-  }).join('');
-}
-
-// ═══════════════════════════════════════════════════════
-//  CHANNEL TAB
-// ═══════════════════════════════════════════════════════
-function renderChannelTab(lines){
-  lines=lines||filteredLines();
-  const chMap=agg(lines,l=>l.channel);
-  const chLbls=Object.keys(chMap).sort((a,b)=>chMap[b].revenue-chMap[a].revenue);
-
-  document.getElementById('leg-ch2').innerHTML=chLbls.map((l,i)=>
-    `<span class="leg-item"><span class="leg-sq" style="background:${PAL[i]}"></span>${l}</span>`).join('');
-  mkChart('c-ch-rev',{type:'bar',data:{labels:chLbls,datasets:[{data:chLbls.map(k=>chMap[k].revenue/1e6),backgroundColor:PAL.slice(0,chLbls.length),borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{...AX,grid:{display:false}},y:{...AX,ticks:{...AX.ticks,callback:v=>'Kshs '+v+'M'}}}}});
-  mkChart('c-ch-vol',{type:'bar',data:{labels:chLbls,datasets:[{data:chLbls.map(k=>chMap[k].volume),backgroundColor:PAL.map(c=>c+'99').slice(0,chLbls.length),borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{...AX,grid:{display:false}},y:{...AX,ticks:{...AX.ticks,callback:v=>fmtV(v)}}}}});
-
-  const ctMap={};
-  for(const l of lines){
-    const k=l.channel+'||'+l.type;
-    if(!ctMap[k]) ctMap[k]={channel:l.channel,type:l.type,revenue:0,volume:0,custs:new Set()};
-    ctMap[k].revenue+=(l.sales||0); ctMap[k].volume+=(l.volume||0); ctMap[k].custs.add(l.custCode);
-  }
-  const totalRev=lines.reduce((s,l)=>s+(l.sales||0),0);
-  const rows=Object.values(ctMap).sort((a,b)=>b.revenue-a.revenue);
-  document.getElementById('ch-count').textContent=rows.length+' rows';
-  document.getElementById('ch-tbody').innerHTML=rows.map(r=>`
-    <tr>
-      <td><span class="badge ${bClass(r.channel)}">${r.channel}</span></td>
-      <td style="color:var(--t1)">${r.type}</td>
-      <td class="r mn hi">${fmt(r.revenue)}</td>
-      <td class="r mn">${((r.revenue/totalRev)*100).toFixed(1)}%</td>
-      <td class="r mn">${fmt(r.volume)}</td>
-      <td class="r mn">${fmt(r.custs.size)}</td>
-      <td class="r mn">${fmt(r.custs.size?r.revenue/r.custs.size:0)}</td>
-    </tr>`).join('');
-}
-
-// ═══════════════════════════════════════════════════════
-//  PRODUCT TAB
-// ═══════════════════════════════════════════════════════
-function renderProductTab(lines){
-  lines=lines||filteredLines();
-  const catRev={}, catVol={};
-  for(const l of lines){
-    catRev[l.category]=(catRev[l.category]||0)+(l.sales||0);
-    catVol[l.category]=(catVol[l.category]||0)+(l.volume||0);
-  }
-  const catLbls=Object.keys(catRev).sort((a,b)=>catRev[b]-catRev[a]);
-  const donutOpts={responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:true,position:'right',labels:{color:'#8a8fa8',font:{size:10,family:'DM Mono'},boxWidth:8}}}};
-  mkChart('c-cat-rev',{type:'doughnut',data:{labels:catLbls,datasets:[{data:catLbls.map(k=>catRev[k]),backgroundColor:PAL.slice(0,catLbls.length),borderWidth:0}]},options:donutOpts});
-  mkChart('c-cat-vol',{type:'doughnut',data:{labels:catLbls,datasets:[{data:catLbls.map(k=>catVol[k]),backgroundColor:PAL.slice(0,catLbls.length),borderWidth:0}]},options:donutOpts});
-  renderProductTable(lines);
-}
-
-function renderProductTable(linesIn){
-  const lines=linesIn||filteredLines();
-  const sort =document.getElementById('p-sort').value;
-  const brand=document.getElementById('p-brand').value;
-  const cat  =document.getElementById('p-cat').value;
-
-  const pMap={};
-  for(const l of lines){
-    if(brand&&l.brand!==brand) continue;
-    if(cat&&l.category!==cat) continue;
-    if(!pMap[l.prodCode]) pMap[l.prodCode]={code:l.prodCode,desc:l.desc||PRODUCTS[l.prodCode]?.desc||l.prodCode,brand:l.brand,category:l.category,uom:l.uom,revenue:0,volume:0};
-    pMap[l.prodCode].revenue+=(l.sales||0);
-    pMap[l.prodCode].volume +=(l.volume||0);
-  }
-  const prods=Object.values(pMap).sort((a,b)=>sort==='revenue'?b.revenue-a.revenue:b.volume-a.volume);
-  document.getElementById('prod-count').textContent=prods.length+' products';
-  document.getElementById('prod-tbody').innerHTML=prods.map(p=>`
-    <tr>
-      <td class="mn dim">${p.code.slice(-8)}</td>
-      <td style="color:var(--t1)" title="${p.desc}">${p.desc}</td>
-      <td><span class="badge b-c">${p.brand}</span></td>
-      <td class="dim">${p.category}</td>
-      <td class="r mn hi">${fmt(p.revenue)}</td>
-      <td class="r mn">${fmt(p.volume)}</td>
-      <td class="r dim">${p.uom||'—'}</td>
-    </tr>`).join('');
-}
-
-// ═══════════════════════════════════════════════════════
-//  REGION TAB
-// ═══════════════════════════════════════════════════════
-function renderRegionTab(lines){
-  lines=lines||filteredLines();
-  const regMap=agg(lines,l=>l.location);
-  const regions=Object.entries(regMap).sort((a,b)=>b[1].revenue-a[1].revenue).map(([r,v])=>({region:r,...v}));
-  const totalRev=regions.reduce((s,r)=>s+r.revenue,0);
-  const totalVol=regions.reduce((s,r)=>s+r.volume,0);
-  const lbls=regions.map(r=>r.region);
-
-  mkChart('c-reg-rev',{type:'bar',indexAxis:'y',data:{labels:lbls,datasets:[{data:regions.map(r=>r.revenue/1e6),backgroundColor:'#4ade80',borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{...AX,ticks:{...AX.ticks,callback:v=>'Kshs '+v+'M'}},y:{...AX,grid:{display:false}}}}});
-  mkChart('c-reg-vol',{type:'bar',indexAxis:'y',data:{labels:lbls,datasets:[{data:regions.map(r=>r.volume),backgroundColor:'#22d3ee',borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{...AX,ticks:{...AX.ticks,callback:v=>fmtV(v)+' L/Kg'}},y:{...AX,grid:{display:false}}}}});
-
-  document.getElementById('reg-tbody').innerHTML=regions.map(r=>`
-    <tr>
-      <td style="color:var(--t1);font-weight:500">${r.region}</td>
-      <td class="r mn hi">${fmt(r.revenue)}</td>
-      <td class="r mn">${((r.revenue/totalRev)*100).toFixed(1)}%</td>
-      <td class="r mn">${fmt(r.volume)}</td>
-      <td class="r mn">${((r.volume/totalVol)*100).toFixed(1)}%</td>
-      <td class="r mn">${fmt(r.custCount)}</td>
-    </tr>`).join('');
-}
-
-// ═══════════════════════════════════════════════════════
-//  TAB SWITCHING
-// ═══════════════════════════════════════════════════════
-const tabInited={overview:true};
-function switchTab(id,btn){
-  document.querySelectorAll('.tab-panel').forEach(el=>el.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
-  document.getElementById('tab-'+id).classList.add('active');
-  btn.classList.add('active');
-  if(!tabInited[id]&&RICH_LINES.length){
-    tabInited[id]=true;
-    if(id==='channel') renderChannelTab();
-    if(id==='product') renderProductTab();
-    if(id==='region')  renderRegionTab();
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-//  SETTINGS SAVE  (tab names only — endpoint is hardcoded)
-// ═══════════════════════════════════════════════════════
-function saveConfig(){
-  CFG.sheetProd = document.getElementById('cfg-prod').value.trim() || CFG.sheetProd;
-  CFG.sheetCust = document.getElementById('cfg-cust').value.trim() || CFG.sheetCust;
-  CFG.sheetTgt  = document.getElementById('cfg-tgt').value.trim()  || CFG.sheetTgt;
-  try{ localStorage.setItem('dash_cfg', JSON.stringify(CFG)); } catch(e){}
-  document.getElementById('cfg-msg').textContent = 'Saved — connecting…';
-  setConnBadge('loading','Connecting…');
-  Object.keys(tabInited).forEach(k=>{ if(k!=='overview') delete tabInited[k]; });
-  refreshSheets();
-}
-
-// ═══════════════════════════════════════════════════════
-//  LOADING UI
-// ═══════════════════════════════════════════════════════
-function showLoad(msg){ document.getElementById('loading').style.display='flex'; setLoadMsg(msg); }
-function hideLoad()   { document.getElementById('loading').style.display='none'; }
-function setLoadMsg(m){ document.getElementById('load-msg').textContent=m; }
-
-// ═══════════════════════════════════════════════════════
-//  BOOT
-// ═══════════════════════════════════════════════════════
-refreshSheets();
+  // Init
+  loadCustomers();
 </script>
 </body>
 </html>
