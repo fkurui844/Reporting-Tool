@@ -194,6 +194,33 @@
     .cov-pct.warn  { color: #b45309; }
     .cov-pct.low   { color: #E1245A; }
     .cov-inactive { font-size: 12px; color: #718096; margin-top: 3px; }
+    /* Coverage breakdown table */
+    .cov-breakdown { display:none; margin-top:14px; border-top:1px solid #edf0f5; padding-top:14px; width:100%; }
+    .cov-breakdown.open { display:block; }
+    .cov-breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+    }
+    .cov-region-row {
+      display: flex; flex-direction: column; gap: 3px;
+      background: #f7f9fc; border-radius: 8px; padding: 9px 12px;
+    }
+    .cov-region-top { display:flex; justify-content:space-between; align-items:baseline; }
+    .cov-region-name { font-size:12px; font-weight:600; color:#0f2744; text-transform:uppercase; letter-spacing:0.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:130px; }
+    .cov-region-nums { font-size:12px; color:#718096; white-space:nowrap; }
+    .cov-region-nums strong { color:#0f2744; }
+    .cov-mini-bar-wrap { height:5px; background:#e2e8f0; border-radius:99px; overflow:hidden; }
+    .cov-mini-bar { height:5px; border-radius:99px; }
+    .cov-toggle {
+      background: none; border: 1px solid #dde3ec; border-radius: 6px;
+      font-size: 12px; font-weight: 600; color: #718096; padding: 4px 10px;
+      cursor: pointer; font-family: 'DM Sans', sans-serif; white-space:nowrap;
+      transition: all 0.15s;
+    }
+    .cov-toggle:hover { background:#f0f2f5; color:#0f2744; }
+    .coverage-banner { flex-wrap:wrap; }
+
 
     /* Metrics */
     .metrics-grid {
@@ -575,6 +602,12 @@
         <div class="cov-pct" id="covPct">—</div>
         <div class="cov-inactive" id="covInactive"></div>
       </div>
+      <div style="flex:0 0 auto;">
+        <button class="cov-toggle" id="covToggle" onclick="toggleCovBreakdown()">▼ By Location</button>
+      </div>
+      <div class="cov-breakdown" id="covBreakdown">
+        <div class="cov-breakdown-grid" id="covBreakdownGrid"></div>
+      </div>
     </div>
 
     <div class="metrics-grid" id="metricsGrid"></div>
@@ -769,7 +802,7 @@ async function loadSheetData() {
     } catch { results[s] = null; }
   }
 
-  refData = { customers: {}, products: {}, targets: {}, customerTotal: 0 };
+  refData = { customers: {}, products: {}, targets: {}, customerTotal: 0, regionTotals: {} };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'])   parseTargetSheet(results['Targets']);
@@ -836,7 +869,11 @@ function parseCustomerSheet(csv) {
     // Also index by the raw code (with leading zeros) so lookup works
     // regardless of how the sheet stores the code
     if(rawTrimmed !== code) refData.customers[rawTrimmed] = entry;
-    if(!entry.type.includes('STAFF')) refData.customerTotal = (refData.customerTotal || 0) + 1; // exclude staff from total
+    if(!entry.type.includes('STAFF')){
+      refData.customerTotal = (refData.customerTotal || 0) + 1; // exclude staff from total
+      const reg = entry.region || 'UNKNOWN';
+      refData.regionTotals[reg] = (refData.regionTotals[reg] || 0) + 1;
+    }
   }
 }
 
@@ -1000,6 +1037,38 @@ function renderReport(data){
     document.getElementById('covPct').className       = 'cov-pct ' + colorCls;
     document.getElementById('covMeta').textContent    = `${custCount} active out of ${totalInSheet} customers in database`;
     document.getElementById('covInactive').textContent= inactive > 0 ? `${inactive} not trading this period` : 'All customers active ✓';
+
+    // Per-region breakdown
+    const regionTotals = refData.regionTotals || {};
+    // Count active (trading) customers per region from transactions
+    const activeByRegion = {};
+    for(const t of data.transactions){
+      const r = t.region || 'UNKNOWN';
+      if(!activeByRegion[r]) activeByRegion[r] = new Set();
+      activeByRegion[r].add(t.custCode);
+    }
+    // Build sorted rows: all regions that have a total in sheet, plus any in SAP not in sheet
+    const allRegions = new Set([...Object.keys(regionTotals), ...Object.keys(activeByRegion)]);
+    const regionRows = [...allRegions].map(r => {
+      const total  = regionTotals[r] || 0;
+      const active = activeByRegion[r] ? activeByRegion[r].size : 0;
+      const p      = total > 0 ? Math.round((active/total)*100) : null;
+      return { r, total, active, p };
+    }).sort((a,b) => b.total - a.total);
+
+    document.getElementById('covBreakdownGrid').innerHTML = regionRows.map(({r,total,active,p}) => {
+      const barColor = p === null ? '#dde3ec' : p >= 70 ? '#1db87a' : p >= 40 ? '#f6ad2b' : '#E1245A';
+      const barW     = p !== null ? p : 0;
+      const pLabel   = p !== null ? p+'%' : '—';
+      return `<div class="cov-region-row">
+        <div class="cov-region-top">
+          <span class="cov-region-name" title="${r}">${r}</span>
+          <span class="cov-region-nums"><strong>${active}</strong> / ${total} &nbsp;<span style="color:${barColor};font-weight:700">${pLabel}</span></span>
+        </div>
+        <div class="cov-mini-bar-wrap"><div class="cov-mini-bar" style="width:${barW}%;background:${barColor}"></div></div>
+      </div>`;
+    }).join('');
+
   } else {
     covBanner.style.display = 'none';
   }
@@ -1098,6 +1167,13 @@ function renderReport(data){
         <td>${c.name}</td><td>${fmt(c.ltrs)}</td><td>${fmt(c.amount)}</td>
       </tr>`).join('');
   } else { mc.style.display='none'; }
+}
+
+function toggleCovBreakdown(){
+  const bd = document.getElementById('covBreakdown');
+  const btn = document.getElementById('covToggle');
+  const open = bd.classList.toggle('open');
+  btn.textContent = open ? '▲ By Location' : '▼ By Location';
 }
 
 function groupBy(arr,key){
