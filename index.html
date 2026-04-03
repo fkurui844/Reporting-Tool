@@ -537,6 +537,26 @@
     <!-- Tables -->
     <div class="tables-grid" id="tablesGrid"></div>
 
+    <!-- Incomplete customers (matched but missing region/channel) -->
+    <div class="missing-card" id="incompleteCard" style="display:none;border-color:#7c3aed;background:#faf5ff;">
+      <div class="missing-head" style="background:#7c3aed;">
+        <h3 id="incompleteTitle" style="color:#fff;">&#9888; Customers matched but Region/Channel missing</h3>
+        <div class="missing-head-right">
+          <span class="badge-warn" id="incompleteBadge" style="background:rgba(255,255,255,0.2);color:#fff;"></span>
+        </div>
+      </div>
+      <div class="missing-table-wrap">
+        <table>
+          <colgroup><col style="width:16%"><col style="width:30%"><col style="width:18%"><col style="width:18%"><col style="width:18%"></colgroup>
+          <thead><tr><th>SAP Code</th><th>Name</th><th>Region read</th><th>Channel read</th><th>Amt KSH</th></tr></thead>
+          <tbody id="incompleteTbody"></tbody>
+        </table>
+      </div>
+      <div class="missing-hint" style="border-color:#7c3aed;">
+        These customers are <strong>in the sheet</strong> but their <strong>LOCATION</strong> or <strong>CHANNEL</strong> cell is blank or unreadable. Open the <strong>Customers</strong> sheet, fill in the missing columns, click <strong>&#8635; Reload</strong> and re-upload.
+      </div>
+    </div>
+
     <!-- Missing customers -->
     <div class="missing-card" id="missingCard" style="display:none">
       <div class="missing-head">
@@ -748,22 +768,29 @@ function findCol(hdrs, kws) {
 function parseCustomerSheet(csv) {
   const lines = csv.trim().split('\n');
   const hdrs  = parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
-  const codeIdx = findCol(hdrs,['sap code','code']);
-  const nameIdx = findCol(hdrs,['outlet','name','customer']);
-  const locIdx  = findCol(hdrs,['location','region','territory','area','zone']);
-  const chanIdx = findCol(hdrs,['channel']);
-  const typeIdx = findCol(hdrs,['type']);
+  console.log('[Customers] Headers detected:', hdrs); // debug — check browser console
+  const codeIdx = findCol(hdrs,['sap code','sap','code','customer code','cust code','account']);
+  const nameIdx = findCol(hdrs,['outlet','name','customer','client','account name','description']);
+  const locIdx  = findCol(hdrs,['location','region','territory','area','zone','district','branch','route','loc','reg']);
+  const chanIdx = findCol(hdrs,['channel','trade channel','sales channel','chan','class','segment']);
+  const typeIdx = findCol(hdrs,['type','customer type','cust type','category']);
+  console.log('[Customers] Col indices → code:'+codeIdx+' name:'+nameIdx+' region:'+locIdx+' channel:'+chanIdx+' type:'+typeIdx);
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
     const raw = codeIdx>=0?cols[codeIdx]:'';
     if(!raw)continue;
-    const code=raw.replace(/^0+/,'').trim();
-    refData.customers[code]={
+    const rawTrimmed = raw.trim();
+    const code = rawTrimmed.replace(/^0+/,'') || rawTrimmed; // keep original if all zeros
+    const entry={
       outlet:  nameIdx>=0?(cols[nameIdx]||'').trim():'',
       region:  locIdx>=0?(cols[locIdx]||'').trim().toUpperCase():'',
       channel: chanIdx>=0?(cols[chanIdx]||'').trim().toUpperCase():'',
       type:    typeIdx>=0?(cols[typeIdx]||'').trim().toUpperCase():'',
     };
+    refData.customers[code] = entry;
+    // Also index by the raw code (with leading zeros) so lookup works
+    // regardless of how the sheet stores the code
+    if(rawTrimmed !== code) refData.customers[rawTrimmed] = entry;
   }
 }
 
@@ -842,7 +869,7 @@ function setProgress(show,pct,msg){
 
 function parseSAP(text){
   const lines=text.split(/\r?\n/);
-  const result={period:'',transactions:[],missingCustomers:{}};
+  const result={period:'',transactions:[],missingCustomers:{},incompleteCustomers:{}};
   const pm=(lines[0]||'').match(/(\d{2}\.\d{2}\.\d{4})\s+TO\s+(\d{2}\.\d{2}\.\d{4})/);
   if(pm)result.period=`${pm[1]} – ${pm[2]}`;
   let curCust=null;
@@ -852,11 +879,16 @@ function parseSAP(text){
     if(line.includes('CUSTOMER')&&!line.includes('TOTALS')&&!line.includes('CODE')&&!line.includes('GRAND')){
       const cm=line.match(/(\d{7,10})\s+(.*)/);
       if(cm){
-        const rawCode=cm[1], code=rawCode.replace(/^0+/,''), name=cm[2].trim();
+        const rawCode=cm[1], code=rawCode.replace(/^0+/,'')||rawCode, name=cm[2].trim();
         const sapChan=(name.match(/^([A-Z]\d+)-/)||[])[1]||'';
-        const info=refData.customers[code]; const found=!!info;
-        curCust={code,rawCode,name,found,region:found?info.region:inferRegion(sapChan),channel:found?info.channel:inferChannel(sapChan),type:found?info.type:''};
+        // Try stripped code first, then raw code as fallback (handles zero-padding mismatches)
+        const info=refData.customers[code]||refData.customers[rawCode]; const found=!!info;
+        const region=(found&&info.region)?info.region:inferRegion(sapChan);
+        const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
+        curCust={code,rawCode,name,found,region,channel,type:found?info.type:''};
         if(!found&&!result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
+        if(found&&(!info.region||!info.channel)&&!result.incompleteCustomers[code])
+          result.incompleteCustomers[code]={rawCode,name,regionRead:info.region||'(blank)',channelRead:info.channel||'(blank)',ltrs:0,amount:0};
       }
       continue;
     }
@@ -874,6 +906,10 @@ function parseSAP(text){
       if(!curCust.found&&result.missingCustomers[curCust.code]){
         result.missingCustomers[curCust.code].ltrs+=ltrs;
         result.missingCustomers[curCust.code].amount+=amount;
+      }
+      if(curCust.found&&result.incompleteCustomers[curCust.code]){
+        result.incompleteCustomers[curCust.code].ltrs+=ltrs;
+        result.incompleteCustomers[curCust.code].amount+=amount;
       }
     }
   }
@@ -965,6 +1001,23 @@ function renderReport(data){
     buildTbl('By Region',sort(byRegion),'navy')+
     buildTbl('By Channel',sort(byChannel),'red')+
     buildTbl('By Category',sort(byCategory),'dark');
+
+  // Incomplete (matched but blank region/channel)
+  const incompleteArr = Object.values(data.incompleteCustomers||{}).sort((a,b)=>b.amount-a.amount);
+  const ic=document.getElementById('incompleteCard');
+  if(incompleteArr.length){
+    ic.style.display='block';
+    document.getElementById('incompleteTitle').textContent=`⚠ ${incompleteArr.length} customer${incompleteArr.length>1?'s':''} matched but Region/Channel blank in sheet`;
+    document.getElementById('incompleteBadge').textContent=`${incompleteArr.length} affected`;
+    document.getElementById('incompleteTbody').innerHTML=incompleteArr.map(c=>`
+      <tr>
+        <td style="font-family:'DM Mono',monospace;font-size:11px;">${c.rawCode}</td>
+        <td>${c.name}</td>
+        <td style="color:${c.regionRead==='(blank)'?'#e53e3e':'#1a202c'}">${c.regionRead}</td>
+        <td style="color:${c.channelRead==='(blank)'?'#e53e3e':'#1a202c'}">${c.channelRead}</td>
+        <td>${fmt(c.amount)}</td>
+      </tr>`).join('');
+  } else { ic.style.display='none'; }
 
   // Missing
   const mc=document.getElementById('missingCard');
