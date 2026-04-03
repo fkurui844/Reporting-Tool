@@ -836,7 +836,7 @@ function parseCustomerSheet(csv) {
     // Also index by the raw code (with leading zeros) so lookup works
     // regardless of how the sheet stores the code
     if(rawTrimmed !== code) refData.customers[rawTrimmed] = entry;
-    refData.customerTotal = (refData.customerTotal || 0) + 1; // count unique rows only
+    if(!entry.type.includes('STAFF')) refData.customerTotal = (refData.customerTotal || 0) + 1; // exclude staff from total
   }
 }
 
