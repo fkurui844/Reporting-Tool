@@ -166,6 +166,35 @@
     }
     .btn-upload-again:hover { background: #f0f2f5; }
 
+    /* Customer coverage banner */
+    .coverage-banner {
+      background: white;
+      border: 1px solid #dde3ec;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .cov-label-block { flex: 0 0 auto; }
+    .cov-label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+    .cov-fraction { font-size: 26px; font-weight: 700; color: #0f2744; line-height: 1; }
+    .cov-fraction span { font-size: 14px; font-weight: 500; color: #718096; }
+    .cov-bar-block { flex: 1; min-width: 180px; }
+    .cov-bar-wrap { height: 10px; background: #f0f2f5; border-radius: 99px; overflow: hidden; margin-bottom: 5px; }
+    .cov-bar-fill { height: 10px; border-radius: 99px; background: #1db87a; transition: width 0.6s ease; }
+    .cov-bar-fill.warn { background: #f6ad2b; }
+    .cov-bar-fill.low  { background: #E1245A; }
+    .cov-meta { font-size: 12px; color: #718096; }
+    .cov-pct-block { flex: 0 0 auto; text-align: right; }
+    .cov-pct { font-size: 32px; font-weight: 700; line-height: 1; }
+    .cov-pct.green { color: #1db87a; }
+    .cov-pct.warn  { color: #b45309; }
+    .cov-pct.low   { color: #E1245A; }
+    .cov-inactive { font-size: 12px; color: #718096; margin-top: 3px; }
+
     /* Metrics */
     .metrics-grid {
       display: grid;
@@ -532,6 +561,22 @@
     </div>
 
     <!-- Metrics -->
+    <!-- Customer coverage banner -->
+    <div class="coverage-banner" id="coverageBanner" style="display:none">
+      <div class="cov-label-block">
+        <div class="cov-label">Customers Trading</div>
+        <div class="cov-fraction"><span id="covActive">—</span> <span>/ <span id="covTotal">—</span></span></div>
+      </div>
+      <div class="cov-bar-block">
+        <div class="cov-bar-wrap"><div class="cov-bar-fill" id="covBar" style="width:0%"></div></div>
+        <div class="cov-meta" id="covMeta"></div>
+      </div>
+      <div class="cov-pct-block">
+        <div class="cov-pct" id="covPct">—</div>
+        <div class="cov-inactive" id="covInactive"></div>
+      </div>
+    </div>
+
     <div class="metrics-grid" id="metricsGrid"></div>
 
     <!-- Tables -->
@@ -724,12 +769,12 @@ async function loadSheetData() {
     } catch { results[s] = null; }
   }
 
-  refData = { customers: {}, products: {}, targets: {} };
+  refData = { customers: {}, products: {}, targets: {}, customerTotal: 0 };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'])   parseTargetSheet(results['Targets']);
 
-  const cc = Object.keys(refData.customers).length;
+  const cc = refData.customerTotal || Object.keys(refData.customers).length;
   const pc = Object.keys(refData.products).length;
   const tc = Object.keys(refData.targets).length;
 
@@ -791,6 +836,7 @@ function parseCustomerSheet(csv) {
     // Also index by the raw code (with leading zeros) so lookup works
     // regardless of how the sheet stores the code
     if(rawTrimmed !== code) refData.customers[rawTrimmed] = entry;
+    refData.customerTotal = (refData.customerTotal || 0) + 1; // count unique rows only
   }
 }
 
@@ -936,6 +982,27 @@ function renderReport(data){
   const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
   const totalLtrs = data.transactions.reduce((s,t)=>s+t.ltrs,0);
   const custCount = new Set(data.transactions.map(t=>t.custCode)).size;
+
+  // Customer coverage banner
+  const totalInSheet = refData.customerTotal || 0;
+  const covBanner = document.getElementById('coverageBanner');
+  if(totalInSheet > 0){
+    covBanner.style.display = 'flex';
+    const inactive = totalInSheet - custCount;
+    const covPct   = Math.round((custCount / totalInSheet) * 100);
+    const colorCls = covPct >= 70 ? 'green' : covPct >= 40 ? 'warn' : 'low';
+    const barCls   = covPct >= 70 ? '' : covPct >= 40 ? 'warn' : 'low';
+    document.getElementById('covActive').textContent  = custCount.toLocaleString();
+    document.getElementById('covTotal').textContent   = totalInSheet.toLocaleString();
+    document.getElementById('covBar').style.width     = covPct + '%';
+    document.getElementById('covBar').className       = 'cov-bar-fill ' + barCls;
+    document.getElementById('covPct').textContent     = covPct + '%';
+    document.getElementById('covPct').className       = 'cov-pct ' + colorCls;
+    document.getElementById('covMeta').textContent    = `${custCount} active out of ${totalInSheet} customers in database`;
+    document.getElementById('covInactive').textContent= inactive > 0 ? `${inactive} not trading this period` : 'All customers active ✓';
+  } else {
+    covBanner.style.display = 'none';
+  }
   const overallTgtAmt = Object.values(refData.targets).reduce((s,t)=>s+(t.ksh||0),0);
   const overallTgtLtr = Object.values(refData.targets).reduce((s,t)=>s+(t.ltrs||0),0);
   const missingArr = Object.values(data.missingCustomers).sort((a,b)=>b.amount-a.amount);
