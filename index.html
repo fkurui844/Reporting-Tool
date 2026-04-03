@@ -670,12 +670,19 @@ let pendingDelete = null;
 // ═══════════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════════
+let customersLoaded = false;
+
 function switchPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page' + cap(page)).classList.add('active');
   document.getElementById('nav' + cap(page)).classList.add('active');
-  if (page === 'customers' && !allCustomers.length) loadCustomers();
+  
+  // Only load customers the first time the tab is opened
+  if (page === 'customers' && !customersLoaded) {
+    customersLoaded = true;
+    loadCustomers();
+  }
 }
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
@@ -1004,12 +1011,23 @@ function resetUpload(){
 // ═══════════════════════════════════════════════════════
 function loadCustomers(){
   document.getElementById('custTableWrap').innerHTML='<div class="state-box"><div class="spinner"></div><p>Loading from Google Sheet…</p></div>';
+  
+  // Show timeout warning after 8 seconds
+  const timeoutWarn = setTimeout(() => {
+    const wrap = document.getElementById('custTableWrap');
+    if (wrap.querySelector('.spinner')) {
+      wrap.innerHTML = '<div class="state-box"><div class="icon">⏳</div><p>Still loading…</p><small>This can take up to 30s on first load. Please wait.</small></div>';
+    }
+  }, 8000);
+
   google.script.run
-    .withSuccessHandler(onCustomersLoaded)
-    .withFailureHandler(e=>{ document.getElementById('custTableWrap').innerHTML=`<div class="state-box"><div class="icon">⚠️</div><p>${e.message}</p></div>`; })
+    .withSuccessHandler(data => { clearTimeout(timeoutWarn); onCustomersLoaded(data); })
+    .withFailureHandler(e => {
+      clearTimeout(timeoutWarn);
+      document.getElementById('custTableWrap').innerHTML=`<div class="state-box"><div class="icon">⚠️</div><p>Failed to load</p><small>${e.message}</small></div>`;
+    })
     .getAllCustomers();
 }
-
 function onCustomersLoaded(data){
   allCustomers=data;
   const vol=data.reduce((s,c)=>s+(Number(c.ltrsKgs)||0),0);
@@ -1153,7 +1171,9 @@ document.getElementById('formOverlay').addEventListener('click',function(e){if(e
 document.getElementById('delOverlay').addEventListener('click',function(e){if(e.target===this)closeDelModal();});
 
 // Init
+// Init — only load sheet reference data, NOT customers yet
 loadSheetData();
+// Do NOT call loadCustomers() here — wait until tab is clicked
 </script>
 </body>
 </html>
