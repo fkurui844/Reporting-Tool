@@ -305,7 +305,7 @@
     /* Tables grid */
     .tables-grid {
       display: grid;
-      grid-template-columns: 1.3fr 2fr 1.2fr;
+      grid-template-columns: 1.5fr 2fr 1.2fr;
       gap: 14px;
       margin-bottom: 20px;
     }
@@ -347,6 +347,7 @@
     }
     th:last-child, td:last-child { text-align: right; }
     th:nth-child(2), td:nth-child(2) { text-align: right; }
+    .tbl-card td:first-child { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     td {
       padding: 6px 10px;
       border-bottom: 1px solid #f0f2f5;
@@ -1393,7 +1394,7 @@ function renderReport(data){
     return `<div class="tbl-card">
       <div class="tbl-card-head ${headCls}">${title}</div>
       <table>
-        <colgroup><col style="width:40%"><col style="width:25%"><col style="width:35%"></colgroup>
+        <colgroup><col style="width:35%"><col style="width:28%"><col style="width:37%"></colgroup>
         <thead><tr><th>${title.replace('By ','')}</th><th>Ltrs/Kgs</th><th>Amt KSH</th></tr></thead>
         <tbody>${tRows}${foot}</tbody>
       </table>
