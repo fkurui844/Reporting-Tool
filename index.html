@@ -797,7 +797,7 @@ const SHEET_ID = '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8';
 
 async function loadSheetData() {
   setSheetDot('loading', 'Loading reference data from Google Sheet…');
-  const sheets = ['Customers', 'Product', 'Targets'];
+  const sheets = ['Customers', 'Product', 'Targets', 'Target'];
   const results = {};
 
   for (const s of sheets) {
@@ -811,7 +811,7 @@ async function loadSheetData() {
   refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {} };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
-  if (results['Targets'])   parseTargetSheet(results['Targets']);
+  if (results['Targets']||results['Target']) parseTargetSheet(results['Targets']||results['Target']);
 
   const cc = refData.customerTotal || Object.keys(refData.customers).length;
   const pc = Object.keys(refData.products).length;
@@ -1114,8 +1114,8 @@ function renderReport(data){
   const regionTgtAmt  = Object.values(refData.targets).reduce((s,t)=>s+(t.ksh||0),0);
   const regionTgtLtr  = Object.values(refData.targets).reduce((s,t)=>s+(t.ltrs||0),0);
   // Use grandTarget (from Targets sheet GRAND TOTALS row) as the primary overall target
-  const overallTgtAmt = refData.grandTarget?.ksh  || regionTgtAmt;
-  const overallTgtLtr = refData.grandTarget?.ltrs || regionTgtLtr;
+  const overallTgtAmt = refData.grandTarget !== null ? refData.grandTarget.ksh  : regionTgtAmt;
+  const overallTgtLtr = refData.grandTarget !== null ? refData.grandTarget.ltrs : regionTgtLtr;
   const missingArr = Object.values(data.missingCustomers).sort((a,b)=>b.amount-a.amount);
   lastMissing = missingArr;
 
@@ -1162,15 +1162,17 @@ function renderReport(data){
     const isByCategory = title==='By Category';
     // Per-category targets if available, otherwise fall back to grand target
     const hasCatTargets = Object.keys(refData.categoryTargets).length > 0;
-    const tA = isByRegion   ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ksh||0),0)
+    const regionTgts = isByRegion ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ksh||0),0) : 0;
+    const regionLtrs = isByRegion ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ltrs||0),0) : 0;
+    const tA = isByRegion   ? (regionTgts || overallTgtAmt)   // fall back to grand target if no per-region targets
              : isByCategory ? (hasCatTargets
                                ? rows.reduce((s,[n])=>s+(refData.categoryTargets[n]?.ksh||0),0)
-                               : (refData.grandTarget?.ksh || overallTgtAmt))
+                               : overallTgtAmt)
              : overallTgtAmt;
-    const tL = isByRegion   ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ltrs||0),0)
+    const tL = isByRegion   ? (regionLtrs || overallTgtLtr)
              : isByCategory ? (hasCatTargets
                                ? rows.reduce((s,[n])=>s+(refData.categoryTargets[n]?.ltrs||0),0)
-                               : (refData.grandTarget?.ltrs || overallTgtLtr))
+                               : overallTgtLtr)
              : overallTgtLtr;
     const tRows=rows.map(([n,d])=>{
       let pctBadge='';
@@ -1184,10 +1186,16 @@ function renderReport(data){
       }
       return `<tr><td title="${n}">${n}${pctBadge}</td><td>${fmt(d.ltrs)}</td><td>${fmt(d.amount)}</td></tr>`;
     }).join('');
+    const pctA = tA>0 ? Math.round((totA/tA)*100) : null;
+    const pctL = tL>0 ? Math.round((totL/tL)*100) : null;
+    const pctColor = (p) => p===null?'inherit':p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
     const foot=(tA||tL)?`
       <tr class="total-row"><td>TOTALS</td><td>${fmt(totL)}</td><td>${fmt(totA)}</td></tr>
       <tr class="target-row"><td>MTD TARGET</td><td>${tL?fmt(tL):'—'}</td><td>${tA?fmt(tA):'—'}</td></tr>
-      <tr class="pct-row"><td>% ACHIEVED</td><td>${tL?pct(totL,tL):'—'}</td><td>${tA?pct(totA,tA):'—'}</td></tr>`
+      <tr class="pct-row"><td>% ACHIEVED</td>
+        <td style="color:${pctColor(pctL)};font-weight:700">${pctL!==null?pctL+'%':'—'}</td>
+        <td style="color:${pctColor(pctA)};font-weight:700">${pctA!==null?pctA+'%':'—'}</td>
+      </tr>`
       :`<tr class="total-row"><td>TOTALS</td><td>${fmt(totL)}</td><td>${fmt(totA)}</td></tr>`;
     return `<div class="tbl-card">
       <div class="tbl-card-head ${headCls}">${title}</div>
