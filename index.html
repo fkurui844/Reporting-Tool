@@ -1271,6 +1271,16 @@ function renderReport(data){
   const revTgtHtml = tgtHtml(totalAmt, overallTgtAmt);
   const volTgtHtml = tgtHtml(totalLtrs, overallTgtLtr);
 
+  // MTD Sales vs Target card values
+  const mtdPctVal  = overallTgtAmt > 0 ? Math.round((totalAmt / overallTgtAmt) * 100) : null;
+  const mtdBarW    = mtdPctVal !== null ? Math.min(mtdPctVal, 100) : 0;
+  const mtdColor   = mtdPctVal === null ? '#718096' : mtdPctVal >= 100 ? '#1db87a' : mtdPctVal >= 70 ? '#f6ad2b' : '#E1245A';
+  const mtdCls     = mtdPctVal === null ? '' : mtdPctVal >= 100 ? 'green' : mtdPctVal >= 70 ? 'warn' : 'red';
+  const mtdHtml    = mtdPctVal !== null
+    ? `<div class="m-bar-wrap"><div class="m-bar-fill" style="width:${mtdBarW}%;background:${mtdColor}"></div></div>
+       <div class="m-tgt"><span>Target: ${fmt(overallTgtAmt)}</span><strong style="color:${mtdColor}">${mtdPctVal}%</strong></div>`
+    : `<div class="m-sub" style="color:#e53e3e;font-size:11px;">⚠ No target loaded — check Targets sheet</div>`;
+
   document.getElementById('metricsGrid').innerHTML=`
     <div class="metric-card red">
       <div class="m-label">Total Sales (KSH)</div>
@@ -1298,6 +1308,11 @@ function renderReport(data){
       <div class="m-value">100%</div>
       <div class="m-sub">All customers matched ✓</div>
     </div>`}
+    <div class="metric-card ${mtdCls}" style="border-left-color:${mtdColor}">
+      <div class="m-label">MTD Sales vs Target</div>
+      <div class="m-value" style="color:${mtdColor}">${mtdPctVal !== null ? mtdPctVal + '%' : '—'}</div>
+      ${mtdHtml}
+    </div>
   `;
 
   // Tables
