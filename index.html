@@ -166,6 +166,58 @@
     }
     .btn-upload-again:hover { background: #f0f2f5; }
 
+
+    /* ── Achievement banner ── */
+    .achievement-banner {
+      display: none;
+      background: white;
+      border: 1px solid #dde3ec;
+      border-radius: 10px;
+      padding: 18px 24px;
+      margin-bottom: 16px;
+      gap: 0;
+    }
+    .ach-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .ach-label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .ach-pct {
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -1px;
+    }
+    .ach-pct.green { color: #1db87a; }
+    .ach-pct.warn  { color: #b45309; }
+    .ach-pct.low   { color: #E1245A; }
+    .ach-stats {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .ach-stat { text-align: right; }
+    .ach-stat-label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; }
+    .ach-stat-vals { font-size: 13px; color: #1a202c; margin-top: 2px; }
+    .ach-stat-vals strong { color: #0f2744; font-size: 15px; }
+    .ach-stat-vals span { color: #718096; }
+    .ach-bar-wrap { height: 12px; background: #f0f2f5; border-radius: 99px; overflow: hidden; }
+    .ach-bar-fill { height: 12px; border-radius: 99px; transition: width 0.7s ease; position: relative; }
+    .ach-bar-fill::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(90deg,rgba(255,255,255,0.15) 0%,rgba(255,255,255,0) 100%);
+      border-radius: 99px;
+    }
+    .ach-dual { display: flex; gap: 14px; }
+    .ach-dual > div { flex: 1; }
+    .ach-sub-label { font-size: 11px; color: #718096; margin-bottom: 5px; display: flex; justify-content: space-between; }
+
     /* Customer coverage banner */
     .coverage-banner {
       background: white;
@@ -613,6 +665,36 @@
       </div>
       <div class="cov-breakdown" id="covBreakdownChannel">
         <div class="cov-breakdown-grid" id="covBreakdownGridChannel"></div>
+      </div>
+    </div>
+
+    <!-- Achievement banner -->
+    <div class="achievement-banner" id="achievementBanner">
+      <div class="ach-top">
+        <div>
+          <div class="ach-label">MTD Achievement</div>
+          <div class="ach-pct" id="achPct">—</div>
+        </div>
+        <div class="ach-stats">
+          <div class="ach-stat">
+            <div class="ach-stat-label">Revenue (KSH)</div>
+            <div class="ach-stat-vals"><strong id="achRevAct">—</strong> <span>/ <span id="achRevTgt">—</span></span></div>
+          </div>
+          <div class="ach-stat">
+            <div class="ach-stat-label">Volume (Ltrs/Kgs)</div>
+            <div class="ach-stat-vals"><strong id="achVolAct">—</strong> <span>/ <span id="achVolTgt">—</span></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="ach-dual">
+        <div>
+          <div class="ach-sub-label"><span>Revenue</span><span id="achRevPct">—</span></div>
+          <div class="ach-bar-wrap"><div class="ach-bar-fill" id="achRevBar" style="width:0%"></div></div>
+        </div>
+        <div>
+          <div class="ach-sub-label"><span>Volume</span><span id="achVolPct">—</span></div>
+          <div class="ach-bar-wrap"><div class="ach-bar-fill" id="achVolBar" style="width:0%"></div></div>
+        </div>
       </div>
     </div>
 
@@ -1135,6 +1217,30 @@ function renderReport(data){
   // Use grandTarget (from Targets sheet GRAND TOTALS row) as the primary overall target
   const overallTgtAmt = refData.grandTarget !== null ? refData.grandTarget.ksh  : regionTgtAmt;
   const overallTgtLtr = refData.grandTarget !== null ? refData.grandTarget.ltrs : regionTgtLtr;
+
+  // Achievement banner
+  const achBanner = document.getElementById('achievementBanner');
+  if (overallTgtAmt > 0 || overallTgtLtr > 0) {
+    achBanner.style.display = 'block';
+    const achRevPct = overallTgtAmt > 0 ? Math.min(Math.round((totalAmt  / overallTgtAmt) * 100), 100) : 0;
+    const achVolPct = overallTgtLtr > 0 ? Math.min(Math.round((totalLtrs / overallTgtLtr) * 100), 100) : 0;
+    const achPctVal = overallTgtAmt > 0 ? Math.round((totalAmt / overallTgtAmt) * 100) : achVolPct;
+    const cls       = achPctVal >= 100 ? 'green' : achPctVal >= 70 ? 'warn' : 'low';
+    const barColor  = achPctVal >= 100 ? '#1db87a' : achPctVal >= 70 ? '#f6ad2b' : '#E1245A';
+
+    document.getElementById('achPct').textContent    = achPctVal + '%';
+    document.getElementById('achPct').className      = 'ach-pct ' + cls;
+    document.getElementById('achRevAct').textContent = fmt(totalAmt);
+    document.getElementById('achRevTgt').textContent = fmt(overallTgtAmt);
+    document.getElementById('achVolAct').textContent = fmt(totalLtrs);
+    document.getElementById('achVolTgt').textContent = fmt(overallTgtLtr);
+    document.getElementById('achRevPct').textContent = overallTgtAmt > 0 ? Math.round((totalAmt  / overallTgtAmt) * 100) + '%' : '—';
+    document.getElementById('achVolPct').textContent = overallTgtLtr > 0 ? Math.round((totalLtrs / overallTgtLtr) * 100) + '%' : '—';
+    document.getElementById('achRevBar').style.cssText = `width:${achRevPct}%;background:${barColor}`;
+    document.getElementById('achVolBar').style.cssText = `width:${achVolPct}%;background:${barColor}`;
+  } else {
+    achBanner.style.display = 'none';
+  }
   const missingArr = Object.values(data.missingCustomers).sort((a,b)=>b.amount-a.amount);
   lastMissing = missingArr;
 
