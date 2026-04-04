@@ -769,6 +769,7 @@ let refData       = { customers: {}, products: {}, targets: {} };
 let allCustomers  = [];
 let lastMissing   = [];
 let isEditMode    = false;
+let editingSapCode = '';  // holds SAP code during edit — avoids reading disabled field
 let pendingDelete = null;
 
 // ═══════════════════════════════════════════════════════
@@ -1391,6 +1392,7 @@ function openAddModal(){
 
 function openEditModal(c){
   isEditMode=true;
+  editingSapCode=c.sapCode;
   document.getElementById('modalTitle').textContent='Edit Customer';
   document.getElementById('saveBtnText').textContent='Save Changes';
   document.getElementById('fSap').value=c.sapCode; document.getElementById('fSap').disabled=true;
@@ -1404,10 +1406,11 @@ function openEditModal(c){
   setTimeout(()=>document.getElementById('fName').focus(),100);
 }
 
-function closeModal(){ document.getElementById('formOverlay').classList.remove('open'); }
+function closeModal(){ document.getElementById('formOverlay').classList.remove('open'); editingSapCode=''; }
 
 function saveCustomer(){
-  const sap=document.getElementById('fSap').value.trim();
+  // In edit mode use the stored variable — never read from a disabled input
+  const sap=(isEditMode ? editingSapCode : document.getElementById('fSap').value).trim();
   const name=document.getElementById('fName').value.trim();
   if(!sap||!name){ showToast('SAP Code and Name are required.','err'); return; }
   const payload={
