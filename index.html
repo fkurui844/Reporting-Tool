@@ -808,7 +808,7 @@ async function loadSheetData() {
     } catch { results[s] = null; }
   }
 
-  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, customerTotal: 0, regionTotals: {}, channelTotals: {} };
+  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {} };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'])   parseTargetSheet(results['Targets']);
@@ -917,7 +917,15 @@ function parseTargetSheet(csv) {
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
     const raw=keyIdx>=0?(cols[keyIdx]||'').trim().toUpperCase():'';
-    if(!raw||raw==='GRAND TOTALS'||raw==='TOTAL'||raw==='TOTALS')continue;
+    if(!raw) continue;
+    // Capture grand totals row as overall target
+    if(raw==='GRAND TOTALS'||raw==='TOTALS'||raw==='TOTAL'){
+      refData.grandTarget={
+        ksh:  kIdx>=0?parseFloat((cols[kIdx]||'').replace(/,/g,''))||0:0,
+        ltrs: lIdx>=0?parseFloat((cols[lIdx]||'').replace(/,/g,''))||0:0,
+      };
+      continue;
+    }
     const entry={
       ksh:  kIdx>=0?parseFloat((cols[kIdx]||'').replace(/,/g,''))||0:0,
       ltrs: lIdx>=0?parseFloat((cols[lIdx]||'').replace(/,/g,''))||0:0,
@@ -1103,8 +1111,11 @@ function renderReport(data){
   } else {
     covBanner.style.display = 'none';
   }
-  const overallTgtAmt = Object.values(refData.targets).reduce((s,t)=>s+(t.ksh||0),0);
-  const overallTgtLtr = Object.values(refData.targets).reduce((s,t)=>s+(t.ltrs||0),0);
+  const regionTgtAmt  = Object.values(refData.targets).reduce((s,t)=>s+(t.ksh||0),0);
+  const regionTgtLtr  = Object.values(refData.targets).reduce((s,t)=>s+(t.ltrs||0),0);
+  // Use grandTarget (from Targets sheet GRAND TOTALS row) as the primary overall target
+  const overallTgtAmt = refData.grandTarget?.ksh  || regionTgtAmt;
+  const overallTgtLtr = refData.grandTarget?.ltrs || regionTgtLtr;
   const missingArr = Object.values(data.missingCustomers).sort((a,b)=>b.amount-a.amount);
   lastMissing = missingArr;
 
@@ -1149,15 +1160,21 @@ function renderReport(data){
     const totL=rows.reduce((s,[,d])=>s+d.ltrs,0), totA=rows.reduce((s,[,d])=>s+d.amount,0);
     const isByRegion   = title==='By Region';
     const isByCategory = title==='By Category';
+    // Per-category targets if available, otherwise fall back to grand target
+    const hasCatTargets = Object.keys(refData.categoryTargets).length > 0;
     const tA = isByRegion   ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ksh||0),0)
-             : isByCategory ? rows.reduce((s,[n])=>s+(refData.categoryTargets[n]?.ksh||0),0)
+             : isByCategory ? (hasCatTargets
+                               ? rows.reduce((s,[n])=>s+(refData.categoryTargets[n]?.ksh||0),0)
+                               : (refData.grandTarget?.ksh || overallTgtAmt))
              : overallTgtAmt;
     const tL = isByRegion   ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ltrs||0),0)
-             : isByCategory ? rows.reduce((s,[n])=>s+(refData.categoryTargets[n]?.ltrs||0),0)
+             : isByCategory ? (hasCatTargets
+                               ? rows.reduce((s,[n])=>s+(refData.categoryTargets[n]?.ltrs||0),0)
+                               : (refData.grandTarget?.ltrs || overallTgtLtr))
              : overallTgtLtr;
     const tRows=rows.map(([n,d])=>{
       let pctBadge='';
-      if(isByCategory && refData.categoryTargets[n]){
+      if(isByCategory && hasCatTargets && refData.categoryTargets[n]){
         const ct=refData.categoryTargets[n];
         const p=ct.ksh>0?Math.round((d.amount/ct.ksh)*100):null;
         if(p!==null){
