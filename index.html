@@ -1344,53 +1344,60 @@ function renderReport(data){
              : overallTgtLtr;
     const pctColor = (p) => p===null?'inherit':p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
 
-    // ── By Category: 5-column layout with per-row Vol% and Rev% ──
+    // ── By Category: grouped rows showing Actual vs Target per category ──
     if (isByCategory && hasCatTargets) {
       const tRows = rows.map(([n,d]) => {
         const normN = normalizeCat(n);
         const ct = refData.categoryTargets[normN] || refData.categoryTargets[n];
         const pRev = ct && ct.ksh  > 0 ? Math.round((d.amount / ct.ksh)  * 100) : null;
         const pVol = ct && ct.ltrs > 0 ? Math.round((d.ltrs   / ct.ltrs) * 100) : null;
-        const revCell = pRev !== null
+        const revBadge = pRev !== null
           ? `<span style="font-weight:700;color:${pctColor(pRev)}">${pRev}%</span>`
           : `<span style="color:#ccc">—</span>`;
-        const volCell = pVol !== null
+        const volBadge = pVol !== null
           ? `<span style="font-weight:700;color:${pctColor(pVol)}">${pVol}%</span>`
           : `<span style="color:#ccc">—</span>`;
-        return `<tr>
-          <td title="${n}" style="max-width:0">${n}</td>
-          <td style="text-align:right">${fmt(d.ltrs)}</td>
-          <td style="text-align:right">${volCell}</td>
-          <td style="text-align:right">${fmt(d.amount)}</td>
-          <td style="text-align:right">${revCell}</td>
-        </tr>`;
+        const tVolFmt = ct && ct.ltrs ? fmt(ct.ltrs) : '—';
+        const tAmtFmt = ct && ct.ksh  ? fmt(ct.ksh)  : '—';
+        return `
+          <tr style="border-bottom:none">
+            <td rowspan="2" style="vertical-align:middle;font-weight:600;border-bottom:1px solid #f0f2f5;padding-right:4px">${n}</td>
+            <td style="text-align:right;color:#718096;font-size:11px;padding-bottom:1px">Actual</td>
+            <td style="text-align:right;font-weight:600">${fmt(d.ltrs)}</td>
+            <td style="text-align:right">${volBadge}</td>
+            <td style="text-align:right;font-weight:600">${fmt(d.amount)}</td>
+            <td style="text-align:right">${revBadge}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #f0f2f5">
+            <td style="text-align:right;color:#718096;font-size:11px;padding-top:1px">Target</td>
+            <td style="text-align:right;color:#718096;font-size:11px">${tVolFmt}</td>
+            <td></td>
+            <td style="text-align:right;color:#718096;font-size:11px">${tAmtFmt}</td>
+            <td></td>
+          </tr>`;
       }).join('');
       const pctA = tA>0 ? Math.round((totA/tA)*100) : null;
       const pctL = tL>0 ? Math.round((totL/tL)*100) : null;
       const foot = `
         <tr class="total-row">
-          <td>TOTALS</td>
-          <td style="text-align:right">${fmt(totL)}</td><td></td>
-          <td style="text-align:right">${fmt(totA)}</td><td></td>
+          <td colspan="2">TOTALS</td>
+          <td style="text-align:right">${fmt(totL)}</td>
+          <td style="text-align:right;color:${pctColor(pctL)};font-weight:700">${pctL!==null?pctL+'%':'—'}</td>
+          <td style="text-align:right">${fmt(totA)}</td>
+          <td style="text-align:right;color:${pctColor(pctA)};font-weight:700">${pctA!==null?pctA+'%':'—'}</td>
         </tr>
         <tr class="target-row">
-          <td>MTD TARGET</td>
+          <td colspan="2">MTD TARGET</td>
           <td style="text-align:right">${tL?fmt(tL):'—'}</td><td></td>
           <td style="text-align:right">${tA?fmt(tA):'—'}</td><td></td>
-        </tr>
-        <tr class="pct-row">
-          <td>% ACHIEVED</td>
-          <td style="text-align:right">${pctL!==null?fmt(totL):'—'}</td>
-          <td style="text-align:right;color:${pctColor(pctL)};font-weight:700">${pctL!==null?pctL+'%':'—'}</td>
-          <td style="text-align:right">${pctA!==null?fmt(totA):'—'}</td>
-          <td style="text-align:right;color:${pctColor(pctA)};font-weight:700">${pctA!==null?pctA+'%':'—'}</td>
         </tr>`;
       return `<div class="tbl-card">
         <div class="tbl-card-head ${headCls}">${title}</div>
         <table>
-          <colgroup><col style="width:28%"><col style="width:17%"><col style="width:10%"><col style="width:20%"><col style="width:10%"></colgroup>
+          <colgroup><col style="width:22%"><col style="width:9%"><col style="width:16%"><col style="width:9%"><col style="width:19%"><col style="width:9%"></colgroup>
           <thead><tr>
             <th>Category</th>
+            <th></th>
             <th style="text-align:right">Ltrs/Kgs</th>
             <th style="text-align:right">Vol%</th>
             <th style="text-align:right">Amt KSH</th>
