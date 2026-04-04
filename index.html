@@ -902,6 +902,22 @@ function parseProductSheet(csv) {
   }
 }
 
+// Normalize category names so minor variations match (YOGHURTS↔YOGHURT, POWDER MILK↔POWDER)
+function normalizeCat(s){
+  s = s.toUpperCase().trim();
+  // Collapse common aliases to canonical names used in SAP/Product sheet
+  const MAP = {
+    'YOGHURTS':'YOGHURT','YOGURT':'YOGHURT',
+    'POWDER MILK':'POWDER','POWDERED MILK':'POWDER','MILK POWDER':'POWDER',
+    'FRESH MILK':'FRESH MILK',
+    'TCA FACOH':'TCA/FACOH','TCA FACOHN':'TCA/FACOH',
+    'LACTOSE FREE':'LACTOSE',
+    'ESL':'ESL','UHT':'UHT','TFA':'TFA','MALA':'MALA','GHEE':'GHEE',
+    'BUTTER':'BUTTER','CHEESE':'CHEESE','WATER':'WATER','SHAKES':'SHAKES',
+  };
+  return MAP[s] || s;
+}
+
 function parseTargetSheet(csv) {
   const lines=csv.trim().split('\n');
   const hdrs=parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
@@ -910,10 +926,12 @@ function parseTargetSheet(csv) {
   const regIdx  = findCol(hdrs,['region','location','territory','area','zone','name']);
   const keyIdx  = catIdx >= 0 ? catIdx : regIdx; // prefer category column if present
   const isCat   = catIdx >= 0;
-  // Revenue: "target in rev", "revenue", "ksh", "amount", "value", "sales"
-  const kIdx = findCol(hdrs,['rev','revenue','ksh','amount','value','sales']);
-  // Volume: "target in vol", "vol", "ltr", "kg", "litre", "volume", "qty"
-  const lIdx = findCol(hdrs,['vol','ltr','kg','litre','volume','qty','quantity']);
+  // Revenue: look for 'ksh' first, then other revenue keywords
+  // NOTE: search right-to-left through headers to prefer the last matching column when ambiguous
+  const kIdx = findCol(hdrs,['in ksh','target in ksh','monthly target in ksh','ksh','rev','revenue','amount','value','sales']);
+  // Volume: look for 'vol' or 'ltrs' before 'kg' to avoid false match on 'ksh'
+  const lIdx = findCol(hdrs,['in vol','target in vol','monthly target in vol','ltrs kgs','vol','ltr','litre','volume','qty','quantity','kg']);
+  console.log('[Targets] Headers:', hdrs, '| catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
     const raw=keyIdx>=0?(cols[keyIdx]||'').trim().toUpperCase():'';
@@ -930,7 +948,7 @@ function parseTargetSheet(csv) {
       ksh:  kIdx>=0?parseFloat((cols[kIdx]||'').replace(/,/g,''))||0:0,
       ltrs: lIdx>=0?parseFloat((cols[lIdx]||'').replace(/,/g,''))||0:0,
     };
-    if(isCat) refData.categoryTargets[raw]=entry;
+    if(isCat) { const normKey=normalizeCat(raw); refData.categoryTargets[normKey]=entry; if(normKey!==raw) refData.categoryTargets[raw]=entry; }
     else       refData.targets[raw]=entry;
   }
 }
@@ -1025,7 +1043,7 @@ function parseSAP(text){
 
 function inferRegion(c){const m={C21:'NAKURU',C22:'ELDORET',C23:'NAIROBI SOUTH',C24:'KA TIER I',C25:'MOMBASA',C26:'KISUMU',C27:'KA TIER II',C28:'EASTERN',C29:'NANYUKI',C36:'SOTIK',C89:'INST/EXPO'};return m[c]||'UNKNOWN';}
 function inferChannel(c){const m={C21:'DISTRIBUTOR',C22:'DISTRIBUTOR',C23:'SALESMAN',C24:'MT TIER (I/II)',C25:'INSTITUTION',C26:'WHOLESALER',C27:'SALESMAN',C28:'SALESMAN',C89:'INSTITUTION'};return m[c]||'UNKNOWN';}
-function inferCategory(d){d=d.toUpperCase();if(d.includes('YOGHURT')||d.includes('YOGURT'))return'YOGHURT';if(d.includes('MALA'))return'MALA';if(d.includes('BUTTER'))return'BUTTER';if(d.includes('CHEESE'))return'CHEESE';if(d.includes('GHEE'))return'GHEE';if(d.includes('UHT'))return'UHT';if(d.includes('FRESH'))return'FRESH MILK';if(d.includes('POWDER')||d.includes('FORTIFIED'))return'POWDER MILK';if(d.includes('WATER'))return'WATER';return'OTHER';}
+function inferCategory(d){d=d.toUpperCase();if(d.includes('YOGHURT')||d.includes('YOGURT'))return'YOGHURT';if(d.includes('MALA'))return'MALA';if(d.includes('BUTTER'))return'BUTTER';if(d.includes('CHEESE'))return'CHEESE';if(d.includes('GHEE'))return'GHEE';if(d.includes('UHT'))return'UHT';if(d.includes('FRESH'))return'FRESH MILK';if(d.includes('POWDER')||d.includes('FORTIFIED'))return'POWDER';if(d.includes('WATER'))return'WATER';if(d.includes('SHAKES')||d.includes('SHAKE'))return'SHAKES';if(d.includes('LACTOSE'))return'LACTOSE';if(d.includes('ESL'))return'ESL';if(d.includes('TFA'))return'TFA';return'OTHER';}
 function inferLtrs(d){d=d.toUpperCase();if(d.includes('2DCL')||d.includes('200ML'))return 0.2;if(d.includes('1/2')||d.includes('500ML'))return 0.5;if(d.includes('250ML'))return 0.25;if(d.includes('1LT')||d.includes('1 LT'))return 1;if(d.includes('2LT'))return 2;return 1;}
 
 // ═══════════════════════════════════════════════════════
@@ -1166,18 +1184,19 @@ function renderReport(data){
     const regionLtrs = isByRegion ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ltrs||0),0) : 0;
     const tA = isByRegion   ? (regionTgts || overallTgtAmt)   // fall back to grand target if no per-region targets
              : isByCategory ? (hasCatTargets
-                               ? rows.reduce((s,[n])=>s+(refData.categoryTargets[n]?.ksh||0),0)
+                               ? rows.reduce((s,[n])=>s+((refData.categoryTargets[normalizeCat(n)]||refData.categoryTargets[n])?.ksh||0),0)
                                : overallTgtAmt)
              : overallTgtAmt;
     const tL = isByRegion   ? (regionLtrs || overallTgtLtr)
              : isByCategory ? (hasCatTargets
-                               ? rows.reduce((s,[n])=>s+(refData.categoryTargets[n]?.ltrs||0),0)
+                               ? rows.reduce((s,[n])=>s+((refData.categoryTargets[normalizeCat(n)]||refData.categoryTargets[n])?.ltrs||0),0)
                                : overallTgtLtr)
              : overallTgtLtr;
     const tRows=rows.map(([n,d])=>{
       let pctBadge='';
-      if(isByCategory && hasCatTargets && refData.categoryTargets[n]){
-        const ct=refData.categoryTargets[n];
+      const normN=normalizeCat(n);
+      if(isByCategory && hasCatTargets && (refData.categoryTargets[normN]||refData.categoryTargets[n])){
+        const ct=refData.categoryTargets[normN]||refData.categoryTargets[n];
         const p=ct.ksh>0?Math.round((d.amount/ct.ksh)*100):null;
         if(p!==null){
           const col=p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
