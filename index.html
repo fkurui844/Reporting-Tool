@@ -295,6 +295,11 @@
     .metric-card.warn { border-left: 3px solid #f6ad2b; }
     .metric-card.warn .m-value { color: #b45309; }
     .metric-card.green{ border-left: 3px solid #1db87a; }
+    .metric-card .m-bar-wrap { height: 5px; background: #f0f2f5; border-radius: 99px; overflow: hidden; margin: 8px 0 6px; }
+    .metric-card .m-bar-fill { height: 5px; border-radius: 99px; transition: width 0.6s ease; }
+    .metric-card .m-tgt { font-size: 11px; color: #718096; display: flex; justify-content: space-between; }
+    .metric-card .m-tgt strong { font-weight: 700; }
+
     .metric-card.green .m-value { color: #1db87a; }
 
     /* Tables grid */
@@ -1249,12 +1254,24 @@ function renderReport(data){
     <div class="metric-card red">
       <div class="m-label">Total Sales (KSH)</div>
       <div class="m-value">${fmt(totalAmt)}</div>
-      ${overallTgtAmt?`<div class="m-sub">${pct(totalAmt,overallTgtAmt)} of MTD target</div>`:''}
+      ${overallTgtAmt ? (() => {
+        const p = Math.round((totalAmt/overallTgtAmt)*100);
+        const w = Math.min(p,100);
+        const col = p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
+        return `<div class="m-bar-wrap"><div class="m-bar-fill" style="width:${w}%;background:${col}"></div></div>
+                <div class="m-tgt"><span>Target: ${fmt(overallTgtAmt)}</span><strong style="color:${col}">${p}%</strong></div>`;
+      })() : ''}
     </div>
     <div class="metric-card red">
       <div class="m-label">Volume (Ltrs/Kgs)</div>
       <div class="m-value">${fmt(totalLtrs)}</div>
-      ${overallTgtLtr?`<div class="m-sub">${pct(totalLtrs,overallTgtLtr)} of MTD target</div>`:''}
+      ${overallTgtLtr ? (() => {
+        const p = Math.round((totalLtrs/overallTgtLtr)*100);
+        const w = Math.min(p,100);
+        const col = p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
+        return `<div class="m-bar-wrap"><div class="m-bar-fill" style="width:${w}%;background:${col}"></div></div>
+                <div class="m-tgt"><span>Target: ${fmt(overallTgtLtr)}</span><strong style="color:${col}">${p}%</strong></div>`;
+      })() : ''}
     </div>
     <div class="metric-card">
       <div class="m-label">Active Customers</div>
