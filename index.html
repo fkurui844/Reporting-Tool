@@ -892,7 +892,13 @@ async function loadSheetData() {
     try {
       const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}`;
       const r = await fetch(url);
-      results[s] = r.ok ? await r.text() : null;
+      if (r.ok) {
+        const txt = await r.text();
+        // gviz returns HTTP 200 even on errors — check it's actually CSV
+        results[s] = (txt && !txt.startsWith('google.') && txt.includes(',')) ? txt : null;
+      } else {
+        results[s] = null;
+      }
     } catch { results[s] = null; }
   }
 
@@ -901,12 +907,15 @@ async function loadSheetData() {
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets']||results['Target']) parseTargetSheet(results['Targets']||results['Target']);
 
-  const cc = refData.customerTotal || Object.keys(refData.customers).length;
-  const pc = Object.keys(refData.products).length;
-  const tc = Object.keys(refData.targets).length;
+  const cc  = refData.customerTotal || Object.keys(refData.customers).length;
+  const pc  = Object.keys(refData.products).length;
+  const tc  = Object.keys(refData.categoryTargets).length || Object.keys(refData.targets).length;
+  const tgt = refData.grandTarget;
+  console.log('[Targets] grandTarget:', tgt, '| categoryTargets:', Object.keys(refData.categoryTargets));
 
   if (cc || pc) {
-    setSheetDot('ok', `Loaded — ${cc} customers, ${pc} products, ${tc} targets.`);
+    const tgtNote = tgt ? ` | MTD target: KSH ${Math.round(tgt.ksh).toLocaleString()}` : ' | ⚠ No target loaded';
+    setSheetDot('ok', `Loaded — ${cc} customers, ${pc} products, ${tc} categories${tgtNote}.`);
   } else {
     setSheetDot('err', 'Could not load sheet. Ensure it is shared as "Anyone with link can view".');
   }
@@ -1020,6 +1029,7 @@ function parseTargetSheet(csv) {
   // Volume: look for 'vol' or 'ltrs' before 'kg' to avoid false match on 'ksh'
   const lIdx = findCol(hdrs,['in vol','target in vol','monthly target in vol','ltrs kgs','vol','ltr','litre','volume','qty','quantity','kg']);
   console.log('[Targets] Headers:', hdrs, '| catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
+  console.log('[Targets] isCat:', isCat, '| keyIdx:', keyIdx);
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
     const raw=keyIdx>=0?(cols[keyIdx]||'').trim().toUpperCase():'';
@@ -1251,7 +1261,7 @@ function renderReport(data){
 
   // Metrics — pre-compute target HTML to avoid nested template literals
   function tgtHtml(actual, target) {
-    if (!target) return '';
+    if (!target) return '<div class="m-sub" style="color:#e53e3e;font-size:11px;">⚠ No target loaded — check Targets sheet</div>';
     const p   = Math.round((actual / target) * 100);
     const w   = Math.min(p, 100);
     const col = p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
