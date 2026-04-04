@@ -602,11 +602,15 @@
         <div class="cov-pct" id="covPct">—</div>
         <div class="cov-inactive" id="covInactive"></div>
       </div>
-      <div style="flex:0 0 auto;">
-        <button class="cov-toggle" id="covToggle" onclick="toggleCovBreakdown()">▼ By Location</button>
+      <div style="flex:0 0 auto;display:flex;gap:6px;">
+        <button class="cov-toggle" id="covToggleRegion" onclick="toggleCovBreakdown('region')">▼ By Location</button>
+        <button class="cov-toggle" id="covToggleChannel" onclick="toggleCovBreakdown('channel')">▼ By Channel</button>
       </div>
-      <div class="cov-breakdown" id="covBreakdown">
-        <div class="cov-breakdown-grid" id="covBreakdownGrid"></div>
+      <div class="cov-breakdown" id="covBreakdownRegion">
+        <div class="cov-breakdown-grid" id="covBreakdownGridRegion"></div>
+      </div>
+      <div class="cov-breakdown" id="covBreakdownChannel">
+        <div class="cov-breakdown-grid" id="covBreakdownGridChannel"></div>
       </div>
     </div>
 
@@ -802,7 +806,7 @@ async function loadSheetData() {
     } catch { results[s] = null; }
   }
 
-  refData = { customers: {}, products: {}, targets: {}, customerTotal: 0, regionTotals: {} };
+  refData = { customers: {}, products: {}, targets: {}, customerTotal: 0, regionTotals: {}, channelTotals: {} };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'])   parseTargetSheet(results['Targets']);
@@ -873,6 +877,8 @@ function parseCustomerSheet(csv) {
       refData.customerTotal = (refData.customerTotal || 0) + 1; // exclude staff from total
       const reg = entry.region || 'UNKNOWN';
       refData.regionTotals[reg] = (refData.regionTotals[reg] || 0) + 1;
+      const chan = entry.channel || 'UNKNOWN';
+      refData.channelTotals[chan] = (refData.channelTotals[chan] || 0) + 1;
     }
   }
 }
@@ -1038,36 +1044,51 @@ function renderReport(data){
     document.getElementById('covMeta').textContent    = `${custCount} active out of ${totalInSheet} customers in database`;
     document.getElementById('covInactive').textContent= inactive > 0 ? `${inactive} not trading this period` : 'All customers active ✓';
 
+    // Helper: build breakdown rows for a given dimension
+    function buildBreakdownRows(totalsMap, activeMap, allKeys){
+      return [...allKeys].map(k => {
+        const total  = totalsMap[k] || 0;
+        const active = activeMap[k] ? activeMap[k].size : 0;
+        const p      = total > 0 ? Math.round((active/total)*100) : null;
+        return { k, total, active, p };
+      }).sort((a,b) => b.total - a.total);
+    }
+    function renderBreakdownGrid(gridId, rows){
+      document.getElementById(gridId).innerHTML = rows.map(({k,total,active,p}) => {
+        const barColor = p === null ? '#dde3ec' : p >= 70 ? '#1db87a' : p >= 40 ? '#f6ad2b' : '#E1245A';
+        const barW     = p !== null ? p : 0;
+        const pLabel   = p !== null ? p+'%' : '—';
+        return `<div class="cov-region-row">
+          <div class="cov-region-top">
+            <span class="cov-region-name" title="${k}">${k}</span>
+            <span class="cov-region-nums"><strong>${active}</strong> / ${total} &nbsp;<span style="color:${barColor};font-weight:700">${pLabel}</span></span>
+          </div>
+          <div class="cov-mini-bar-wrap"><div class="cov-mini-bar" style="width:${barW}%;background:${barColor}"></div></div>
+        </div>`;
+      }).join('');
+    }
+
     // Per-region breakdown
     const regionTotals = refData.regionTotals || {};
-    // Count active (trading) customers per region from transactions
     const activeByRegion = {};
     for(const t of data.transactions){
       const r = t.region || 'UNKNOWN';
       if(!activeByRegion[r]) activeByRegion[r] = new Set();
       activeByRegion[r].add(t.custCode);
     }
-    // Build sorted rows: all regions that have a total in sheet, plus any in SAP not in sheet
     const allRegions = new Set([...Object.keys(regionTotals), ...Object.keys(activeByRegion)]);
-    const regionRows = [...allRegions].map(r => {
-      const total  = regionTotals[r] || 0;
-      const active = activeByRegion[r] ? activeByRegion[r].size : 0;
-      const p      = total > 0 ? Math.round((active/total)*100) : null;
-      return { r, total, active, p };
-    }).sort((a,b) => b.total - a.total);
+    renderBreakdownGrid('covBreakdownGridRegion', buildBreakdownRows(regionTotals, activeByRegion, allRegions));
 
-    document.getElementById('covBreakdownGrid').innerHTML = regionRows.map(({r,total,active,p}) => {
-      const barColor = p === null ? '#dde3ec' : p >= 70 ? '#1db87a' : p >= 40 ? '#f6ad2b' : '#E1245A';
-      const barW     = p !== null ? p : 0;
-      const pLabel   = p !== null ? p+'%' : '—';
-      return `<div class="cov-region-row">
-        <div class="cov-region-top">
-          <span class="cov-region-name" title="${r}">${r}</span>
-          <span class="cov-region-nums"><strong>${active}</strong> / ${total} &nbsp;<span style="color:${barColor};font-weight:700">${pLabel}</span></span>
-        </div>
-        <div class="cov-mini-bar-wrap"><div class="cov-mini-bar" style="width:${barW}%;background:${barColor}"></div></div>
-      </div>`;
-    }).join('');
+    // Per-channel breakdown
+    const channelTotals = refData.channelTotals || {};
+    const activeByChannel = {};
+    for(const t of data.transactions){
+      const c = t.channel || 'UNKNOWN';
+      if(!activeByChannel[c]) activeByChannel[c] = new Set();
+      activeByChannel[c].add(t.custCode);
+    }
+    const allChannels = new Set([...Object.keys(channelTotals), ...Object.keys(activeByChannel)]);
+    renderBreakdownGrid('covBreakdownGridChannel', buildBreakdownRows(channelTotals, activeByChannel, allChannels));
 
   } else {
     covBanner.style.display = 'none';
@@ -1169,11 +1190,20 @@ function renderReport(data){
   } else { mc.style.display='none'; }
 }
 
-function toggleCovBreakdown(){
-  const bd = document.getElementById('covBreakdown');
-  const btn = document.getElementById('covToggle');
-  const open = bd.classList.toggle('open');
-  btn.textContent = open ? '▲ By Location' : '▼ By Location';
+function toggleCovBreakdown(type){
+  const isRegion = type === 'region';
+  const bdId  = isRegion ? 'covBreakdownRegion'  : 'covBreakdownChannel';
+  const btnId = isRegion ? 'covToggleRegion'      : 'covToggleChannel';
+  const label = isRegion ? 'By Location'          : 'By Channel';
+  // Close the other panel first
+  const otherId  = isRegion ? 'covBreakdownChannel'  : 'covBreakdownRegion';
+  const otherBtn = isRegion ? 'covToggleChannel'      : 'covToggleRegion';
+  const otherLbl = isRegion ? 'By Channel'            : 'By Location';
+  document.getElementById(otherId).classList.remove('open');
+  document.getElementById(otherBtn).textContent = '▼ ' + otherLbl;
+  // Toggle this panel
+  const open = document.getElementById(bdId).classList.toggle('open');
+  document.getElementById(btnId).textContent = (open ? '▲ ' : '▼ ') + label;
 }
 
 function groupBy(arr,key){
