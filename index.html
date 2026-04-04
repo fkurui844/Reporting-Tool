@@ -1094,7 +1094,15 @@ function parseSAP(text){
   const lines=text.split(/\r?\n/);
   const result={period:'',transactions:[],missingCustomers:{},incompleteCustomers:{}};
   const pm=(lines[0]||'').match(/(\d{2}\.\d{2}\.\d{4})\s+TO\s+(\d{2}\.\d{2}\.\d{4})/);
-  if(pm)result.period=`${pm[1]} – ${pm[2]}`;
+  if(pm){
+    result.period=`${pm[1]} – ${pm[2]}`;
+    // Parse DD.MM.YYYY dates and compute elapsed days (inclusive)
+    const [d1,m1,y1]=pm[1].split('.').map(Number);
+    const [d2,m2,y2]=pm[2].split('.').map(Number);
+    const dateFrom=new Date(y1,m1-1,d1);
+    const dateTo  =new Date(y2,m2-1,d2);
+    result.days = Math.round((dateTo - dateFrom) / 86400000) + 1; // inclusive
+  }
   let curCust=null;
   for(let i=0;i<lines.length;i++){
     const line=lines[i];
@@ -1232,6 +1240,10 @@ function renderReport(data){
   // Use grandTarget (from Targets sheet GRAND TOTALS row) as the primary overall target
   const overallTgtAmt = refData.grandTarget !== null ? refData.grandTarget.ksh  : regionTgtAmt;
   const overallTgtLtr = refData.grandTarget !== null ? refData.grandTarget.ltrs : regionTgtLtr;
+  // Pro-rated target: monthly target / 30 * elapsed days from the file period
+  const elapsedDays = data.days || null;
+  const mtdProAmt   = (overallTgtAmt > 0 && elapsedDays) ? Math.round((overallTgtAmt / 30) * elapsedDays) : null;
+  const mtdProLtr   = (overallTgtLtr > 0 && elapsedDays) ? Math.round((overallTgtLtr / 30) * elapsedDays) : null;
 
   // Achievement banner
   const achBanner = document.getElementById('achievementBanner');
@@ -1272,13 +1284,14 @@ function renderReport(data){
   const volTgtHtml = tgtHtml(totalLtrs, overallTgtLtr);
 
   // MTD Sales vs Target card values
-  const mtdPctVal  = overallTgtAmt > 0 ? Math.round((totalAmt / overallTgtAmt) * 100) : null;
+  const mtdPctVal  = mtdProAmt !== null ? Math.round((totalAmt / mtdProAmt) * 100) : null;
   const mtdBarW    = mtdPctVal !== null ? Math.min(mtdPctVal, 100) : 0;
   const mtdColor   = mtdPctVal === null ? '#718096' : mtdPctVal >= 100 ? '#1db87a' : mtdPctVal >= 70 ? '#f6ad2b' : '#E1245A';
   const mtdCls     = mtdPctVal === null ? '' : mtdPctVal >= 100 ? 'green' : mtdPctVal >= 70 ? 'warn' : 'red';
   const mtdHtml    = mtdPctVal !== null
     ? `<div class="m-bar-wrap"><div class="m-bar-fill" style="width:${mtdBarW}%;background:${mtdColor}"></div></div>
-       <div class="m-tgt"><span>Target: ${fmt(overallTgtAmt)}</span><strong style="color:${mtdColor}">${mtdPctVal}%</strong></div>`
+       <div class="m-tgt"><span>Day ${elapsedDays} target: ${fmt(mtdProAmt)}</span><strong style="color:${mtdColor}">${mtdPctVal}%</strong></div>
+       <div class="m-sub" style="margin-top:4px;color:#718096">Monthly target: ${fmt(overallTgtAmt)}</div>`
     : `<div class="m-sub" style="color:#e53e3e;font-size:11px;">⚠ No target loaded — check Targets sheet</div>`;
 
   document.getElementById('metricsGrid').innerHTML=`
