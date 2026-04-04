@@ -305,7 +305,7 @@
     /* Tables grid */
     .tables-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 14px;
       margin-bottom: 20px;
     }
@@ -1310,17 +1310,6 @@ function renderReport(data){
       <div class="m-value">${custCount}</div>
       <div class="m-sub">${data.transactions.length} line items</div>
     </div>
-    ${missingArr.length?`
-    <div class="metric-card warn">
-      <div class="m-label">Not in customer list</div>
-      <div class="m-value">${missingArr.length}</div>
-      <div class="m-sub">${fmt(missingArr.reduce((s,c)=>s+c.amount,0))} KSH unclassified</div>
-    </div>`:`
-    <div class="metric-card green">
-      <div class="m-label">Customer match</div>
-      <div class="m-value">100%</div>
-      <div class="m-sub">All customers matched ✓</div>
-    </div>`}
     <div class="metric-card ${mtdCls}" style="border-left-color:${mtdColor}">
       <div class="m-label">MTD Sales vs Target</div>
       <div class="m-value" style="color:${mtdColor}">${mtdPctVal !== null ? mtdPctVal + '%' : '—'}</div>
@@ -1343,7 +1332,7 @@ function renderReport(data){
     const hasCatTargets = Object.keys(refData.categoryTargets).length > 0;
     const regionTgts = isByRegion ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ksh||0),0) : 0;
     const regionLtrs = isByRegion ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ltrs||0),0) : 0;
-    const tA = isByRegion   ? (regionTgts || overallTgtAmt)   // fall back to grand target if no per-region targets
+    const tA = isByRegion   ? (regionTgts || overallTgtAmt)
              : isByCategory ? (hasCatTargets
                                ? rows.reduce((s,[n])=>s+((refData.categoryTargets[normalizeCat(n)]||refData.categoryTargets[n])?.ksh||0),0)
                                : overallTgtAmt)
@@ -1353,22 +1342,71 @@ function renderReport(data){
                                ? rows.reduce((s,[n])=>s+((refData.categoryTargets[normalizeCat(n)]||refData.categoryTargets[n])?.ltrs||0),0)
                                : overallTgtLtr)
              : overallTgtLtr;
+    const pctColor = (p) => p===null?'inherit':p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
+
+    // ── By Category: 5-column layout with per-row Vol% and Rev% ──
+    if (isByCategory && hasCatTargets) {
+      const tRows = rows.map(([n,d]) => {
+        const normN = normalizeCat(n);
+        const ct = refData.categoryTargets[normN] || refData.categoryTargets[n];
+        const pRev = ct && ct.ksh  > 0 ? Math.round((d.amount / ct.ksh)  * 100) : null;
+        const pVol = ct && ct.ltrs > 0 ? Math.round((d.ltrs   / ct.ltrs) * 100) : null;
+        const revCell = pRev !== null
+          ? `<span style="font-weight:700;color:${pctColor(pRev)}">${pRev}%</span>`
+          : `<span style="color:#ccc">—</span>`;
+        const volCell = pVol !== null
+          ? `<span style="font-weight:700;color:${pctColor(pVol)}">${pVol}%</span>`
+          : `<span style="color:#ccc">—</span>`;
+        return `<tr>
+          <td title="${n}" style="max-width:0">${n}</td>
+          <td style="text-align:right">${fmt(d.ltrs)}</td>
+          <td style="text-align:right">${volCell}</td>
+          <td style="text-align:right">${fmt(d.amount)}</td>
+          <td style="text-align:right">${revCell}</td>
+        </tr>`;
+      }).join('');
+      const pctA = tA>0 ? Math.round((totA/tA)*100) : null;
+      const pctL = tL>0 ? Math.round((totL/tL)*100) : null;
+      const foot = `
+        <tr class="total-row">
+          <td>TOTALS</td>
+          <td style="text-align:right">${fmt(totL)}</td><td></td>
+          <td style="text-align:right">${fmt(totA)}</td><td></td>
+        </tr>
+        <tr class="target-row">
+          <td>MTD TARGET</td>
+          <td style="text-align:right">${tL?fmt(tL):'—'}</td><td></td>
+          <td style="text-align:right">${tA?fmt(tA):'—'}</td><td></td>
+        </tr>
+        <tr class="pct-row">
+          <td>% ACHIEVED</td>
+          <td style="text-align:right">${pctL!==null?fmt(totL):'—'}</td>
+          <td style="text-align:right;color:${pctColor(pctL)};font-weight:700">${pctL!==null?pctL+'%':'—'}</td>
+          <td style="text-align:right">${pctA!==null?fmt(totA):'—'}</td>
+          <td style="text-align:right;color:${pctColor(pctA)};font-weight:700">${pctA!==null?pctA+'%':'—'}</td>
+        </tr>`;
+      return `<div class="tbl-card">
+        <div class="tbl-card-head ${headCls}">${title}</div>
+        <table>
+          <colgroup><col style="width:28%"><col style="width:17%"><col style="width:10%"><col style="width:20%"><col style="width:10%"></colgroup>
+          <thead><tr>
+            <th>Category</th>
+            <th style="text-align:right">Ltrs/Kgs</th>
+            <th style="text-align:right">Vol%</th>
+            <th style="text-align:right">Amt KSH</th>
+            <th style="text-align:right">Rev%</th>
+          </tr></thead>
+          <tbody>${tRows}${foot}</tbody>
+        </table>
+      </div>`;
+    }
+
+    // ── Default layout for other tables ──
     const tRows=rows.map(([n,d])=>{
-      let pctBadge='';
-      const normN=normalizeCat(n);
-      if(isByCategory && hasCatTargets && (refData.categoryTargets[normN]||refData.categoryTargets[n])){
-        const ct=refData.categoryTargets[normN]||refData.categoryTargets[n];
-        const p=ct.ksh>0?Math.round((d.amount/ct.ksh)*100):null;
-        if(p!==null){
-          const col=p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
-          pctBadge=` <span style="font-size:10px;font-weight:700;color:${col}">${p}%</span>`;
-        }
-      }
-      return `<tr><td title="${n}">${n}${pctBadge}</td><td>${fmt(d.ltrs)}</td><td>${fmt(d.amount)}</td></tr>`;
+      return `<tr><td title="${n}">${n}</td><td>${fmt(d.ltrs)}</td><td>${fmt(d.amount)}</td></tr>`;
     }).join('');
     const pctA = tA>0 ? Math.round((totA/tA)*100) : null;
     const pctL = tL>0 ? Math.round((totL/tL)*100) : null;
-    const pctColor = (p) => p===null?'inherit':p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
     const foot=(tA||tL)?`
       <tr class="total-row"><td>TOTALS</td><td>${fmt(totL)}</td><td>${fmt(totA)}</td></tr>
       <tr class="target-row"><td>MTD TARGET</td><td>${tL?fmt(tL):'—'}</td><td>${tA?fmt(tA):'—'}</td></tr>
@@ -1389,9 +1427,8 @@ function renderReport(data){
 
   document.getElementById('tablesGrid').innerHTML=
     buildTbl('By Region',sort(byRegion),'navy')+
-    buildTbl('By Channel',sort(byChannel),'red')+
     buildTbl('By Category',sort(byCategory),'dark')+
-    buildTbl('By Type',sort(byType),'teal');
+    buildTbl('By Channel',sort(byType),'teal');
 
   // Incomplete (matched but blank region/channel)
   const incompleteArr = Object.values(data.incompleteCustomers||{}).sort((a,b)=>b.amount-a.amount);
