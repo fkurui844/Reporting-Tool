@@ -1249,29 +1249,28 @@ function renderReport(data){
   const missingArr = Object.values(data.missingCustomers).sort((a,b)=>b.amount-a.amount);
   lastMissing = missingArr;
 
-  // Metrics
+  // Metrics — pre-compute target HTML to avoid nested template literals
+  function tgtHtml(actual, target) {
+    if (!target) return '';
+    const p   = Math.round((actual / target) * 100);
+    const w   = Math.min(p, 100);
+    const col = p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
+    return '<div class="m-bar-wrap"><div class="m-bar-fill" style="width:' + w + '%;background:' + col + '"></div></div>'
+         + '<div class="m-tgt"><span>Target: ' + fmt(target) + '</span><strong style="color:' + col + '">' + p + '%</strong></div>';
+  }
+  const revTgtHtml = tgtHtml(totalAmt, overallTgtAmt);
+  const volTgtHtml = tgtHtml(totalLtrs, overallTgtLtr);
+
   document.getElementById('metricsGrid').innerHTML=`
     <div class="metric-card red">
       <div class="m-label">Total Sales (KSH)</div>
       <div class="m-value">${fmt(totalAmt)}</div>
-      ${overallTgtAmt ? (() => {
-        const p = Math.round((totalAmt/overallTgtAmt)*100);
-        const w = Math.min(p,100);
-        const col = p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
-        return `<div class="m-bar-wrap"><div class="m-bar-fill" style="width:${w}%;background:${col}"></div></div>
-                <div class="m-tgt"><span>Target: ${fmt(overallTgtAmt)}</span><strong style="color:${col}">${p}%</strong></div>`;
-      })() : ''}
+      ${revTgtHtml}
     </div>
     <div class="metric-card red">
       <div class="m-label">Volume (Ltrs/Kgs)</div>
       <div class="m-value">${fmt(totalLtrs)}</div>
-      ${overallTgtLtr ? (() => {
-        const p = Math.round((totalLtrs/overallTgtLtr)*100);
-        const w = Math.min(p,100);
-        const col = p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
-        return `<div class="m-bar-wrap"><div class="m-bar-fill" style="width:${w}%;background:${col}"></div></div>
-                <div class="m-tgt"><span>Target: ${fmt(overallTgtLtr)}</span><strong style="color:${col}">${p}%</strong></div>`;
-      })() : ''}
+      ${volTgtHtml}
     </div>
     <div class="metric-card">
       <div class="m-label">Active Customers</div>
