@@ -248,11 +248,12 @@
     /* Tables grid */
     .tables-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
       gap: 14px;
       margin-bottom: 20px;
     }
-    @media (max-width: 760px) { .tables-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 1100px) { .tables-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 760px)  { .tables-grid { grid-template-columns: 1fr; } }
 
     .tbl-card {
       background: white;
@@ -271,6 +272,7 @@
     .tbl-card-head.navy   { background: #0f2744; }
     .tbl-card-head.red    { background: #E1245A; }
     .tbl-card-head.dark   { background: #374151; }
+    .tbl-card-head.teal   { background: #0f766e; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th {
       background: #f8f9fc;
@@ -1132,6 +1134,7 @@ function renderReport(data){
   const byRegion   = groupBy(data.transactions,'region');
   const byChannel  = groupBy(data.transactions,'channel');
   const byCategory = groupBy(data.transactions,'category');
+  const byType     = groupBy(data.transactions,'type');
   const sort = obj=>Object.entries(obj).sort((a,b)=>b[1].amount-a[1].amount);
 
   function buildTbl(title,rows,headCls){
@@ -1157,7 +1160,8 @@ function renderReport(data){
   document.getElementById('tablesGrid').innerHTML=
     buildTbl('By Region',sort(byRegion),'navy')+
     buildTbl('By Channel',sort(byChannel),'red')+
-    buildTbl('By Category',sort(byCategory),'dark');
+    buildTbl('By Category',sort(byCategory),'dark')+
+    buildTbl('By Type',sort(byType),'teal');
 
   // Incomplete (matched but blank region/channel)
   const incompleteArr = Object.values(data.incompleteCustomers||{}).sort((a,b)=>b.amount-a.amount);
