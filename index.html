@@ -1351,7 +1351,7 @@ function renderReport(data){
           <td style="text-align:right;color:${pctColor(pctA)};font-weight:700">${pctA!==null?pctA+'%':'—'}</td>
         </tr>
         <tr class="target-row">
-          <td colspan="2">MTD TARGET</td>
+          <td colspan="2">MONTHLY TARGET</td>
           <td style="text-align:right">${tL?fmt(tL):'—'}</td><td></td>
           <td style="text-align:right">${tA?fmt(tA):'—'}</td><td></td>
         </tr>`;
@@ -1380,7 +1380,7 @@ function renderReport(data){
     const pctL = tL>0 ? Math.round((totL/tL)*100) : null;
     const foot=(tA||tL)?`
       <tr class="total-row"><td>TOTALS</td><td>${fmt(totL)}</td><td>${fmt(totA)}</td></tr>
-      <tr class="target-row"><td>MTD TARGET</td><td>${tL?fmt(tL):'—'}</td><td>${tA?fmt(tA):'—'}</td></tr>
+      <tr class="target-row"><td>MONTHLY TARGET</td><td>${tL?fmt(tL):'—'}</td><td>${tA?fmt(tA):'—'}</td></tr>
       <tr class="pct-row"><td>% ACHIEVED</td>
         <td style="color:${pctColor(pctL)};font-weight:700">${pctL!==null?pctL+'%':'—'}</td>
         <td style="color:${pctColor(pctA)};font-weight:700">${pctA!==null?pctA+'%':'—'}</td>
