@@ -808,7 +808,7 @@ async function loadSheetData() {
     } catch { results[s] = null; }
   }
 
-  refData = { customers: {}, products: {}, targets: {}, customerTotal: 0, regionTotals: {}, channelTotals: {} };
+  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, customerTotal: 0, regionTotals: {}, channelTotals: {} };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'])   parseTargetSheet(results['Targets']);
@@ -905,17 +905,25 @@ function parseProductSheet(csv) {
 function parseTargetSheet(csv) {
   const lines=csv.trim().split('\n');
   const hdrs=parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
-  const rIdx=findCol(hdrs,['region','location','territory','area','zone','name']);
-  const kIdx=findCol(hdrs,['amount','ksh','target','value','sales','revenue']);
-  const lIdx=findCol(hdrs,['ltr','kg','litre','volume','qty','quantity']);
+  // Detect whether this sheet is keyed by region or by category
+  const catIdx  = findCol(hdrs,['category','cat']);
+  const regIdx  = findCol(hdrs,['region','location','territory','area','zone','name']);
+  const keyIdx  = catIdx >= 0 ? catIdx : regIdx; // prefer category column if present
+  const isCat   = catIdx >= 0;
+  // Revenue: "target in rev", "revenue", "ksh", "amount", "value", "sales"
+  const kIdx = findCol(hdrs,['rev','revenue','ksh','amount','value','sales']);
+  // Volume: "target in vol", "vol", "ltr", "kg", "litre", "volume", "qty"
+  const lIdx = findCol(hdrs,['vol','ltr','kg','litre','volume','qty','quantity']);
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
-    const r=rIdx>=0?(cols[rIdx]||'').trim().toUpperCase():'';
-    if(!r)continue;
-    refData.targets[r]={
+    const raw=keyIdx>=0?(cols[keyIdx]||'').trim().toUpperCase():'';
+    if(!raw||raw==='GRAND TOTALS'||raw==='TOTAL'||raw==='TOTALS')continue;
+    const entry={
       ksh:  kIdx>=0?parseFloat((cols[kIdx]||'').replace(/,/g,''))||0:0,
       ltrs: lIdx>=0?parseFloat((cols[lIdx]||'').replace(/,/g,''))||0:0,
     };
+    if(isCat) refData.categoryTargets[raw]=entry;
+    else       refData.targets[raw]=entry;
   }
 }
 
@@ -1139,9 +1147,26 @@ function renderReport(data){
 
   function buildTbl(title,rows,headCls){
     const totL=rows.reduce((s,[,d])=>s+d.ltrs,0), totA=rows.reduce((s,[,d])=>s+d.amount,0);
-    const tA=title==='By Region'?rows.reduce((s,[n])=>s+(refData.targets[n]?.ksh||0),0):overallTgtAmt;
-    const tL=title==='By Region'?rows.reduce((s,[n])=>s+(refData.targets[n]?.ltrs||0),0):overallTgtLtr;
-    const tRows=rows.map(([n,d])=>`<tr><td title="${n}">${n}</td><td>${fmt(d.ltrs)}</td><td>${fmt(d.amount)}</td></tr>`).join('');
+    const isByRegion   = title==='By Region';
+    const isByCategory = title==='By Category';
+    const tA = isByRegion   ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ksh||0),0)
+             : isByCategory ? rows.reduce((s,[n])=>s+(refData.categoryTargets[n]?.ksh||0),0)
+             : overallTgtAmt;
+    const tL = isByRegion   ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ltrs||0),0)
+             : isByCategory ? rows.reduce((s,[n])=>s+(refData.categoryTargets[n]?.ltrs||0),0)
+             : overallTgtLtr;
+    const tRows=rows.map(([n,d])=>{
+      let pctBadge='';
+      if(isByCategory && refData.categoryTargets[n]){
+        const ct=refData.categoryTargets[n];
+        const p=ct.ksh>0?Math.round((d.amount/ct.ksh)*100):null;
+        if(p!==null){
+          const col=p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
+          pctBadge=` <span style="font-size:10px;font-weight:700;color:${col}">${p}%</span>`;
+        }
+      }
+      return `<tr><td title="${n}">${n}${pctBadge}</td><td>${fmt(d.ltrs)}</td><td>${fmt(d.amount)}</td></tr>`;
+    }).join('');
     const foot=(tA||tL)?`
       <tr class="total-row"><td>TOTALS</td><td>${fmt(totL)}</td><td>${fmt(totA)}</td></tr>
       <tr class="target-row"><td>MTD TARGET</td><td>${tL?fmt(tL):'—'}</td><td>${tA?fmt(tA):'—'}</td></tr>
