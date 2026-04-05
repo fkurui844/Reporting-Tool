@@ -673,13 +673,7 @@
         <h2 id="reportPeriod">Period: —</h2>
         <small id="reportGenerated"></small>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn-pdf" onclick="exportPDF()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-          Export PDF
-        </button>
-        <button class="btn-upload-again" onclick="resetUpload()" style="display:none">↑ Upload another file</button>
-      </div>
+      <button class="btn-upload-again" onclick="resetUpload()" style="display:none">↑ Upload another file</button>
     </div>
 
     <!-- Metrics -->
@@ -730,6 +724,14 @@
         </tr></thead>
         <tbody id="top5Tbody"></tbody>
       </table>
+    </div>
+
+    <!-- Export PDF button -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:28px;">
+      <button class="btn-pdf" onclick="exportPDF()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        Export PDF
+      </button>
     </div>
 
     <!-- Incomplete customers (matched but missing region/channel) -->
