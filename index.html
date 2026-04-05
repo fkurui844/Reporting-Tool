@@ -287,7 +287,7 @@
       border-radius: 10px;
       padding: 14px 16px;
     }
-    .metric-card .m-label { font-size: 13px; color: #718096; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
+    .metric-card .m-label { font-size: 13px; font-weight: 700; color: #718096; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
     .metric-card .m-value { font-size: 26px; font-weight: 700; color: #0f2744; }
     .metric-card .m-sub   { font-size: 13px; color: #718096; margin-top: 3px; }
     .metric-card.red  { border-left: 3px solid #E1245A; }
@@ -622,7 +622,35 @@
     <div class="sheet-status-bar">
       <div class="sheet-dot" id="sheetDot"></div>
       <div class="sheet-status-text" id="sheetStatusText">Reference data not loaded — click Reload.</div>
+      <button class="btn-reload" onclick="toggleSheetSettings()" style="margin-right:4px">⚙ Sheet Names</button>
       <button class="btn-reload" onclick="loadSheetData()">↻ Reload</button>
+    </div>
+
+    <!-- Sheet name settings panel -->
+    <div id="sheetSettingsPanel" style="display:none;background:white;border:1px solid #dde3ec;border-radius:10px;padding:16px 20px;margin-bottom:18px;">
+      <div style="font-size:13px;font-weight:700;color:#0f2744;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.05em;">⚙ Configure Sheet Names</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:5px;">Customers Sheet</label>
+          <input id="settingSheetCustomers" type="text" placeholder="e.g. Customers"
+            style="width:100%;padding:8px 11px;border:1.5px solid #dde3ec;border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;color:#1a202c;">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:5px;">Products Sheet</label>
+          <input id="settingSheetProduct" type="text" placeholder="e.g. Product"
+            style="width:100%;padding:8px 11px;border:1.5px solid #dde3ec;border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;color:#1a202c;">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:5px;">Targets Sheet</label>
+          <input id="settingSheetTargets" type="text" placeholder="e.g. Targets"
+            style="width:100%;padding:8px 11px;border:1.5px solid #dde3ec;border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;color:#1a202c;">
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+        <button onclick="saveSheetSettings()" style="padding:8px 18px;background:#0f2744;color:white;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">Save &amp; Reload</button>
+        <button onclick="toggleSheetSettings()" style="padding:8px 14px;background:#f0f2f5;border:1px solid #dde3ec;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;color:#555;">Cancel</button>
+        <span style="font-size:12px;color:#718096;margin-left:4px;">Changes are saved in your browser and persist between sessions.</span>
+      </div>
     </div>
 
     <!-- Drop zone -->
@@ -859,9 +887,54 @@ function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 // ═══════════════════════════════════════════════════════
 const SHEET_ID = '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8';
 
+// ═══════════════════════════════════════════════════════
+// SHEET NAME SETTINGS
+// ═══════════════════════════════════════════════════════
+const SHEET_DEFAULTS = { customers: 'Customers', product: 'Product', targets: 'Targets' };
+
+function getSheetNames() {
+  try {
+    return {
+      customers: localStorage.getItem('sheetName_customers') || SHEET_DEFAULTS.customers,
+      product:   localStorage.getItem('sheetName_product')   || SHEET_DEFAULTS.product,
+      targets:   localStorage.getItem('sheetName_targets')   || SHEET_DEFAULTS.targets,
+    };
+  } catch(e) { return { ...SHEET_DEFAULTS }; }
+}
+
+function toggleSheetSettings() {
+  const panel = document.getElementById('sheetSettingsPanel');
+  const isOpen = panel.style.display !== 'none';
+  if (!isOpen) {
+    // Populate inputs with current values
+    const n = getSheetNames();
+    document.getElementById('settingSheetCustomers').value = n.customers;
+    document.getElementById('settingSheetProduct').value   = n.product;
+    document.getElementById('settingSheetTargets').value   = n.targets;
+  }
+  panel.style.display = isOpen ? 'none' : 'block';
+}
+
+function saveSheetSettings() {
+  const customers = document.getElementById('settingSheetCustomers').value.trim();
+  const product   = document.getElementById('settingSheetProduct').value.trim();
+  const targets   = document.getElementById('settingSheetTargets').value.trim();
+  if (!customers || !product || !targets) {
+    alert('All three sheet names are required.'); return;
+  }
+  try {
+    localStorage.setItem('sheetName_customers', customers);
+    localStorage.setItem('sheetName_product',   product);
+    localStorage.setItem('sheetName_targets',   targets);
+  } catch(e) {}
+  document.getElementById('sheetSettingsPanel').style.display = 'none';
+  loadSheetData();
+}
+
 async function loadSheetData() {
   setSheetDot('loading', 'Loading reference data from Google Sheet…');
-  const sheets = ['Customers', 'Product', 'Targets', 'Target'];
+  const sheetNames = getSheetNames();
+  const sheets = [sheetNames.customers, sheetNames.product, sheetNames.targets, 'Target'];
   const results = {};
 
   for (const s of sheets) {
@@ -879,9 +952,9 @@ async function loadSheetData() {
   }
 
   refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {} };
-  if (results['Customers']) parseCustomerSheet(results['Customers']);
-  if (results['Product'])   parseProductSheet(results['Product']);
-  if (results['Targets']||results['Target']) parseTargetSheet(results['Targets']||results['Target']);
+  if (results[sheetNames.customers]) parseCustomerSheet(results[sheetNames.customers]);
+  if (results[sheetNames.product])   parseProductSheet(results[sheetNames.product]);
+  if (results[sheetNames.targets]||results['Target']) parseTargetSheet(results[sheetNames.targets]||results['Target']);
 
   const cc  = refData.customerTotal || Object.keys(refData.customers).length;
   const pc  = Object.keys(refData.products).length;
@@ -1100,7 +1173,8 @@ function parseSAP(text){
       continue;
     }
     if(line.includes('GRAND TOTAL')||line.includes('TOTALS'))continue;
-    const sapCol=cols.find(c=>/^440\d{8}$/.test(c));
+    // Match any SAP material code: 8-18 digit number (not a customer code which is 7-10 digits with CUSTOMER keyword)
+    const sapCol=cols.find(c=>/^\d{8,18}$/.test(c));
     if(sapCol&&curCust){
       const matCode=sapCol.replace(/^0+/,'');
       const nums=cols.filter(c=>/^-?[\d,]+\.?\d*$/.test(c.replace(/\s/,'')));
@@ -1251,7 +1325,7 @@ function renderReport(data){
     return `
       <div style="margin-top:10px;">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;">
-          <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#718096">${label}</span>
+          <span style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;color:#718096">${label}</span>
           <span style="font-size:15px;font-weight:800;color:${col}">${pct !== null ? pct + '%' : '—'}</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
@@ -1281,7 +1355,7 @@ function renderReport(data){
     </div>
     <div class="metric-card ${mtdCls}" style="border-left-color:${mtdColor}">
       <div class="m-label">MTD Sales vs Target</div>
-      <div style="font-size:13px;color:#718096;margin-top:3px;">Day ${elapsedDays || '—'} of 30</div>
+      <div style="font-size:13px;font-weight:700;color:#718096;margin-top:3px;">Day ${elapsedDays || '—'} of 30</div>
       ${mtdHtml}
     </div>
   `;
