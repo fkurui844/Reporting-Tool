@@ -165,6 +165,31 @@
       transition: background 0.15s;
     }
     .btn-upload-again:hover { background: #f0f2f5; }
+    .btn-pdf {
+      padding: 7px 16px;
+      border: none;
+      background: #E1245A;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn-pdf:hover { background: #c01f4e; }
+    @media print {
+      .app-header, .upload-page, .sheet-status-bar, .report-topbar .btn-pdf,
+      .btn-upload-again, .missing-head .btn-copy, .cov-toggle { display: none !important; }
+      body { background: white; }
+      .report { display: block !important; padding: 10px 16px; }
+      .tables-grid { grid-template-columns: 1fr 1fr 1fr; }
+      .tbl-card, .metric-card, .coverage-banner, .missing-card, .achievement-banner { break-inside: avoid; }
+      .metrics-grid { grid-template-columns: repeat(3, 1fr); }
+    }
 
 
     /* ── Achievement banner ── */
@@ -648,7 +673,13 @@
         <h2 id="reportPeriod">Period: —</h2>
         <small id="reportGenerated"></small>
       </div>
-      <button class="btn-upload-again" onclick="resetUpload()" style="display:none">↑ Upload another file</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn-pdf" onclick="exportPDF()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          Export PDF
+        </button>
+        <button class="btn-upload-again" onclick="resetUpload()" style="display:none">↑ Upload another file</button>
+      </div>
     </div>
 
     <!-- Metrics -->
@@ -1525,6 +1556,14 @@ function copyMissing(){
     b.textContent='Copied!';
     setTimeout(()=>b.textContent='Copy list',2000);
   });
+}
+
+function exportPDF() {
+  const period = document.getElementById('reportPeriod').textContent || 'Sales Report';
+  const orig = document.title;
+  document.title = period;
+  window.print();
+  document.title = orig;
 }
 
 function resetUpload(){
