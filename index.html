@@ -711,7 +711,7 @@
 
     <!-- Top 5 Customers -->
     <div class="tbl-card" id="top5Card" style="display:none;margin-bottom:20px;">
-      <div class="tbl-card-head" style="background:#7c3aed;">Top 5 Customers — Revenue Drivers</div>
+      <div class="tbl-card-head" style="background:#7c3aed;">🏆 Top 5 Customers — Revenue Drivers</div>
       <table>
         <colgroup><col style="width:4%"><col style="width:30%"><col style="width:18%"><col style="width:18%"><col style="width:16%"><col style="width:14%"></colgroup>
         <thead><tr>
@@ -1188,7 +1188,7 @@ function renderReport(data){
   document.querySelector('.upload-page').style.display='none';
   document.getElementById('report').style.display='block';
   document.getElementById('reportPeriod').textContent='Period: '+(data.period||'—');
-  document.getElementById('reportGenerated').textContent='As At: '+new Date().toLocaleString();
+  document.getElementById('reportGenerated').textContent='Generated: '+new Date().toLocaleString();
 
   const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
   const totalLtrs = data.transactions.reduce((s,t)=>s+t.ltrs,0);
