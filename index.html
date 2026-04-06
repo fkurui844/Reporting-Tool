@@ -1318,6 +1318,26 @@ function renderReport(data){
     + metricRow('Volume (Ltrs/Kgs)', totalLtrs, mtdProLtr, overallTgtLtr, mtdVolPct)
     : `<div class="m-sub" style="color:#e53e3e;font-size:11px;">⚠ No target loaded — check Targets sheet</div>`;
 
+  // Daily averages
+  const dailyAvgAmt  = elapsedDays ? Math.round(totalAmt  / elapsedDays) : null;
+  const dailyAvgLtrs = elapsedDays ? Math.round(totalLtrs / elapsedDays) : null;
+  const reqDailyAmt  = (overallTgtAmt && elapsedDays) ? Math.round((overallTgtAmt - totalAmt) / (30 - elapsedDays)) : null;
+  const reqDailyLtrs = (overallTgtLtr && elapsedDays) ? Math.round((overallTgtLtr - totalLtrs) / (30 - elapsedDays)) : null;
+
+  function dailyRow(label, avg, required) {
+    const reqLabel = required !== null && required > 0
+      ? `<span style="font-size:11px;color:#718096;">Required/day to hit target: <strong style="color:#0f2744">${fmt(required)}</strong></span>`
+      : required !== null && required <= 0
+      ? `<span style="font-size:11px;color:#1db87a;font-weight:600;">✓ Target already on track</span>`
+      : '';
+    return `
+      <div style="margin-top:10px;">
+        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#718096;margin-bottom:3px;">${label}</div>
+        <div style="font-size:22px;font-weight:700;color:#0f2744;margin-bottom:3px;">${avg !== null ? fmt(avg) : '—'}</div>
+        ${reqLabel}
+      </div>`;
+  }
+
   document.getElementById('metricsGrid').innerHTML=`
     <div class="metric-card red">
       <div class="m-label">Total Sales (KSH)</div>
@@ -1333,6 +1353,12 @@ function renderReport(data){
       <div class="m-label">MTD Sales vs Target</div>
       <div style="font-size:13px;color:#718096;margin-top:3px;">Day ${elapsedDays || '—'} of 30</div>
       ${mtdHtml}
+    </div>
+    <div class="metric-card" style="border-left:3px solid #0f2744;">
+      <div class="m-label">Daily Average</div>
+      <div style="font-size:13px;color:#718096;margin-top:3px;">Based on ${elapsedDays || '—'} day${elapsedDays !== 1 ? 's' : ''} elapsed</div>
+      ${dailyRow('Revenue (KSH)', dailyAvgAmt, reqDailyAmt)}
+      ${dailyRow('Volume (Ltrs/Kgs)', dailyAvgLtrs, reqDailyLtrs)}
     </div>
   `;
 
