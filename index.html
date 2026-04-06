@@ -1850,39 +1850,32 @@ function renderCharts(data) {
 
   const body = document.getElementById('chartsBody');
   body.innerHTML = `
-    <!-- Row 1: Revenue by Category (grouped bar) + Revenue by Region (horizontal bar) -->
+    <!-- Row 1: Revenue vs Volume Split (dual-axis) + Revenue by Region (horizontal bar) -->
     <div class="charts-grid-2">
       <div class="chart-card">
         <div class="chart-card-head">
-          <span class="chart-card-title">Revenue by Category</span>
-          <span class="chart-card-sub">${hasCatTgt ? 'Actual vs Target (KSH)' : 'Actual Revenue (KSH)'}</span>
+          <span class="chart-card-title">Revenue vs Volume Split</span>
+          <span class="chart-card-sub">Dual-axis by category</span>
         </div>
-        <div class="chart-canvas-wrap"><canvas id="chartCatRev" height="280"></canvas></div>
+        <div class="chart-canvas-wrap"><canvas id="chartDualAxis" height="280"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-card-head">
-          <span class="chart-card-title">Revenue by Region</span>
-          <span class="chart-card-sub">KSH contribution</span>
+          <span class="chart-card-title">Volume by Region</span>
+          <span class="chart-card-sub">Litres / Kgs · highest to lowest</span>
         </div>
         <div class="chart-canvas-wrap"><canvas id="chartRegRev" height="280"></canvas></div>
       </div>
     </div>
 
-    <!-- Row 2: Volume by Category + Channel Mix donut + Type donut -->
-    <div class="charts-grid-3">
+    <!-- Row 2: Volume by Category + Customer Type donut -->
+    <div class="charts-grid-2">
       <div class="chart-card">
         <div class="chart-card-head">
           <span class="chart-card-title">Volume by Category</span>
           <span class="chart-card-sub">Litres / Kgs</span>
         </div>
         <div class="chart-canvas-wrap"><canvas id="chartCatVol" height="220"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-head">
-          <span class="chart-card-title">Channel Mix</span>
-          <span class="chart-card-sub">Revenue share</span>
-        </div>
-        <div class="chart-canvas-wrap"><canvas id="chartChanDonut" height="220"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-card-head">
@@ -1904,60 +1897,46 @@ function renderCharts(data) {
       </div>
     </div>
 
-    <!-- Row 4: Region Volume bar + MTD pacing line (if target available) -->
-    <div class="charts-grid-2">
-      <div class="chart-card">
-        <div class="chart-card-head">
-          <span class="chart-card-title">Volume by Region</span>
-          <span class="chart-card-sub">Litres / Kgs</span>
-        </div>
-        <div class="chart-canvas-wrap"><canvas id="chartRegVol" height="240"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-head">
-          <span class="chart-card-title">Revenue vs Volume Split</span>
-          <span class="chart-card-sub">Dual-axis by category</span>
-        </div>
-        <div class="chart-canvas-wrap"><canvas id="chartDualAxis" height="240"></canvas></div>
-      </div>
-    </div>
   `;
 
   const tc = chartTextColor(), gc = chartGridColor();
 
-  // ── Chart 1: Revenue by Category — grouped bar (Actual vs Target) ──
+  // ── Chart 8 (now first): Dual-axis Revenue + Volume by Category ──
   const catLabels = catRows.map(([k])=>k);
   const catActual = catRows.map(([,d])=>Math.round(d.amount));
-  const catTarget = hasCatTgt
-    ? catRows.map(([k])=>{
-        const ct = refData.categoryTargets[normalizeCat(k)] || refData.categoryTargets[k];
-        return ct ? Math.round(ct.ksh) : 0;
-      })
-    : null;
-
-  mkChart('chartCatRev', {
+  mkChart('chartDualAxis', {
     type: 'bar',
     data: {
       labels: catLabels,
       datasets: [
-        { label: 'Actual', data: catActual, backgroundColor: '#E1245A', borderRadius: 4, borderSkipped: false },
-        ...(catTarget ? [{ label: 'Target', data: catTarget, backgroundColor: 'rgba(15,39,68,0.25)', borderColor: '#0f2744', borderWidth: 1.5, borderRadius: 4, borderSkipped: false }] : [])
+        { type: 'bar',  label: 'Revenue (KSH)',     data: catActual,                                    backgroundColor: 'rgba(225,36,90,0.75)',   borderRadius: 4, borderSkipped: false, yAxisID: 'yRev', datalabels: barDL(false, '#E1245A') },
+        { type: 'line', label: 'Volume (Ltrs/Kgs)', data: catRows.map(([,d])=>Math.round(d.ltrs)),      borderColor: '#1db87a', backgroundColor: 'rgba(29,184,122,0.12)', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#1db87a', fill: true, yAxisID: 'yVol', datalabels: { display: false } }
       ]
     },
     options: {
-      ...baseChartOptions('top'),
-      plugins: { ...baseChartOptions().plugins, tooltip: { ...baseChartOptions().plugins.tooltip, callbacks: { label: ctx => ' ' + ctx.dataset.label + ': KSH ' + Number(ctx.raw).toLocaleString() } }, datalabels: barDL(false) }
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'top', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 12 }, boxWidth: 12, padding: 12 } },
+        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10 },
+        datalabels: { display: 'auto' }
+      },
+      scales: {
+        x:    { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } }, grid: { color: gc } },
+        yRev: { position: 'left',  ticks: { color: '#E1245A', font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { color: gc } },
+        yVol: { position: 'right', ticks: { color: '#1db87a', font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { drawOnChartArea: false } }
+      }
     }
   });
 
-  // ── Chart 2: Revenue by Region — horizontal bar ──
-  const regLabels = regRows.map(([k])=>k);
-  const regAmts   = regRows.map(([,d])=>Math.round(d.amount));
+  // ── Chart 2: Volume by Region — horizontal bar (replaces Revenue by Region) ──
+  const regByVol  = Object.entries(groupBy(data.transactions, 'region')).sort((a,b)=>b[1].ltrs-a[1].ltrs);
+  const regLabels = regByVol.map(([k])=>k);
+  const regAmts   = regByVol.map(([,d])=>Math.round(d.ltrs));
   mkChart('chartRegRev', {
     type: 'bar',
     data: {
       labels: regLabels,
-      datasets: [{ label: 'Revenue (KSH)', data: regAmts, backgroundColor: chartColors(regLabels.length), borderRadius: 4, borderSkipped: false }]
+      datasets: [{ label: 'Volume (Ltrs/Kgs)', data: regAmts, backgroundColor: chartColors(regLabels.length), borderRadius: 4, borderSkipped: false }]
     },
     options: {
       ...baseChartOptions('top'),
@@ -1992,23 +1971,6 @@ function renderCharts(data) {
       return fmtLbl(val) + '\n' + pct + '%';
     }
   };
-
-  // ── Chart 4: Channel donut ──
-  mkChart('chartChanDonut', {
-    type: 'doughnut',
-    data: {
-      labels: chanRows.map(([k])=>k),
-      datasets: [{ data: chanRows.map(([,d])=>Math.round(d.amount)), backgroundColor: chartColors(chanRows.length), borderWidth: 2, borderColor: chartSurfaceColor(), hoverOffset: 6 }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: true, cutout: '62%',
-      plugins: {
-        legend: { position: 'right', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, boxWidth: 10, padding: 8 } },
-        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10, callbacks: { label: ctx => ' ' + ctx.label + ': KSH ' + Number(ctx.raw).toLocaleString() } },
-        datalabels: donutDL
-      }
-    }
-  });
 
   // ── Chart 5: Customer Type donut ──
   const typeRowsFilt = typeRows.filter(([k])=>k && k !== 'UNKNOWN' && k !== '');
@@ -2048,40 +2010,6 @@ function renderCharts(data) {
     }
   });
 
-  // ── Chart 7: Volume by Region ──
-  mkChart('chartRegVol', {
-    type: 'bar',
-    data: {
-      labels: regLabels,
-      datasets: [{ label: 'Volume (Ltrs/Kgs)', data: regRows.map(([,d])=>Math.round(d.ltrs)), backgroundColor: '#0891b2', borderRadius: 4, borderSkipped: false }]
-    },
-    options: { ...baseChartOptions('top'), plugins: { ...baseChartOptions('top').plugins, legend: { display: false }, datalabels: barDL(false) } }
-  });
-
-  // ── Chart 8: Dual-axis Revenue + Volume by Category ──
-  mkChart('chartDualAxis', {
-    type: 'bar',
-    data: {
-      labels: catLabels,
-      datasets: [
-        { type: 'bar',  label: 'Revenue (KSH)',     data: catActual,                                    backgroundColor: 'rgba(225,36,90,0.75)',   borderRadius: 4, borderSkipped: false, yAxisID: 'yRev', datalabels: barDL(false, '#E1245A') },
-        { type: 'line', label: 'Volume (Ltrs/Kgs)', data: catRows.map(([,d])=>Math.round(d.ltrs)),      borderColor: '#1db87a', backgroundColor: 'rgba(29,184,122,0.12)', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#1db87a', fill: true, yAxisID: 'yVol', datalabels: { display: false } }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: true,
-      plugins: {
-        legend: { position: 'top', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 12 }, boxWidth: 12, padding: 12 } },
-        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10 },
-        datalabels: { display: 'auto' }
-      },
-      scales: {
-        x:    { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } }, grid: { color: gc } },
-        yRev: { position: 'left',  ticks: { color: '#E1245A', font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { color: gc } },
-        yVol: { position: 'right', ticks: { color: '#1db87a', font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { drawOnChartArea: false } }
-      }
-    }
-  });
 }
 
 function copyMissing(){
