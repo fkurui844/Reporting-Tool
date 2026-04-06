@@ -7,6 +7,7 @@
   <title>Sales Report Generator</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1747,6 +1748,7 @@ function groupBy(arr,key){
 // CHARTS ENGINE
 // ═══════════════════════════════════════════════════════
 let _chartInstances = {};
+Chart.register(ChartDataLabels);
 
 function destroyChart(id) {
   if (_chartInstances[id]) { _chartInstances[id].destroy(); delete _chartInstances[id]; }
@@ -1808,6 +1810,16 @@ function baseChartOptions(legendPos='top') {
 }
 
 function renderCharts(data) {
+  const fmtLbl = v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : String(v);
+  const barDL = (horiz, color) => ({
+    anchor: horiz ? 'end' : 'end',
+    align:  horiz ? 'right' : 'top',
+    offset: horiz ? 4 : 2,
+    color:  color || chartTextColor(),
+    font:   { family: "'DM Sans', sans-serif", size: 10, weight: '600' },
+    formatter: fmtLbl,
+    clip: false
+  });
   const note = document.getElementById('chartPeriodNote');
   if (note) note.textContent = data.period ? 'Period: ' + data.period : '';
 
@@ -1845,14 +1857,14 @@ function renderCharts(data) {
           <span class="chart-card-title">Revenue by Category</span>
           <span class="chart-card-sub">${hasCatTgt ? 'Actual vs Target (KSH)' : 'Actual Revenue (KSH)'}</span>
         </div>
-        <div class="chart-canvas-wrap"><canvas id="chartCatRev" height="260"></canvas></div>
+        <div class="chart-canvas-wrap"><canvas id="chartCatRev" height="280"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-card-head">
           <span class="chart-card-title">Revenue by Region</span>
           <span class="chart-card-sub">KSH contribution</span>
         </div>
-        <div class="chart-canvas-wrap"><canvas id="chartRegRev" height="260"></canvas></div>
+        <div class="chart-canvas-wrap"><canvas id="chartRegRev" height="280"></canvas></div>
       </div>
     </div>
 
@@ -1934,7 +1946,7 @@ function renderCharts(data) {
     },
     options: {
       ...baseChartOptions('top'),
-      plugins: { ...baseChartOptions().plugins, tooltip: { ...baseChartOptions().plugins.tooltip, callbacks: { label: ctx => ' ' + ctx.dataset.label + ': KSH ' + Number(ctx.raw).toLocaleString() } } }
+      plugins: { ...baseChartOptions().plugins, tooltip: { ...baseChartOptions().plugins.tooltip, callbacks: { label: ctx => ' ' + ctx.dataset.label + ': KSH ' + Number(ctx.raw).toLocaleString() } }, datalabels: barDL(false) }
     }
   });
 
@@ -1950,7 +1962,7 @@ function renderCharts(data) {
     options: {
       ...baseChartOptions('top'),
       indexAxis: 'y',
-      plugins: { ...baseChartOptions('top').plugins, legend: { display: false } },
+      plugins: { ...baseChartOptions('top').plugins, legend: { display: false }, datalabels: barDL(true) },
       scales: {
         x: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { color: gc } },
         y: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } }, grid: { color: gc } }
@@ -1965,8 +1977,21 @@ function renderCharts(data) {
       labels: catRows.map(([k])=>k),
       datasets: [{ label: 'Volume (Ltrs/Kgs)', data: catRows.map(([,d])=>Math.round(d.ltrs)), backgroundColor: '#1db87a', borderRadius: 4, borderSkipped: false }]
     },
-    options: { ...baseChartOptions('top'), plugins: { ...baseChartOptions('top').plugins, legend: { display: false } } }
+    options: { ...baseChartOptions('top'), plugins: { ...baseChartOptions('top').plugins, legend: { display: false }, datalabels: barDL(false) } }
   });
+
+  // shared doughnut datalabels config
+  const donutDL = {
+    color: '#fff',
+    font: { family: "'DM Sans', sans-serif", size: 11, weight: '700' },
+    textAlign: 'center',
+    formatter: (val, ctx) => {
+      const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+      const pct = Math.round(val/total*100);
+      if (pct < 5) return '';
+      return fmtLbl(val) + '\n' + pct + '%';
+    }
+  };
 
   // ── Chart 4: Channel donut ──
   mkChart('chartChanDonut', {
@@ -1979,7 +2004,8 @@ function renderCharts(data) {
       responsive: true, maintainAspectRatio: true, cutout: '62%',
       plugins: {
         legend: { position: 'right', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, boxWidth: 10, padding: 8 } },
-        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10, callbacks: { label: ctx => ' ' + ctx.label + ': KSH ' + Number(ctx.raw).toLocaleString() } }
+        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10, callbacks: { label: ctx => ' ' + ctx.label + ': KSH ' + Number(ctx.raw).toLocaleString() } },
+        datalabels: donutDL
       }
     }
   });
@@ -1998,7 +2024,8 @@ function renderCharts(data) {
       responsive: true, maintainAspectRatio: true, cutout: '62%',
       plugins: {
         legend: { position: 'right', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, boxWidth: 10, padding: 8 } },
-        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10, callbacks: { label: ctx => ' ' + ctx.label + ': KSH ' + Number(ctx.raw).toLocaleString() } }
+        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10, callbacks: { label: ctx => ' ' + ctx.label + ': KSH ' + Number(ctx.raw).toLocaleString() } },
+        datalabels: donutDL
       }
     }
   });
@@ -2013,7 +2040,7 @@ function renderCharts(data) {
     options: {
       ...baseChartOptions('top'),
       indexAxis: 'y',
-      plugins: { ...baseChartOptions('top').plugins, legend: { display: false } },
+      plugins: { ...baseChartOptions('top').plugins, legend: { display: false }, datalabels: barDL(true) },
       scales: {
         x: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { color: gc } },
         y: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } }, grid: { color: gc } }
@@ -2028,7 +2055,7 @@ function renderCharts(data) {
       labels: regLabels,
       datasets: [{ label: 'Volume (Ltrs/Kgs)', data: regRows.map(([,d])=>Math.round(d.ltrs)), backgroundColor: '#0891b2', borderRadius: 4, borderSkipped: false }]
     },
-    options: { ...baseChartOptions('top'), plugins: { ...baseChartOptions('top').plugins, legend: { display: false } } }
+    options: { ...baseChartOptions('top'), plugins: { ...baseChartOptions('top').plugins, legend: { display: false }, datalabels: barDL(false) } }
   });
 
   // ── Chart 8: Dual-axis Revenue + Volume by Category ──
@@ -2037,15 +2064,16 @@ function renderCharts(data) {
     data: {
       labels: catLabels,
       datasets: [
-        { type: 'bar',  label: 'Revenue (KSH)',   data: catActual,                                      backgroundColor: 'rgba(225,36,90,0.75)',   borderRadius: 4, borderSkipped: false, yAxisID: 'yRev' },
-        { type: 'line', label: 'Volume (Ltrs/Kgs)', data: catRows.map(([,d])=>Math.round(d.ltrs)),      borderColor: '#1db87a', backgroundColor: 'rgba(29,184,122,0.12)', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#1db87a', fill: true, yAxisID: 'yVol' }
+        { type: 'bar',  label: 'Revenue (KSH)',     data: catActual,                                    backgroundColor: 'rgba(225,36,90,0.75)',   borderRadius: 4, borderSkipped: false, yAxisID: 'yRev', datalabels: barDL(false, '#E1245A') },
+        { type: 'line', label: 'Volume (Ltrs/Kgs)', data: catRows.map(([,d])=>Math.round(d.ltrs)),      borderColor: '#1db87a', backgroundColor: 'rgba(29,184,122,0.12)', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#1db87a', fill: true, yAxisID: 'yVol', datalabels: { display: false } }
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: true,
       plugins: {
         legend: { position: 'top', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 12 }, boxWidth: 12, padding: 12 } },
-        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10 }
+        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10 },
+        datalabels: { display: 'auto' }
       },
       scales: {
         x:    { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } }, grid: { color: gc } },
