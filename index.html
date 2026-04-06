@@ -804,7 +804,7 @@
   </div>
   <div class="header-nav">
     <button class="nav-btn active" id="navUpload" onclick="switchPage('upload')">📤 Upload Sales</button>
-    <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">👥 Customers</button>
+    <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">📊 Charts</button>
     <div class="theme-toggle">
       <span class="theme-toggle-label" id="themeLabel">☀️</span>
       <label class="toggle-switch" title="Toggle Day / Night mode">
@@ -955,33 +955,9 @@
   </div>
 </div>
 
-<!-- ══════════════════ CUSTOMERS PAGE ══════════════════ -->
+<!-- ══════════════════ CHARTS PAGE ══════════════════ -->
 <div class="page" id="pageCustomers">
   <div class="customers-page">
-
-    <div class="page-toolbar">
-      <div class="search-wrap">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input class="search-input" id="custSearch" type="text" placeholder="Search SAP Code or Name…" oninput="filterCustomers()">
-      </div>
-      <button class="btn-green" onclick="openAddModal()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
-        Add Customer
-      </button>
-      <button class="btn-navy" onclick="loadCustomers()">↻ Refresh</button>
-    </div>
-
-    <div class="cust-stats">
-      <div class="cust-stat"><div class="cs-label">Total Customers</div><div class="cs-value" id="csTot">—</div></div>
-      <div class="cust-stat"><div class="cs-label">Total Volume</div><div class="cs-value" id="csVol">—</div></div>
-      <div class="cust-stat"><div class="cs-label">Total KSH</div><div class="cs-value" id="csAmt">—</div></div>
-    </div>
-
-    <div class="tbl-card-wrap">
-      <div id="custTableWrap">
-        <div class="state-box"><div class="spinner"></div><p>Loading…</p></div>
-      </div>
-    </div>
 
     <!-- ══ GRAPHICAL REPRESENTATION OF SALES ══ -->
     <div class="charts-section" id="chartsSection">
@@ -1089,11 +1065,7 @@ function switchPage(page) {
   document.getElementById('page' + cap(page)).classList.add('active');
   document.getElementById('nav' + cap(page)).classList.add('active');
   
-  // Only load customers the first time the tab is opened
-  if (page === 'customers' && !customersLoaded) {
-    customersLoaded = true;
-    loadCustomers();
-  }
+  // Charts tab — no customer table to load
 }
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
