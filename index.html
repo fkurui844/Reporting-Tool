@@ -1872,7 +1872,7 @@ function renderCharts(data) {
     <div class="charts-full">
       <div class="chart-card">
         <div class="chart-card-head">
-          <span class="chart-card-title">Volume per Channel</span>
+          <span class="chart-card-title">Volume by Type</span>
           <span class="chart-card-sub">Volume share (Ltrs / Kgs)</span>
         </div>
         <div class="chart-canvas-wrap"><canvas id="chartTypeDonut" height="220"></canvas></div>
@@ -1955,10 +1955,10 @@ function renderCharts(data) {
     }
   };
 
-  // ── Chart 5: Volume per Channel donut ──
+  // ── Chart 5: Volume by Type donut ──
   const typeRowsFilt = typeRows.filter(([k])=>k && k !== 'UNKNOWN' && k !== '');
-  const typeLabels = chanRows.map(([k])=>k);
-  const typeData   = chanRows.map(([,d])=>Math.round(d.ltrs));
+  const typeLabels = typeRowsFilt.length ? typeRowsFilt.map(([k])=>k) : chanRows.map(([k])=>k);
+  const typeData   = typeRowsFilt.length ? typeRowsFilt.map(([,d])=>Math.round(d.ltrs)) : chanRows.map(([,d])=>Math.round(d.ltrs));
   mkChart('chartTypeDonut', {
     type: 'doughnut',
     data: {
