@@ -1150,7 +1150,7 @@ function parseSAP(text){
       continue;
     }
     if(line.includes('GRAND TOTAL')||line.includes('TOTALS'))continue;
-    const sapCol=cols.find(c=>/^440\d{8}$/.test(c));
+    const sapCol=cols.find(c=>/^(440|330)\d{8}$/.test(c));
     if(sapCol&&curCust){
       const matCode=sapCol.replace(/^0+/,'');
       const nums=cols.filter(c=>/^-?[\d,]+\.?\d*$/.test(c.replace(/\s/,'')));
