@@ -1868,19 +1868,12 @@ function renderCharts(data) {
       </div>
     </div>
 
-    <!-- Row 2: Volume by Category + Customer Type donut -->
-    <div class="charts-grid-2">
+    <!-- Row 2: Customer Type donut (full width) -->
+    <div class="charts-full">
       <div class="chart-card">
         <div class="chart-card-head">
-          <span class="chart-card-title">Volume by Category</span>
-          <span class="chart-card-sub">Litres / Kgs</span>
-        </div>
-        <div class="chart-canvas-wrap"><canvas id="chartCatVol" height="220"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-head">
-          <span class="chart-card-title">Customer Type Mix</span>
-          <span class="chart-card-sub">Revenue share</span>
+          <span class="chart-card-title">Volume per Channel</span>
+          <span class="chart-card-sub">Volume share (Ltrs / Kgs)</span>
         </div>
         <div class="chart-canvas-wrap"><canvas id="chartTypeDonut" height="220"></canvas></div>
       </div>
@@ -1949,16 +1942,6 @@ function renderCharts(data) {
     }
   });
 
-  // ── Chart 3: Volume by Category — vertical bar ──
-  mkChart('chartCatVol', {
-    type: 'bar',
-    data: {
-      labels: catRows.map(([k])=>k),
-      datasets: [{ label: 'Volume (Ltrs/Kgs)', data: catRows.map(([,d])=>Math.round(d.ltrs)), backgroundColor: '#1db87a', borderRadius: 4, borderSkipped: false }]
-    },
-    options: { ...baseChartOptions('top'), plugins: { ...baseChartOptions('top').plugins, legend: { display: false }, datalabels: barDL(false) } }
-  });
-
   // shared doughnut datalabels config
   const donutDL = {
     color: '#fff',
@@ -1972,10 +1955,10 @@ function renderCharts(data) {
     }
   };
 
-  // ── Chart 5: Customer Type donut ──
+  // ── Chart 5: Volume per Channel donut ──
   const typeRowsFilt = typeRows.filter(([k])=>k && k !== 'UNKNOWN' && k !== '');
-  const typeLabels = typeRowsFilt.length ? typeRowsFilt.map(([k])=>k) : chanRows.map(([k])=>k);
-  const typeData   = typeRowsFilt.length ? typeRowsFilt.map(([,d])=>Math.round(d.amount)) : chanRows.map(([,d])=>Math.round(d.amount));
+  const typeLabels = chanRows.map(([k])=>k);
+  const typeData   = chanRows.map(([,d])=>Math.round(d.ltrs));
   mkChart('chartTypeDonut', {
     type: 'doughnut',
     data: {
@@ -1986,7 +1969,7 @@ function renderCharts(data) {
       responsive: true, maintainAspectRatio: true, cutout: '62%',
       plugins: {
         legend: { position: 'right', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, boxWidth: 10, padding: 8 } },
-        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10, callbacks: { label: ctx => ' ' + ctx.label + ': KSH ' + Number(ctx.raw).toLocaleString() } },
+        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10, callbacks: { label: ctx => ' ' + ctx.label + ': ' + Number(ctx.raw).toLocaleString() + ' Ltrs/Kgs' } },
         datalabels: donutDL
       }
     }
