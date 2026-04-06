@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sales Report Generator</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -766,6 +767,29 @@
     body.dark .progress-bar-wrap { background: var(--bg); }
     body.dark .del-body p { color: var(--text-muted); }
     body.dark .del-body h3 { color: var(--text); }
+
+    /* ── Graphical Representation Section ── */
+    .charts-section { margin-top: 32px; margin-bottom: 24px; }
+    .charts-section-header {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 20px; padding-bottom: 14px;
+      border-bottom: 2px solid var(--border);
+    }
+    .charts-section-header h2 { font-size: 17px; font-weight: 700; color: var(--text-head); letter-spacing: -0.2px; }
+    .section-badge { background: #E1245A; color: white; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px; letter-spacing: 0.04em; }
+    .chart-period-note { font-size: 12px; color: var(--text-muted); margin-left: auto; font-style: italic; }
+    .charts-no-data { background: var(--surface); border: 1px dashed var(--border); border-radius: 10px; padding: 48px 20px; text-align: center; color: var(--text-muted); font-size: 14px; }
+    .charts-no-data-icon { font-size: 32px; margin-bottom: 10px; }
+    .charts-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .charts-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .charts-full { margin-bottom: 16px; }
+    @media (max-width: 1000px) { .charts-grid-2 { grid-template-columns: 1fr; } .charts-grid-3 { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 680px)  { .charts-grid-3 { grid-template-columns: 1fr; } }
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+    .chart-card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; gap: 8px; }
+    .chart-card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+    .chart-card-sub { font-size: 12px; color: var(--text-muted); }
+    body.dark .chart-card { background: var(--surface); border-color: var(--border); }
 </style>
 </head>
 <body>
@@ -956,6 +980,21 @@
     <div class="tbl-card-wrap">
       <div id="custTableWrap">
         <div class="state-box"><div class="spinner"></div><p>Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- ══ GRAPHICAL REPRESENTATION OF SALES ══ -->
+    <div class="charts-section" id="chartsSection">
+      <div class="charts-section-header">
+        <h2>📊 Graphical Representation of Sales</h2>
+        <span class="section-badge">CHARTS</span>
+        <span class="chart-period-note" id="chartPeriodNote">Upload a SAP file to populate charts</span>
+      </div>
+      <div id="chartsBody">
+        <div class="charts-no-data">
+          <div class="charts-no-data-icon">📂</div>
+          <div>Upload a SAP sales file on the <strong>Upload Sales</strong> tab to see charts here.</div>
+        </div>
       </div>
     </div>
 
@@ -1701,6 +1740,9 @@ function renderReport(data){
         <td>${c.name}</td><td>${fmt(c.ltrs)}</td><td>${fmt(c.amount)}</td>
       </tr>`).join('');
   } else { mc.style.display='none'; }
+
+  // Render charts on the Customers tab
+  renderCharts(data);
 }
 
 function toggleCovBreakdown(type){
@@ -1727,6 +1769,319 @@ function groupBy(arr,key){
     m[k].ltrs+=item.ltrs; m[k].amount+=item.amount;
   }
   return m;
+}
+
+// ═══════════════════════════════════════════════════════
+// CHARTS ENGINE
+// ═══════════════════════════════════════════════════════
+let _chartInstances = {};
+
+function destroyChart(id) {
+  if (_chartInstances[id]) { _chartInstances[id].destroy(); delete _chartInstances[id]; }
+}
+
+function mkChart(id, config) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  _chartInstances[id] = new Chart(ctx, config);
+}
+
+function chartColors(n) {
+  const palette = [
+    '#E1245A','#0f2744','#1db87a','#f6ad2b','#7c3aed',
+    '#0891b2','#dc2626','#16a34a','#d97706','#7c3aed',
+    '#db2777','#2563eb','#059669','#ea580c','#9333ea'
+  ];
+  return Array.from({length:n},(_,i)=>palette[i%palette.length]);
+}
+
+function chartTextColor() {
+  return document.body.classList.contains('dark') ? '#8b949e' : '#718096';
+}
+function chartGridColor() {
+  return document.body.classList.contains('dark') ? '#21262d' : '#eef0f5';
+}
+function chartSurfaceColor() {
+  return document.body.classList.contains('dark') ? '#161b22' : '#ffffff';
+}
+
+function baseChartOptions(legendPos='top') {
+  const tc = chartTextColor(), gc = chartGridColor();
+  return {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: {
+        position: legendPos,
+        labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 12 }, boxWidth: 12, padding: 12 }
+      },
+      tooltip: {
+        backgroundColor: chartSurfaceColor(),
+        titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744',
+        bodyColor: tc,
+        borderColor: chartGridColor(),
+        borderWidth: 1,
+        padding: 10,
+        callbacks: {
+          label: ctx => ' ' + Number(ctx.raw).toLocaleString()
+        }
+      }
+    },
+    scales: {
+      x: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } }, grid: { color: gc } },
+      y: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { color: gc } }
+    }
+  };
+}
+
+function renderCharts(data) {
+  const note = document.getElementById('chartPeriodNote');
+  if (note) note.textContent = data.period ? 'Period: ' + data.period : '';
+
+  const byRegion   = groupBy(data.transactions, 'region');
+  const byCategory = groupBy(data.transactions, 'category');
+  const byChannel  = groupBy(data.transactions, 'channel');
+  const byType     = groupBy(data.transactions, 'type');
+
+  const sortDesc = obj => Object.entries(obj).sort((a,b)=>b[1].amount-a[1].amount);
+  const regRows  = sortDesc(byRegion);
+  const catRows  = sortDesc(byCategory);
+  const chanRows = sortDesc(byChannel);
+  const typeRows = sortDesc(byType);
+
+  // Top 10 customers by revenue
+  const custMap = {};
+  for (const t of data.transactions) {
+    if (!custMap[t.custCode]) custMap[t.custCode] = { name: t.custName, amount: 0, ltrs: 0 };
+    custMap[t.custCode].amount += t.amount;
+    custMap[t.custCode].ltrs   += t.ltrs;
+  }
+  const top10 = Object.values(custMap).sort((a,b)=>b.amount-a.amount).slice(0,10);
+  const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
+  const totalLtrs = data.transactions.reduce((s,t)=>s+t.ltrs,0);
+
+  // Category targets for grouped bar
+  const hasCatTgt = Object.keys(refData.categoryTargets||{}).length > 0;
+
+  const body = document.getElementById('chartsBody');
+  body.innerHTML = `
+    <!-- Row 1: Revenue by Category (grouped bar) + Revenue by Region (horizontal bar) -->
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <span class="chart-card-title">Revenue by Category</span>
+          <span class="chart-card-sub">${hasCatTgt ? 'Actual vs Target (KSH)' : 'Actual Revenue (KSH)'}</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartCatRev" height="260"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <span class="chart-card-title">Revenue by Region</span>
+          <span class="chart-card-sub">KSH contribution</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartRegRev" height="260"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 2: Volume by Category + Channel Mix donut + Type donut -->
+    <div class="charts-grid-3">
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <span class="chart-card-title">Volume by Category</span>
+          <span class="chart-card-sub">Litres / Kgs</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartCatVol" height="220"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <span class="chart-card-title">Channel Mix</span>
+          <span class="chart-card-sub">Revenue share</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartChanDonut" height="220"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <span class="chart-card-title">Customer Type Mix</span>
+          <span class="chart-card-sub">Revenue share</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartTypeDonut" height="220"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 3: Top 10 Customers horizontal bar (full width) -->
+    <div class="charts-full">
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <span class="chart-card-title">Top 10 Customers — Revenue</span>
+          <span class="chart-card-sub">KSH · sorted highest to lowest</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartTop10" height="300"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 4: Region Volume bar + MTD pacing line (if target available) -->
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <span class="chart-card-title">Volume by Region</span>
+          <span class="chart-card-sub">Litres / Kgs</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartRegVol" height="240"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <span class="chart-card-title">Revenue vs Volume Split</span>
+          <span class="chart-card-sub">Dual-axis by category</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartDualAxis" height="240"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  const tc = chartTextColor(), gc = chartGridColor();
+
+  // ── Chart 1: Revenue by Category — grouped bar (Actual vs Target) ──
+  const catLabels = catRows.map(([k])=>k);
+  const catActual = catRows.map(([,d])=>Math.round(d.amount));
+  const catTarget = hasCatTgt
+    ? catRows.map(([k])=>{
+        const ct = refData.categoryTargets[normalizeCat(k)] || refData.categoryTargets[k];
+        return ct ? Math.round(ct.ksh) : 0;
+      })
+    : null;
+
+  mkChart('chartCatRev', {
+    type: 'bar',
+    data: {
+      labels: catLabels,
+      datasets: [
+        { label: 'Actual', data: catActual, backgroundColor: '#E1245A', borderRadius: 4, borderSkipped: false },
+        ...(catTarget ? [{ label: 'Target', data: catTarget, backgroundColor: 'rgba(15,39,68,0.25)', borderColor: '#0f2744', borderWidth: 1.5, borderRadius: 4, borderSkipped: false }] : [])
+      ]
+    },
+    options: {
+      ...baseChartOptions('top'),
+      plugins: { ...baseChartOptions().plugins, tooltip: { ...baseChartOptions().plugins.tooltip, callbacks: { label: ctx => ' ' + ctx.dataset.label + ': KSH ' + Number(ctx.raw).toLocaleString() } } }
+    }
+  });
+
+  // ── Chart 2: Revenue by Region — horizontal bar ──
+  const regLabels = regRows.map(([k])=>k);
+  const regAmts   = regRows.map(([,d])=>Math.round(d.amount));
+  mkChart('chartRegRev', {
+    type: 'bar',
+    data: {
+      labels: regLabels,
+      datasets: [{ label: 'Revenue (KSH)', data: regAmts, backgroundColor: chartColors(regLabels.length), borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      ...baseChartOptions('top'),
+      indexAxis: 'y',
+      plugins: { ...baseChartOptions('top').plugins, legend: { display: false } },
+      scales: {
+        x: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { color: gc } },
+        y: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } }, grid: { color: gc } }
+      }
+    }
+  });
+
+  // ── Chart 3: Volume by Category — vertical bar ──
+  mkChart('chartCatVol', {
+    type: 'bar',
+    data: {
+      labels: catRows.map(([k])=>k),
+      datasets: [{ label: 'Volume (Ltrs/Kgs)', data: catRows.map(([,d])=>Math.round(d.ltrs)), backgroundColor: '#1db87a', borderRadius: 4, borderSkipped: false }]
+    },
+    options: { ...baseChartOptions('top'), plugins: { ...baseChartOptions('top').plugins, legend: { display: false } } }
+  });
+
+  // ── Chart 4: Channel donut ──
+  mkChart('chartChanDonut', {
+    type: 'doughnut',
+    data: {
+      labels: chanRows.map(([k])=>k),
+      datasets: [{ data: chanRows.map(([,d])=>Math.round(d.amount)), backgroundColor: chartColors(chanRows.length), borderWidth: 2, borderColor: chartSurfaceColor(), hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '62%',
+      plugins: {
+        legend: { position: 'right', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, boxWidth: 10, padding: 8 } },
+        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10, callbacks: { label: ctx => ' ' + ctx.label + ': KSH ' + Number(ctx.raw).toLocaleString() } }
+      }
+    }
+  });
+
+  // ── Chart 5: Customer Type donut ──
+  const typeRowsFilt = typeRows.filter(([k])=>k && k !== 'UNKNOWN' && k !== '');
+  const typeLabels = typeRowsFilt.length ? typeRowsFilt.map(([k])=>k) : chanRows.map(([k])=>k);
+  const typeData   = typeRowsFilt.length ? typeRowsFilt.map(([,d])=>Math.round(d.amount)) : chanRows.map(([,d])=>Math.round(d.amount));
+  mkChart('chartTypeDonut', {
+    type: 'doughnut',
+    data: {
+      labels: typeLabels,
+      datasets: [{ data: typeData, backgroundColor: ['#7c3aed','#0891b2','#f6ad2b','#dc2626','#16a34a','#db2777'], borderWidth: 2, borderColor: chartSurfaceColor(), hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '62%',
+      plugins: {
+        legend: { position: 'right', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, boxWidth: 10, padding: 8 } },
+        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10, callbacks: { label: ctx => ' ' + ctx.label + ': KSH ' + Number(ctx.raw).toLocaleString() } }
+      }
+    }
+  });
+
+  // ── Chart 6: Top 10 Customers — horizontal bar ──
+  mkChart('chartTop10', {
+    type: 'bar',
+    data: {
+      labels: top10.map(c => c.name.length > 28 ? c.name.slice(0,26)+'…' : c.name),
+      datasets: [{ label: 'Revenue (KSH)', data: top10.map(c=>Math.round(c.amount)), backgroundColor: '#7c3aed', borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      ...baseChartOptions('top'),
+      indexAxis: 'y',
+      plugins: { ...baseChartOptions('top').plugins, legend: { display: false } },
+      scales: {
+        x: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { color: gc } },
+        y: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } }, grid: { color: gc } }
+      }
+    }
+  });
+
+  // ── Chart 7: Volume by Region ──
+  mkChart('chartRegVol', {
+    type: 'bar',
+    data: {
+      labels: regLabels,
+      datasets: [{ label: 'Volume (Ltrs/Kgs)', data: regRows.map(([,d])=>Math.round(d.ltrs)), backgroundColor: '#0891b2', borderRadius: 4, borderSkipped: false }]
+    },
+    options: { ...baseChartOptions('top'), plugins: { ...baseChartOptions('top').plugins, legend: { display: false } } }
+  });
+
+  // ── Chart 8: Dual-axis Revenue + Volume by Category ──
+  mkChart('chartDualAxis', {
+    type: 'bar',
+    data: {
+      labels: catLabels,
+      datasets: [
+        { type: 'bar',  label: 'Revenue (KSH)',   data: catActual,                                      backgroundColor: 'rgba(225,36,90,0.75)',   borderRadius: 4, borderSkipped: false, yAxisID: 'yRev' },
+        { type: 'line', label: 'Volume (Ltrs/Kgs)', data: catRows.map(([,d])=>Math.round(d.ltrs)),      borderColor: '#1db87a', backgroundColor: 'rgba(29,184,122,0.12)', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#1db87a', fill: true, yAxisID: 'yVol' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'top', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 12 }, boxWidth: 12, padding: 12 } },
+        tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10 }
+      },
+      scales: {
+        x:    { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } }, grid: { color: gc } },
+        yRev: { position: 'left',  ticks: { color: '#E1245A', font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { color: gc } },
+        yVol: { position: 'right', ticks: { color: '#1db87a', font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { drawOnChartArea: false } }
+      }
+    }
+  });
 }
 
 function copyMissing(){
@@ -1925,6 +2280,25 @@ document.getElementById('delOverlay').addEventListener('click',function(e){if(e.
 function toggleTheme(isDark) {
   document.body.classList.toggle('dark', isDark);
   try { localStorage.setItem('salesdb-theme', isDark ? 'dark' : 'light'); } catch(e) {}
+  // Re-render charts so axis/tooltip colors update
+  if (Object.keys(_chartInstances).length) {
+    Object.values(_chartInstances).forEach(ch => {
+      const tc = chartTextColor(), gc = chartGridColor(), sc = chartSurfaceColor();
+      if (ch.options.plugins?.legend?.labels) ch.options.plugins.legend.labels.color = tc;
+      if (ch.options.plugins?.tooltip) {
+        ch.options.plugins.tooltip.backgroundColor = sc;
+        ch.options.plugins.tooltip.bodyColor = tc;
+        ch.options.plugins.tooltip.borderColor = gc;
+      }
+      if (ch.options.scales) {
+        Object.values(ch.options.scales).forEach(sc2 => {
+          if (sc2.ticks) sc2.ticks.color = tc;
+          if (sc2.grid)  sc2.grid.color  = gc;
+        });
+      }
+      ch.update();
+    });
+  }
 }
 
 // Restore saved theme on load
