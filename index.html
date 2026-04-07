@@ -791,6 +791,119 @@
     .chart-card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
     .chart-card-sub { font-size: 12px; color: var(--text-muted); }
     body.dark .chart-card { background: var(--surface); border-color: var(--border); }
+
+    /* ── Non-Trading Customers Section ── */
+    .nontrading-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+    .nontrading-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: #0f2744;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .nontrading-head-left { display: flex; align-items: center; gap: 10px; }
+    .nontrading-head h3 { font-size: 15px; font-weight: 700; color: #fff; margin: 0; }
+    .nontrading-badge {
+      background: rgba(255,255,255,0.18);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 99px;
+      border: 1px solid rgba(255,255,255,0.25);
+    }
+    .nontrading-head-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .nontrading-search {
+      padding: 6px 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      font-size: 12px;
+      font-family: 'DM Sans', sans-serif;
+      width: 180px;
+    }
+    .nontrading-search::placeholder { color: rgba(255,255,255,0.45); }
+    .nontrading-search:focus { outline: none; border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.15); }
+    .nontrading-filter-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--th-bg);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .nontrading-filter-label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .nontrading-filter-select {
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+    }
+    .nontrading-filter-select:focus { outline: none; border-color: #0f2744; }
+    .nontrading-count-note { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+    .nontrading-table-wrap { max-height: 420px; overflow-y: auto; }
+    .nontrading-table-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .nontrading-table-wrap th {
+      background: var(--th-bg);
+      padding: 9px 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 2;
+    }
+    .nontrading-table-wrap td { padding: 9px 12px; border-bottom: 1px solid var(--border2); color: var(--text); vertical-align: middle; }
+    .nontrading-table-wrap tr:last-child td { border-bottom: none; }
+    .nontrading-table-wrap tr:hover td { background: var(--row-hover); }
+    .nt-sap { font-family: 'DM Mono', monospace; font-size: 12px; background: var(--bg); border: 1px solid var(--border); padding: 2px 7px; border-radius: 5px; color: var(--text-head); white-space: nowrap; }
+    .nt-region-pill { font-size: 11px; background: #e8f0fe; color: #1a56db; padding: 2px 8px; border-radius: 99px; font-weight: 600; }
+    .nt-channel-pill { font-size: 11px; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 99px; font-weight: 600; }
+    .nontrading-empty { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px; }
+    .nontrading-empty-icon { font-size: 32px; margin-bottom: 10px; }
+    .nontrading-hint {
+      padding: 10px 18px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--th-bg);
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .btn-copy-nt {
+      padding: 5px 12px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #fff;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: background 0.15s;
+    }
+    .btn-copy-nt:hover { background: rgba(255,255,255,0.22); }
+    body.dark .nontrading-card { background: var(--surface); border-color: var(--border); }
+    body.dark .nt-region-pill { background: #0d1f33; color: #58a6ff; }
+    body.dark .nt-channel-pill { background: #2a2000; color: #d4a017; }
+    body.dark .nontrading-search { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
+    body.dark .nontrading-filter-wrap { background: var(--th-bg); border-color: var(--border); }
+    body.dark .nontrading-filter-select { background: var(--surface); border-color: var(--border); color: var(--text); }
 </style>
 </head>
 <body>
@@ -911,6 +1024,49 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
         Export PDF
       </button>
+    </div>
+
+    <!-- ── Customers Not Trading ── -->
+    <div class="nontrading-card" id="nontradingCard" style="display:none">
+      <div class="nontrading-head">
+        <div class="nontrading-head-left">
+          <h3>🚫 Customers Not Trading This Period</h3>
+          <span class="nontrading-badge" id="nontradingBadge">0</span>
+        </div>
+        <div class="nontrading-head-right">
+          <input class="nontrading-search" id="nontradingSearch" type="text" placeholder="Search name or SAP…" oninput="filterNonTrading()">
+          <button class="btn-copy-nt" onclick="copyNonTrading()">📋 Copy list</button>
+        </div>
+      </div>
+      <div class="nontrading-filter-wrap">
+        <span class="nontrading-filter-label">Filter:</span>
+        <select class="nontrading-filter-select" id="ntFilterRegion" onchange="filterNonTrading()">
+          <option value="">All Regions</option>
+        </select>
+        <select class="nontrading-filter-select" id="ntFilterChannel" onchange="filterNonTrading()">
+          <option value="">All Channels</option>
+        </select>
+        <span class="nontrading-count-note" id="nontradingCountNote"></span>
+      </div>
+      <div class="nontrading-table-wrap" id="nontradingTableWrap">
+        <table>
+          <colgroup><col style="width:4%"><col style="width:16%"><col style="width:34%"><col style="width:22%"><col style="width:18%"><col style="width:6%"></colgroup>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>SAP Code</th>
+              <th>Customer Name</th>
+              <th>Region</th>
+              <th>Channel</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody id="nontradingTbody"></tbody>
+        </table>
+      </div>
+      <div class="nontrading-hint">
+        💡 These customers exist in the database but had <strong>zero transactions</strong> in the uploaded period. Follow up to re-activate them.
+      </div>
     </div>
 
     <!-- Incomplete customers (matched but missing region/channel) -->
@@ -1684,6 +1840,45 @@ function renderReport(data){
     top5Card.style.display = 'none';
   }
 
+  // ── Customers Not Trading ──────────────────────────
+  const activeCodes = new Set(data.transactions.map(t => {
+    // Normalize the same way parseCustomerSheet does: strip leading zeros
+    const s = String(t.custCode).trim();
+    return s.replace(/^0+/, '') || s;
+  }));
+  // Build non-trading list from all customers in refData (excluding STAFF type)
+  const nontradingAll = Object.entries(refData.customers)
+    .filter(([code, c]) => {
+      if ((c.type||'').includes('STAFF')) return false;
+      // Deduplicate — refData stores both raw and stripped codes, prefer stripped
+      const stripped = code.replace(/^0+/, '') || code;
+      return stripped === code; // only process the canonical (stripped) key
+    })
+    .filter(([code]) => !activeCodes.has(code))
+    .map(([code, c]) => ({ code, outlet: c.outlet, region: c.region||'', channel: c.channel||'', type: c.type||'' }))
+    .sort((a, b) => (a.region||'').localeCompare(b.region||'') || (a.outlet||'').localeCompare(b.outlet||''));
+
+  // Store globally for filtering/copy
+  window._nontradingAll = nontradingAll;
+
+  const ntCard = document.getElementById('nontradingCard');
+  if (nontradingAll.length) {
+    ntCard.style.display = 'block';
+    document.getElementById('nontradingBadge').textContent = nontradingAll.length + ' inactive';
+
+    // Populate filter dropdowns
+    const regions  = [...new Set(nontradingAll.map(c => c.region).filter(Boolean))].sort();
+    const channels = [...new Set(nontradingAll.map(c => c.channel).filter(Boolean))].sort();
+    const rSel = document.getElementById('ntFilterRegion');
+    const cSel = document.getElementById('ntFilterChannel');
+    rSel.innerHTML = '<option value="">All Regions</option>' + regions.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
+    cSel.innerHTML = '<option value="">All Channels</option>' + channels.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+    renderNonTrading(nontradingAll);
+  } else {
+    ntCard.style.display = 'none';
+  }
+
   // Incomplete (matched but blank region/channel)
   const incompleteArr = Object.values(data.incompleteCustomers||{}).sort((a,b)=>b.amount-a.amount);
   const ic=document.getElementById('incompleteCard');
@@ -1716,6 +1911,56 @@ function renderReport(data){
 
   // Render charts on the Customers tab
   renderCharts(data);
+}
+
+function renderNonTrading(list) {
+  const tbody = document.getElementById('nontradingTbody');
+  document.getElementById('nontradingCountNote').textContent = `Showing ${list.length} customer${list.length !== 1 ? 's' : ''}`;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="nontrading-empty"><div class="nontrading-empty-icon">✅</div>No customers match this filter.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map((c, i) => `
+    <tr>
+      <td style="color:var(--text-muted);font-size:12px;text-align:center;">${i + 1}</td>
+      <td><span class="nt-sap">${esc(c.code)}</span></td>
+      <td style="font-weight:500;color:var(--text-head);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(c.outlet)}">${esc(c.outlet||'—')}</td>
+      <td>${c.region ? `<span class="nt-region-pill">${esc(c.region)}</span>` : '<span style="color:var(--text-muted);font-size:12px;">—</span>'}</td>
+      <td>${c.channel ? `<span class="nt-channel-pill">${esc(c.channel)}</span>` : '<span style="color:var(--text-muted);font-size:12px;">—</span>'}</td>
+      <td style="font-size:12px;color:var(--text-muted);">${esc(c.type||'—')}</td>
+    </tr>`).join('');
+}
+
+function filterNonTrading() {
+  const q   = (document.getElementById('nontradingSearch').value || '').toLowerCase().trim();
+  const reg = document.getElementById('ntFilterRegion').value.toUpperCase();
+  const ch  = document.getElementById('ntFilterChannel').value.toUpperCase();
+  const all = window._nontradingAll || [];
+  const filtered = all.filter(c => {
+    if (reg && c.region !== reg) return false;
+    if (ch  && c.channel !== ch)  return false;
+    if (q   && !c.code.toLowerCase().includes(q) && !(c.outlet||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  renderNonTrading(filtered);
+}
+
+function copyNonTrading() {
+  const all = window._nontradingAll || [];
+  const reg = document.getElementById('ntFilterRegion').value.toUpperCase();
+  const ch  = document.getElementById('ntFilterChannel').value.toUpperCase();
+  const q   = (document.getElementById('nontradingSearch').value || '').toLowerCase().trim();
+  const list = all.filter(c => {
+    if (reg && c.region !== reg) return false;
+    if (ch  && c.channel !== ch)  return false;
+    if (q   && !c.code.toLowerCase().includes(q) && !(c.outlet||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const text = ['SAP Code\tCustomer Name\tRegion\tChannel\tType',
+    ...list.map(c => `${c.code}\t${c.outlet}\t${c.region}\t${c.channel}\t${c.type}`)
+  ].join('\n');
+  navigator.clipboard.writeText(text).then(() => showToast('Non-trading list copied (' + list.length + ' customers)', 'ok'))
+    .catch(() => showToast('Copy failed — try again', 'err'));
 }
 
 function toggleCovBreakdown(type){
