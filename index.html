@@ -2778,72 +2778,75 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
   const visRegions = filterRegion ? regions.filter(r => r.toLowerCase().includes(filterRegion)) : regions;
   const visCats    = filterCat    ? categories.filter(c => c === filterCat.toUpperCase())         : categories;
 
-  // ── Header ──
+  // ── TRANSPOSED: Categories = rows, Locations = columns ──
+
+  // Header row: Category | Metric | Region1 | Region2 | ... | TOTALS
   let headHtml = '<tr>';
-  headHtml += '<th rowspan="2" style="vertical-align:middle;min-width:155px;">Location</th>';
-  // Grand total columns first
-  headHtml += `<th colspan="2" class="cat-head" style="background:#1b4f72;">GRAND TOTAL</th>`;
-  // Per-category headers
-  for (const c of visCats) {
-    headHtml += `<th colspan="2" class="cat-head">${esc(c)}</th>`;
+  headHtml += '<th style="vertical-align:middle;min-width:120px;text-align:left;">Category</th>';
+  headHtml += '<th style="vertical-align:middle;min-width:75px;text-align:left;color:rgba(255,255,255,0.6);font-size:11px;font-weight:500;">Metric</th>';
+  for (const r of visRegions) {
+    headHtml += `<th class="cat-head" style="min-width:140px;">${esc(r)}</th>`;
   }
-  headHtml += '</tr><tr class="sub-head">';
-  // Grand total sub-cols
-  headHtml += '<th style="background:#1b4f72;text-align:right;color:#f6ad2b;">Ltrs/Kgs</th>';
-  headHtml += '<th style="background:#1b4f72;text-align:right;color:#f6ad2b;border-right:2px solid rgba(255,255,255,0.18);">Amt KSH</th>';
-  // Per-cat sub-cols
-  for (const c of visCats) {
-    headHtml += '<th style="text-align:right;color:rgba(255,255,255,0.6)">Ltrs/Kgs</th>';
-    headHtml += '<th style="text-align:right;color:rgba(255,255,255,0.6);border-right:2px solid rgba(255,255,255,0.1)">Amt KSH</th>';
-  }
+  headHtml += '<th class="cat-head" style="background:#1b4f72;min-width:140px;">TOTALS</th>';
   headHtml += '</tr>';
   document.getElementById('locSalesHead').innerHTML = headHtml;
 
-  // ── Body rows ──
-  const maxAmt = Math.max(...visRegions.map(r => regionTotals[r]?.amount || 0), 1);
+  // Body: two rows per category (Ltrs/Kgs + Amt KSH), then Grand Total
   let bodyHtml = '';
-  for (const r of visRegions) {
-    const rTot = { ltrs: 0, amount: 0 };
-    for (const c of visCats) {
-      rTot.ltrs   += pivot[r]?.[c]?.ltrs   || 0;
-      rTot.amount += pivot[r]?.[c]?.amount || 0;
-    }
-    const barW = Math.max(Math.round((rTot.amount / maxAmt) * 72), 0);
+  for (const c of visCats) {
+    // Ltrs/Kgs row
     bodyHtml += '<tr>';
-    bodyHtml += `<td>
-      <div style="font-weight:700;color:var(--text-head);font-size:13px;">${esc(r)}</div>
-      <div style="height:4px;background:var(--bg);border-radius:99px;margin-top:4px;overflow:hidden;width:${barW}px;max-width:100%">
-        <div style="height:4px;width:100%;background:#E1245A;border-radius:99px;"></div>
-      </div>
-    </td>`;
-    // Grand total cols
-    bodyHtml += `<td class="num">${fmtN(rTot.ltrs)}</td>`;
-    bodyHtml += `<td class="num-ksh" style="color:var(--text-head);font-weight:600;">${fmtA(rTot.amount)}</td>`;
-    // Per-cat cols
-    for (const c of visCats) {
+    bodyHtml += `<td rowspan="2" style="font-weight:700;color:var(--text-head);font-size:13px;vertical-align:middle;border-right:1px solid var(--border);">${esc(c)}</td>`;
+    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Ltrs/Kgs</td>`;
+    let cLtrsTotal = 0;
+    for (const r of visRegions) {
       const cell = pivot[r]?.[c];
-      const isZero = !cell || (cell.ltrs === 0 && cell.amount === 0);
-      bodyHtml += `<td class="num${isZero?' zero':''}">${isZero ? '—' : fmtN(cell.ltrs)}</td>`;
-      bodyHtml += `<td class="num-ksh${isZero?' zero':''}">${isZero ? '—' : fmtA(cell.amount)}</td>`;
+      const v = cell?.ltrs || 0;
+      cLtrsTotal += v;
+      const isZero = v === 0;
+      bodyHtml += `<td class="num${isZero?' zero':''}">${isZero ? '—' : fmtN(v)}</td>`;
     }
+    bodyHtml += `<td class="num" style="background:#1b4f72;color:#f6ad2b;font-weight:700;">${fmtN(cLtrsTotal)}</td>`;
+    bodyHtml += '</tr>';
+
+    // Amt KSH row
+    bodyHtml += '<tr>';
+    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Amt KSH</td>`;
+    let cAmtTotal = 0;
+    for (const r of visRegions) {
+      const cell = pivot[r]?.[c];
+      const v = cell?.amount || 0;
+      cAmtTotal += v;
+      const isZero = v === 0;
+      bodyHtml += `<td class="num-ksh${isZero?' zero':''}" style="font-weight:600;color:var(--text-head);border-bottom:2px solid var(--border);">${isZero ? '—' : fmtA(v)}</td>`;
+    }
+    bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:#f6ad2b;font-weight:700;border-bottom:2px solid rgba(255,255,255,0.18);">${fmtA(cAmtTotal)}</td>`;
     bodyHtml += '</tr>';
   }
 
-  // ── Totals row ──
-  const visGrandLtrs   = visRegions.reduce((s,r)=>{ for(const c of visCats) s+=pivot[r]?.[c]?.ltrs||0; return s; }, 0);
-  const visGrandAmount = visRegions.reduce((s,r)=>{ for(const c of visCats) s+=pivot[r]?.[c]?.amount||0; return s; }, 0);
+  // Grand Total — Ltrs/Kgs
   bodyHtml += '<tr class="loc-total-row">';
-  bodyHtml += `<td>TOTALS</td>`;
-  bodyHtml += `<td class="num">${fmtN(visGrandLtrs)}</td>`;
-  bodyHtml += `<td class="num-ksh">${fmtA(visGrandAmount)}</td>`;
-  for (const c of visCats) {
-    const cTot = visRegions.reduce((s,r)=>({
-      ltrs:   s.ltrs   + (pivot[r]?.[c]?.ltrs   || 0),
-      amount: s.amount + (pivot[r]?.[c]?.amount  || 0)
-    }), { ltrs: 0, amount: 0 });
-    bodyHtml += `<td class="num">${fmtN(cTot.ltrs)}</td>`;
-    bodyHtml += `<td class="num-ksh">${fmtA(cTot.amount)}</td>`;
+  bodyHtml += `<td rowspan="2" style="vertical-align:middle;">GRAND TOTAL</td>`;
+  bodyHtml += `<td style="font-size:11px;white-space:nowrap;">Ltrs/Kgs</td>`;
+  let grandLtrs = 0;
+  for (const r of visRegions) {
+    const rLtrs = visCats.reduce((s,c)=>s+(pivot[r]?.[c]?.ltrs||0),0);
+    grandLtrs += rLtrs;
+    bodyHtml += `<td class="num">${fmtN(rLtrs)}</td>`;
   }
+  bodyHtml += `<td class="num" style="background:#1b4f72;">${fmtN(grandLtrs)}</td>`;
+  bodyHtml += '</tr>';
+
+  // Grand Total — Amt KSH
+  bodyHtml += '<tr class="loc-total-row">';
+  bodyHtml += `<td style="font-size:11px;white-space:nowrap;">Amt KSH</td>`;
+  let grandAmt = 0;
+  for (const r of visRegions) {
+    const rAmt = visCats.reduce((s,c)=>s+(pivot[r]?.[c]?.amount||0),0);
+    grandAmt += rAmt;
+    bodyHtml += `<td class="num-ksh">${fmtA(rAmt)}</td>`;
+  }
+  bodyHtml += `<td class="num-ksh" style="background:#1b4f72;">${fmtA(grandAmt)}</td>`;
   bodyHtml += '</tr>';
 
   document.getElementById('locSalesTbody').innerHTML = bodyHtml;
