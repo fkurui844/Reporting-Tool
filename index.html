@@ -2102,7 +2102,7 @@ function renderCharts(data) {
           <span class="chart-card-title">Revenue vs Volume Split</span>
           <span class="chart-card-sub">Dual-axis by category</span>
         </div>
-        <div class="chart-canvas-wrap"><canvas id="chartDualAxis" height="280"></canvas></div>
+        <div class="chart-canvas-wrap"><canvas id="chartDualAxis" height="320"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-card-head">
@@ -2144,7 +2144,7 @@ function renderCharts(data) {
       labels: catLabels,
       datasets: [
         { type: 'bar',  label: 'Revenue (KSH)',     data: catActual,                                    backgroundColor: 'rgba(225,36,90,0.75)',   borderRadius: 4, borderSkipped: false, yAxisID: 'yRev', datalabels: barDL(false, '#E1245A') },
-        { type: 'line', label: 'Volume (Ltrs/Kgs)', data: catRows.map(([,d])=>Math.round(d.ltrs)),      borderColor: '#1db87a', backgroundColor: 'rgba(29,184,122,0.12)', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#1db87a', fill: true, yAxisID: 'yVol', datalabels: { display: false } }
+        { type: 'line', label: 'Volume (Ltrs/Kgs)', data: catRows.map(([,d])=>Math.round(d.ltrs)),      borderColor: '#1db87a', backgroundColor: 'rgba(29,184,122,0.12)', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#1db87a', fill: true, yAxisID: 'yVol', datalabels: { display: true, align: 'top', anchor: 'end', offset: 4, color: '#1db87a', font: { family: "'DM Sans', sans-serif", size: 10, weight: '700' }, rotation: -90, formatter: fmtLbl, clip: false } }
       ]
     },
     options: {
@@ -2152,7 +2152,8 @@ function renderCharts(data) {
       plugins: {
         legend: { position: 'top', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 12 }, boxWidth: 12, padding: 12 } },
         tooltip: { backgroundColor: chartSurfaceColor(), titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744', bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10 },
-        datalabels: { display: 'auto' }
+        datalabels: { display: 'auto' },
+        layout: { padding: { top: 28 } }
       },
       scales: {
         x:    { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } }, grid: { color: gc } },
