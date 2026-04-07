@@ -2772,8 +2772,8 @@ function buildLocSalesData(transactions) {
 
 function renderLocSalesTable(data, filterRegion, filterCat) {
   const { regions, categories, pivot, regionTotals, catTotals, grandTotal } = data;
-  const fmtN = v => v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'K' : Math.round(v).toLocaleString();
-  const fmtA = v => v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'K' : Math.round(v).toLocaleString();
+  const fmtN = v => Math.round(v).toLocaleString();
+  const fmtA = v => Math.round(v).toLocaleString();
 
   const visRegions = filterRegion ? regions.filter(r => r.toLowerCase().includes(filterRegion)) : regions;
   const visCats    = filterCat    ? categories.filter(c => c === filterCat.toUpperCase())         : categories;
@@ -2859,7 +2859,7 @@ function filterLocSales() {
 function populateLocSalesPage(data) {
   const d = buildLocSalesData(data.transactions);
   _locSalesData = d;
-  const fmtBig = v => v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'K' : Math.round(v).toLocaleString();
+  const fmtBig = v => Math.round(v).toLocaleString();
 
   // Update subtitle
   const sub = document.getElementById('locSalesPeriod');
