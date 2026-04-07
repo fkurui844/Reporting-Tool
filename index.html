@@ -904,6 +904,163 @@
     body.dark .nontrading-search { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
     body.dark .nontrading-filter-wrap { background: var(--th-bg); border-color: var(--border); }
     body.dark .nontrading-filter-select { background: var(--surface); border-color: var(--border); color: var(--text); }
+
+    /* ══════════════════════════════════════════
+       LOCATION SALES PAGE
+    ══════════════════════════════════════════ */
+    .locsales-page { padding: 24px 28px; max-width: 100%; }
+
+    .locsales-topbar {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap; margin-bottom: 18px;
+    }
+    .locsales-title { font-size: 20px; font-weight: 800; color: var(--text-head); letter-spacing: -0.3px; margin-bottom: 3px; }
+    .locsales-subtitle { font-size: 13px; color: var(--text-muted); }
+
+    .locsales-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .locsales-search-wrap { position: relative; }
+    .locsales-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+    .locsales-search {
+      padding: 8px 12px 8px 30px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      width: 190px;
+    }
+    .locsales-search:focus { outline: none; border-color: var(--text-head); }
+    .locsales-filter-select {
+      padding: 8px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+    }
+    .locsales-filter-select:focus { outline: none; border-color: var(--text-head); }
+    .locsales-export-btn {
+      padding: 8px 16px;
+      background: #0f2744;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .locsales-export-btn:hover { background: #1a3c5e; }
+
+    /* Summary pills */
+    .locsales-summary {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px;
+    }
+    .loc-stat-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 18px;
+      display: flex; flex-direction: column; gap: 3px;
+      flex: 1; min-width: 130px;
+    }
+    .loc-stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); }
+    .loc-stat-value { font-size: 20px; font-weight: 800; color: var(--text-head); letter-spacing: -0.3px; }
+
+    /* Table outer */
+    .locsales-table-outer {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .locsales-empty { padding: 60px 20px; text-align: center; color: var(--text-muted); font-size: 14px; }
+    .locsales-empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+    /* Scrollable table */
+    .locsales-table-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 300px); }
+    #locSalesTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+    /* Sticky corner header */
+    #locSalesTable thead th {
+      background: #0f2744;
+      color: rgba(255,255,255,0.85);
+      padding: 10px 13px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      position: sticky; top: 0; z-index: 10;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    #locSalesTable thead th:first-child {
+      position: sticky; left: 0; z-index: 20;
+      background: #0f2744;
+      min-width: 150px;
+    }
+    #locSalesTable thead th.cat-head {
+      background: #1a3c5e;
+      text-align: center;
+    }
+    #locSalesTable thead th.cat-head-ksh { border-right: 2px solid rgba(255,255,255,0.18); }
+    #locSalesTable thead .sub-head th {
+      background: #0d2138;
+      font-size: 10px;
+      padding: 6px 10px;
+    }
+
+    /* Body rows */
+    #locSalesTable tbody tr { transition: background 0.1s; }
+    #locSalesTable tbody tr:hover td { background: var(--row-hover); }
+    #locSalesTable tbody td {
+      padding: 9px 13px;
+      border-bottom: 1px solid var(--border2);
+      color: var(--text);
+      white-space: nowrap;
+    }
+    #locSalesTable tbody td:first-child {
+      position: sticky; left: 0; z-index: 5;
+      background: var(--surface);
+      font-weight: 700;
+      color: var(--text-head);
+      border-right: 2px solid var(--border);
+      min-width: 150px;
+    }
+    #locSalesTable tbody tr:hover td:first-child { background: var(--row-hover); }
+    #locSalesTable tbody td.num { text-align: right; font-family: 'DM Mono', monospace; font-size: 12px; }
+    #locSalesTable tbody td.num-ksh { text-align: right; font-family: 'DM Mono', monospace; font-size: 12px; border-right: 2px solid var(--border2); }
+    #locSalesTable tbody td.zero { color: var(--text-muted); }
+
+    /* Total row */
+    #locSalesTable tbody tr.loc-total-row td {
+      background: #0f2744 !important;
+      color: #fff !important;
+      font-weight: 700;
+      border-top: 2px solid var(--border);
+      position: sticky; bottom: 0; z-index: 6;
+    }
+    #locSalesTable tbody tr.loc-total-row td:first-child {
+      background: #0f2744 !important;
+      z-index: 7;
+    }
+    #locSalesTable tbody tr.loc-total-row td.num,
+    #locSalesTable tbody tr.loc-total-row td.num-ksh { color: #f6ad2b !important; }
+
+    /* Share bar within cell */
+    .loc-share-bar-wrap { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+    .loc-mini-bar { height: 5px; border-radius: 99px; background: #E1245A; display: inline-block; min-width: 2px; }
+
+    body.dark .locsales-search { background: var(--surface); border-color: var(--border); color: var(--text); }
+    body.dark .locsales-filter-select { background: var(--surface); border-color: var(--border); color: var(--text); }
+    body.dark #locSalesTable tbody td:first-child { background: var(--surface); border-right-color: var(--border); }
+    body.dark #locSalesTable tbody tr:hover td:first-child { background: var(--row-hover); }
+    body.dark #locSalesTable tbody td { border-bottom-color: var(--border2); }
 </style>
 </head>
 <body>
@@ -918,6 +1075,7 @@
   </div>
   <div class="header-nav">
     <button class="nav-btn active" id="navUpload" onclick="switchPage('upload')">📤 Upload Sales</button>
+    <button class="nav-btn" id="navLocation" onclick="switchPage('location')">📍 Location Sales</button>
     <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">📊 Charts</button>
     <div class="theme-toggle">
       <span class="theme-toggle-label" id="themeLabel">☀️</span>
@@ -1109,6 +1267,65 @@
         Add these to the <strong>Customers</strong> sheet then click <strong>↻ Reload</strong> and re-upload.
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════════ LOCATION SALES PAGE ══════════════════ -->
+<div class="page" id="pageLocation">
+  <div class="locsales-page">
+
+    <!-- Top bar -->
+    <div class="locsales-topbar">
+      <div>
+        <h2 class="locsales-title">📍 Location Sales</h2>
+        <div class="locsales-subtitle" id="locSalesPeriod">Upload a SAP file to see data</div>
+      </div>
+      <div class="locsales-controls">
+        <div class="locsales-search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="locsales-search" id="locSearch" type="text" placeholder="Search location…" oninput="filterLocSales()">
+        </div>
+        <select class="locsales-filter-select" id="locCatFilter" onchange="filterLocSales()">
+          <option value="">All Categories</option>
+        </select>
+        <button class="locsales-export-btn" onclick="exportLocSalesCSV()">⬇ Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Summary stat pills -->
+    <div class="locsales-summary" id="locSalesSummary" style="display:none">
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Locations</span>
+        <span class="loc-stat-value" id="locStatLocs">—</span>
+      </div>
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Categories</span>
+        <span class="loc-stat-value" id="locStatCats">—</span>
+      </div>
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Total Revenue</span>
+        <span class="loc-stat-value" id="locStatRev">—</span>
+      </div>
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Total Volume</span>
+        <span class="loc-stat-value" id="locStatVol">—</span>
+      </div>
+    </div>
+
+    <!-- Table container -->
+    <div class="locsales-table-outer" id="locSalesTableOuter">
+      <div class="locsales-empty" id="locSalesEmpty">
+        <div class="locsales-empty-icon">📂</div>
+        <div>Upload a SAP file on the <strong>Upload Sales</strong> tab to see Location Sales here.</div>
+      </div>
+      <div class="locsales-table-wrap" id="locSalesTableWrap" style="display:none">
+        <table id="locSalesTable">
+          <thead id="locSalesHead"></thead>
+          <tbody id="locSalesTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1911,6 +2128,7 @@ function renderReport(data){
 
   // Render charts on the Customers tab
   renderCharts(data);
+  populateLocSalesPage(data);
 }
 
 function renderNonTrading(list) {
@@ -2492,6 +2710,212 @@ function toggleTheme(isDark) {
 })();
 
 // Init
+// ═══════════════════════════════════════════════════════
+// LOCATION SALES PAGE
+// ═══════════════════════════════════════════════════════
+let _locSalesData = null; // { regions, categories, pivot, totals }
+
+function buildLocSalesData(transactions) {
+  // pivot[region][category] = { ltrs, amount }
+  const pivot = {};
+  const regionSet = new Set();
+  const catSet = new Set();
+  const grandTotal = { ltrs: 0, amount: 0 };
+
+  for (const t of transactions) {
+    const reg = (t.region || 'UNKNOWN').toUpperCase();
+    const cat = (t.category || 'UNKNOWN').toUpperCase();
+    regionSet.add(reg);
+    catSet.add(cat);
+    if (!pivot[reg]) pivot[reg] = {};
+    if (!pivot[reg][cat]) pivot[reg][cat] = { ltrs: 0, amount: 0 };
+    pivot[reg][cat].ltrs   += t.ltrs;
+    pivot[reg][cat].amount += t.amount;
+    grandTotal.ltrs   += t.ltrs;
+    grandTotal.amount += t.amount;
+  }
+
+  // Sort regions by total revenue desc
+  const regions = [...regionSet].sort((a, b) => {
+    const totA = Object.values(pivot[a]||{}).reduce((s,d)=>s+d.amount,0);
+    const totB = Object.values(pivot[b]||{}).reduce((s,d)=>s+d.amount,0);
+    return totB - totA;
+  });
+  // Sort categories by total revenue desc
+  const categories = [...catSet].sort((a, b) => {
+    const totA = regions.reduce((s,r)=>s+(pivot[r]?.[a]?.amount||0),0);
+    const totB = regions.reduce((s,r)=>s+(pivot[r]?.[b]?.amount||0),0);
+    return totB - totA;
+  });
+
+  // Per-region totals
+  const regionTotals = {};
+  for (const r of regions) {
+    regionTotals[r] = { ltrs: 0, amount: 0 };
+    for (const c of categories) {
+      regionTotals[r].ltrs   += pivot[r]?.[c]?.ltrs   || 0;
+      regionTotals[r].amount += pivot[r]?.[c]?.amount || 0;
+    }
+  }
+  // Per-category totals
+  const catTotals = {};
+  for (const c of categories) {
+    catTotals[c] = { ltrs: 0, amount: 0 };
+    for (const r of regions) {
+      catTotals[c].ltrs   += pivot[r]?.[c]?.ltrs   || 0;
+      catTotals[c].amount += pivot[r]?.[c]?.amount || 0;
+    }
+  }
+
+  return { regions, categories, pivot, regionTotals, catTotals, grandTotal };
+}
+
+function renderLocSalesTable(data, filterRegion, filterCat) {
+  const { regions, categories, pivot, regionTotals, catTotals, grandTotal } = data;
+  const fmtN = v => v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'K' : Math.round(v).toLocaleString();
+  const fmtA = v => v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'K' : Math.round(v).toLocaleString();
+
+  const visRegions = filterRegion ? regions.filter(r => r.toLowerCase().includes(filterRegion)) : regions;
+  const visCats    = filterCat    ? categories.filter(c => c === filterCat.toUpperCase())         : categories;
+
+  // ── Header ──
+  let headHtml = '<tr>';
+  headHtml += '<th rowspan="2" style="vertical-align:middle;min-width:155px;">Location</th>';
+  // Grand total columns first
+  headHtml += `<th colspan="2" class="cat-head" style="background:#1b4f72;">GRAND TOTAL</th>`;
+  // Per-category headers
+  for (const c of visCats) {
+    headHtml += `<th colspan="2" class="cat-head">${esc(c)}</th>`;
+  }
+  headHtml += '</tr><tr class="sub-head">';
+  // Grand total sub-cols
+  headHtml += '<th style="background:#1b4f72;text-align:right;color:#f6ad2b;">Ltrs/Kgs</th>';
+  headHtml += '<th style="background:#1b4f72;text-align:right;color:#f6ad2b;border-right:2px solid rgba(255,255,255,0.18);">Amt KSH</th>';
+  // Per-cat sub-cols
+  for (const c of visCats) {
+    headHtml += '<th style="text-align:right;color:rgba(255,255,255,0.6)">Ltrs/Kgs</th>';
+    headHtml += '<th style="text-align:right;color:rgba(255,255,255,0.6);border-right:2px solid rgba(255,255,255,0.1)">Amt KSH</th>';
+  }
+  headHtml += '</tr>';
+  document.getElementById('locSalesHead').innerHTML = headHtml;
+
+  // ── Body rows ──
+  const maxAmt = Math.max(...visRegions.map(r => regionTotals[r]?.amount || 0), 1);
+  let bodyHtml = '';
+  for (const r of visRegions) {
+    const rTot = { ltrs: 0, amount: 0 };
+    for (const c of visCats) {
+      rTot.ltrs   += pivot[r]?.[c]?.ltrs   || 0;
+      rTot.amount += pivot[r]?.[c]?.amount || 0;
+    }
+    const barW = Math.max(Math.round((rTot.amount / maxAmt) * 72), 0);
+    bodyHtml += '<tr>';
+    bodyHtml += `<td>
+      <div style="font-weight:700;color:var(--text-head);font-size:13px;">${esc(r)}</div>
+      <div style="height:4px;background:var(--bg);border-radius:99px;margin-top:4px;overflow:hidden;width:${barW}px;max-width:100%">
+        <div style="height:4px;width:100%;background:#E1245A;border-radius:99px;"></div>
+      </div>
+    </td>`;
+    // Grand total cols
+    bodyHtml += `<td class="num">${fmtN(rTot.ltrs)}</td>`;
+    bodyHtml += `<td class="num-ksh" style="color:var(--text-head);font-weight:600;">${fmtA(rTot.amount)}</td>`;
+    // Per-cat cols
+    for (const c of visCats) {
+      const cell = pivot[r]?.[c];
+      const isZero = !cell || (cell.ltrs === 0 && cell.amount === 0);
+      bodyHtml += `<td class="num${isZero?' zero':''}">${isZero ? '—' : fmtN(cell.ltrs)}</td>`;
+      bodyHtml += `<td class="num-ksh${isZero?' zero':''}">${isZero ? '—' : fmtA(cell.amount)}</td>`;
+    }
+    bodyHtml += '</tr>';
+  }
+
+  // ── Totals row ──
+  const visGrandLtrs   = visRegions.reduce((s,r)=>{ for(const c of visCats) s+=pivot[r]?.[c]?.ltrs||0; return s; }, 0);
+  const visGrandAmount = visRegions.reduce((s,r)=>{ for(const c of visCats) s+=pivot[r]?.[c]?.amount||0; return s; }, 0);
+  bodyHtml += '<tr class="loc-total-row">';
+  bodyHtml += `<td>TOTALS</td>`;
+  bodyHtml += `<td class="num">${fmtN(visGrandLtrs)}</td>`;
+  bodyHtml += `<td class="num-ksh">${fmtA(visGrandAmount)}</td>`;
+  for (const c of visCats) {
+    const cTot = visRegions.reduce((s,r)=>({
+      ltrs:   s.ltrs   + (pivot[r]?.[c]?.ltrs   || 0),
+      amount: s.amount + (pivot[r]?.[c]?.amount  || 0)
+    }), { ltrs: 0, amount: 0 });
+    bodyHtml += `<td class="num">${fmtN(cTot.ltrs)}</td>`;
+    bodyHtml += `<td class="num-ksh">${fmtA(cTot.amount)}</td>`;
+  }
+  bodyHtml += '</tr>';
+
+  document.getElementById('locSalesTbody').innerHTML = bodyHtml;
+}
+
+function filterLocSales() {
+  if (!_locSalesData) return;
+  const q   = (document.getElementById('locSearch').value || '').toLowerCase().trim();
+  const cat = document.getElementById('locCatFilter').value;
+  renderLocSalesTable(_locSalesData, q, cat);
+}
+
+function populateLocSalesPage(data) {
+  const d = buildLocSalesData(data.transactions);
+  _locSalesData = d;
+  const fmtBig = v => v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(1)+'K' : Math.round(v).toLocaleString();
+
+  // Update subtitle
+  const sub = document.getElementById('locSalesPeriod');
+  if (sub) sub.textContent = data.period ? 'Period: ' + data.period : '';
+
+  // Summary pills
+  document.getElementById('locStatLocs').textContent = d.regions.length;
+  document.getElementById('locStatCats').textContent = d.categories.length;
+  document.getElementById('locStatRev').textContent  = 'KSH ' + fmtBig(d.grandTotal.amount);
+  document.getElementById('locStatVol').textContent  = fmtBig(d.grandTotal.ltrs) + ' L/Kg';
+  document.getElementById('locSalesSummary').style.display = 'flex';
+
+  // Populate category filter dropdown
+  const catSel = document.getElementById('locCatFilter');
+  catSel.innerHTML = '<option value="">All Categories</option>' +
+    d.categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  // Show table
+  document.getElementById('locSalesEmpty').style.display = 'none';
+  document.getElementById('locSalesTableWrap').style.display = 'block';
+
+  renderLocSalesTable(d, '', '');
+}
+
+function exportLocSalesCSV() {
+  if (!_locSalesData) { showToast('No data to export — upload a SAP file first.', 'err'); return; }
+  const { regions, categories, pivot, regionTotals } = _locSalesData;
+  const q   = (document.getElementById('locSearch').value || '').toLowerCase().trim();
+  const cat = document.getElementById('locCatFilter').value;
+  const visRegions = q ? regions.filter(r => r.toLowerCase().includes(q)) : regions;
+  const visCats    = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
+
+  let csv = 'Location,Grand Total Ltrs/Kgs,Grand Total Amt KSH';
+  for (const c of visCats) csv += `,${c} Ltrs/Kgs,${c} Amt KSH`;
+  csv += '\n';
+
+  for (const r of visRegions) {
+    let rowLtrs = 0, rowAmt = 0;
+    for (const c of visCats) { rowLtrs += pivot[r]?.[c]?.ltrs||0; rowAmt += pivot[r]?.[c]?.amount||0; }
+    csv += `"${r}",${Math.round(rowLtrs)},${Math.round(rowAmt)}`;
+    for (const c of visCats) {
+      const cell = pivot[r]?.[c];
+      csv += `,${Math.round(cell?.ltrs||0)},${Math.round(cell?.amount||0)}`;
+    }
+    csv += '\n';
+  }
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'location_sales.csv'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exported ✓', 'ok');
+}
+
+
 // Init — only load sheet reference data, NOT customers yet
 loadSheetData();
 // Do NOT call loadCustomers() here — wait until tab is clicked
