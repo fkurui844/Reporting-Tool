@@ -1169,14 +1169,15 @@
         <div class="tbl-card" id="top5Card">
           <div class="tbl-card-head" style="background:#7c3aed;">Top 20 Customers — Revenue Drivers</div>
           <table style="table-layout:auto;width:100%;">
-            <colgroup><col style="width:3%"><col><col style="white-space:nowrap"><col style="white-space:nowrap"><col style="white-space:nowrap"><col style="white-space:nowrap"></colgroup>
+            <colgroup><col style="width:3%"><col><col style="white-space:nowrap"><col style="white-space:nowrap"><col style="white-space:nowrap"><col style="white-space:nowrap"><col style="white-space:nowrap;min-width:80px"></colgroup>
             <thead><tr>
               <th style="text-align:center;padding:5px 8px;">No.</th>
               <th style="text-align:left;padding:5px 8px;">Customer</th>
               <th style="text-align:left;white-space:nowrap;padding:5px 8px;">Region</th>
               <th style="text-align:left;white-space:nowrap;padding:5px 8px;">Channel</th>
               <th style="text-align:right;white-space:nowrap;padding:5px 8px;">Ltrs/Kgs</th>
-              <th style="text-align:right;white-space:nowrap;padding:5px 8px;">Amt KSH</th>
+              <th style="text-align:right;padding:5px 8px;">Amt KSH</th>
+              <th style="text-align:right;padding:5px 8px;line-height:1.3;">% Contri to<br>Total Sales</th>
             </tr></thead>
             <tbody id="top5Tbody"></tbody>
           </table>
@@ -2102,10 +2103,8 @@ function renderReport(data){
         <td style="text-align:left;font-size:11px;color:var(--text-muted);padding:4px 8px;white-space:nowrap;">${c.region||'—'}</td>
         <td style="text-align:left;font-size:11px;color:var(--text-muted);padding:4px 8px;white-space:nowrap;">${c.channel||'—'}</td>
         <td style="text-align:right;font-weight:600;font-size:12px;padding:4px 8px;white-space:nowrap;">${fmt(c.ltrs)}</td>
-        <td style="text-align:right;padding:4px 8px;white-space:nowrap;">
-          <span style="font-weight:700;color:var(--text-head);font-size:12px;">${fmt(c.amount)}</span>
-          <span style="font-size:10px;color:#7c3aed;font-weight:600;margin-left:4px;">${sharePct}%</span>
-        </td>
+        <td style="text-align:right;font-weight:700;color:var(--text-head);font-size:12px;padding:4px 8px;white-space:nowrap;">${fmt(c.amount)}</td>
+        <td style="text-align:right;font-size:12px;font-weight:600;color:#7c3aed;padding:4px 8px;white-space:nowrap;">${sharePct}%</td>
       </tr>`;
     }).join('');
     // top5Card is inside channelTop20Wrap, visibility handled by wrapper
