@@ -235,7 +235,7 @@
     .progress p { font-size: 13px; color: var(--text-muted); }
 
     /* ── Report ── */
-    .report { display: none; padding: 20px 28px; }
+    .report { display: none; padding: 20px 10px; }
 
     .report-topbar {
       display: flex;
@@ -534,7 +534,7 @@
     }
 
     /* ── Customers Page ── */
-    .customers-page { padding: 20px 28px; }
+    .customers-page { padding: 20px 10px; }
     .page-toolbar {
       display: flex;
       gap: 10px;
@@ -1163,8 +1163,8 @@
     </div>
 
     <!-- By Channel Name + Top 20 Customers — side by side -->
-    <div id="channelTop20Wrap" style="display:none;margin-bottom:20px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;">
+    <div id="channelTop20Wrap" style="display:none;margin-bottom:20px;overflow-x:auto;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;min-width:1100px;">
         <div id="channelNameCard"></div>
         <div class="tbl-card" id="top5Card">
           <div class="tbl-card-head" style="background:#7c3aed;">Top 20 Customers — Revenue Drivers</div>
