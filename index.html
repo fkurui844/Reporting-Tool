@@ -1937,65 +1937,62 @@ function renderReport(data){
              : overallTgtLtr;
     const pctColor = (p) => p===null?'inherit':p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
 
-    // ── By Category: grouped rows showing Actual vs Target per category ──
-    if (isByCategory && hasCatTargets) {
+    // ── By Category: grouped column headers — SALES IN VOLUME | SALES IN REVENUE ──
+    if (isByCategory) {
       const tRows = rows.map(([n,d]) => {
         const normN = normalizeCat(n);
-        const ct = refData.categoryTargets[normN] || refData.categoryTargets[n];
-        const pRev = ct && ct.ksh  > 0 ? Math.round((d.amount / ct.ksh)  * 100) : null;
-        const pVol = ct && ct.ltrs > 0 ? Math.round((d.ltrs   / ct.ltrs) * 100) : null;
-        const revBadge = pRev !== null
-          ? `<span style="font-weight:700;color:${pctColor(pRev)}">${pRev}%</span>`
-          : `<span style="color:#ccc">—</span>`;
-        const volBadge = pVol !== null
-          ? `<span style="font-weight:700;color:${pctColor(pVol)}">${pVol}%</span>`
-          : `<span style="color:#ccc">—</span>`;
-        const tVolFmt = ct && ct.ltrs ? fmt(ct.ltrs) : '—';
-        const tAmtFmt = ct && ct.ksh  ? fmt(ct.ksh)  : '—';
-        return `
-          <tr style="border-bottom:none">
-            <td rowspan="2" style="vertical-align:middle;font-weight:600;border-bottom:1px solid #f0f2f5;padding-right:6px;word-break:break-word">${n}</td>
-            <td style="text-align:right;color:var(--text-muted);font-size:13px;padding-bottom:1px;white-space:nowrap">Actual</td>
-            <td style="text-align:right;font-weight:600">${fmt(d.ltrs)}</td>
-            <td style="text-align:right">${volBadge}</td>
-            <td style="text-align:right;font-weight:600">${fmt(d.amount)}</td>
-            <td style="text-align:right">${revBadge}</td>
-          </tr>
-          <tr style="border-bottom:1px solid #f0f2f5">
-            <td style="text-align:right;color:var(--text-muted);font-size:13px;padding-top:1px;white-space:nowrap">Target</td>
-            <td style="text-align:right;color:var(--text-muted);font-size:13px">${tVolFmt}</td>
-            <td></td>
-            <td style="text-align:right;color:var(--text-muted);font-size:13px">${tAmtFmt}</td>
-            <td></td>
-          </tr>`;
+        const ct    = refData.categoryTargets[normN] || refData.categoryTargets[n];
+        const pVol  = ct && ct.ltrs > 0 ? Math.round((d.ltrs   / ct.ltrs) * 100) : null;
+        const pRev  = ct && ct.ksh  > 0 ? Math.round((d.amount / ct.ksh)  * 100) : null;
+        const volPct = pVol !== null ? `<span style="font-weight:700;color:${pctColor(pVol)}">${pVol}%</span>` : `<span style="color:var(--text-muted)">—</span>`;
+        const revPct = pRev !== null ? `<span style="font-weight:700;color:${pctColor(pRev)}">${pRev}%</span>` : `<span style="color:var(--text-muted)">—</span>`;
+        const tVol  = ct && ct.ltrs ? fmt(ct.ltrs) : '—';
+        const tAmt  = ct && ct.ksh  ? fmt(ct.ksh)  : '—';
+        return `<tr>
+          <td style="font-weight:600;">${n}</td>
+          <td style="text-align:right;">${fmt(d.ltrs)}</td>
+          <td style="text-align:right;color:var(--text-muted);">${tVol}</td>
+          <td style="text-align:right;">${volPct}</td>
+          <td style="text-align:right;">${fmt(d.amount)}</td>
+          <td style="text-align:right;color:var(--text-muted);">${tAmt}</td>
+          <td style="text-align:right;">${revPct}</td>
+        </tr>`;
       }).join('');
       const pctA = tA>0 ? Math.round((totA/tA)*100) : null;
       const pctL = tL>0 ? Math.round((totL/tL)*100) : null;
       const foot = `
         <tr class="total-row">
-          <td colspan="2">TOTALS</td>
-          <td style="text-align:right">${fmt(totL)}</td>
-          <td style="text-align:right;color:${pctColor(pctL)};font-weight:700">${pctL!==null?pctL+'%':'—'}</td>
-          <td style="text-align:right">${fmt(totA)}</td>
-          <td style="text-align:right;color:${pctColor(pctA)};font-weight:700">${pctA!==null?pctA+'%':'—'}</td>
-        </tr>
-        <tr class="target-row">
-          <td colspan="2">MONTHLY TARGET</td>
-          <td style="text-align:right">${tL?fmt(tL):'—'}</td><td></td>
-          <td style="text-align:right">${tA?fmt(tA):'—'}</td><td></td>
+          <td>Totals</td>
+          <td style="text-align:right;">${fmt(totL)}</td>
+          <td style="text-align:right;">${tL?fmt(tL):'—'}</td>
+          <td style="text-align:right;color:${pctColor(pctL)};font-weight:700;">${pctL!==null?pctL+'%':'—'}</td>
+          <td style="text-align:right;">${fmt(totA)}</td>
+          <td style="text-align:right;">${tA?fmt(tA):'—'}</td>
+          <td style="text-align:right;color:${pctColor(pctA)};font-weight:700;">${pctA!==null?pctA+'%':'—'}</td>
         </tr>`;
       return `<div class="tbl-card">
         <div class="tbl-card-head ${headCls}">${title}</div>
         <table>
-          <colgroup><col style="width:24%"><col style="width:10%"><col style="width:15%"><col style="width:8%"><col style="width:18%"><col style="width:8%"></colgroup>
-          <thead><tr>
-            <th>Category</th>
-            <th></th>
-            <th style="text-align:right">Ltrs/Kgs</th>
-            <th style="text-align:right">Vol%</th>
-            <th style="text-align:right">Amt KSH</th>
-            <th style="text-align:right">Rev%</th>
-          </tr></thead>
+          <colgroup>
+            <col style="width:18%">
+            <col style="width:11%"><col style="width:11%"><col style="width:8%">
+            <col style="width:14%"><col style="width:14%"><col style="width:8%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th rowspan="2" style="vertical-align:bottom;border-right:1px solid var(--border);">Category</th>
+              <th colspan="3" style="text-align:center;border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);letter-spacing:0.06em;">SALES IN VOLUME</th>
+              <th colspan="3" style="text-align:center;border-bottom:1px solid var(--border2);letter-spacing:0.06em;">SALES IN REVENUE</th>
+            </tr>
+            <tr>
+              <th style="text-align:right;">ACTUAL</th>
+              <th style="text-align:right;">TARGET</th>
+              <th style="text-align:right;border-right:1px solid var(--border2);">VOL%</th>
+              <th style="text-align:right;">ACTUAL</th>
+              <th style="text-align:right;">TARGET</th>
+              <th style="text-align:right;">Rev%</th>
+            </tr>
+          </thead>
           <tbody>${tRows}${foot}</tbody>
         </table>
       </div>`;
