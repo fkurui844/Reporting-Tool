@@ -1159,6 +1159,40 @@
     <!-- Tables -->
     <div class="tables-grid" id="tablesGrid"></div>
 
+    <!-- By Channel Name -->
+    <div class="tbl-card" id="channelNameCard" style="display:none;margin-bottom:20px;">
+      <div class="tbl-card-head" style="background:#0f766e;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;">
+        <span>BY CHANNEL NAME</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="channelNameSearch" type="text" placeholder="Search outlet…"
+            style="padding:4px 10px;border-radius:6px;border:none;font-size:12px;font-family:inherit;background:rgba(255,255,255,0.15);color:#fff;outline:none;width:160px;"
+            oninput="filterChannelNameTable()" />
+          <select id="channelNameFilter"
+            style="padding:4px 8px;border-radius:6px;border:none;font-size:12px;font-family:inherit;background:rgba(255,255,255,0.15);color:#fff;outline:none;cursor:pointer;"
+            onchange="filterChannelNameTable()">
+            <option value="">All Channels</option>
+          </select>
+        </div>
+      </div>
+      <table>
+        <colgroup>
+          <col style="width:4%">
+          <col style="width:44%">
+          <col style="width:20%">
+          <col style="width:16%">
+          <col style="width:16%">
+        </colgroup>
+        <thead><tr>
+          <th style="text-align:center">#</th>
+          <th style="text-align:left">Channel Name</th>
+          <th style="text-align:right">Channel Type</th>
+          <th style="text-align:right">Ltrs/Kgs</th>
+          <th style="text-align:right">Amt KSH</th>
+        </tr></thead>
+        <tbody id="channelNameTbody"></tbody>
+      </table>
+    </div>
+
     <!-- Top 5 Customers -->
     <div class="tbl-card" id="top5Card" style="display:none;margin-bottom:20px;">
       <div class="tbl-card-head" style="background:#7c3aed;">Top 5 Customers — Revenue Drivers</div>
@@ -2021,6 +2055,35 @@ function renderReport(data){
     buildTbl('By Category',sort(byCategory),'dark')+
     buildTbl('By Channel',sort(byType),'teal');
 
+  // ── By Channel Name ──
+  // Build a map keyed by channel name (e.g. Naivas, Quickmarts, Carrefour)
+  const chanNameMap = {};
+  for (const t of data.transactions) {
+    const key = (t.channel || '—').trim().toUpperCase();
+    if (!chanNameMap[key]) {
+      chanNameMap[key] = {
+        name:   key,
+        type:   (t.type || '—').toUpperCase(),
+        ltrs:   0,
+        amount: 0,
+      };
+    }
+    chanNameMap[key].ltrs   += t.ltrs;
+    chanNameMap[key].amount += t.amount;
+  }
+  // Store for filtering later
+  window._chanNameRows = Object.values(chanNameMap).sort((a, b) => b.amount - a.amount);
+  window._chanNameTotal = { ltrs: totalLtrs, amount: totalAmt };
+
+  // Populate channel filter dropdown
+  const chanNameSel = document.getElementById('channelNameFilter');
+  const uniqueChans = [...new Set(window._chanNameRows.map(r => r.type).filter(c => c && c !== '—'))].sort();
+  chanNameSel.innerHTML = '<option value="">All Channels</option>' +
+    uniqueChans.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  renderChannelNameTable(window._chanNameRows);
+  document.getElementById('channelNameCard').style.display = 'block';
+
   // ── Top 5 Customers by Revenue ──
   const custMap = {};
   for (const t of data.transactions) {
@@ -2708,6 +2771,50 @@ function toggleTheme(isDark) {
     }
   } catch(e) {}
 })();
+
+// ── By Channel Name helpers ──────────────────────────
+function renderChannelNameTable(rows) {
+  const fmtN = v => Math.round(v).toLocaleString();
+  const totalAmt  = window._chanNameTotal ? window._chanNameTotal.amount : 0;
+  let html = '';
+  rows.forEach((r, i) => {
+    const sharePct = totalAmt > 0 ? ((r.amount / totalAmt) * 100).toFixed(1) : '—';
+    const barW     = rows[0] && rows[0].amount > 0 ? Math.round((r.amount / rows[0].amount) * 100) : 0;
+    html += `<tr>
+      <td style="text-align:center;font-size:13px;font-weight:700;color:var(--text-muted);">${i + 1}</td>
+      <td>
+        <div style="font-weight:600;color:var(--text-head);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;" title="${r.name}">${r.name}</div>
+        <div style="height:3px;background:var(--bg);border-radius:99px;margin-top:4px;overflow:hidden;">
+          <div style="height:3px;width:${barW}%;background:#0f766e;border-radius:99px;"></div>
+        </div>
+      </td>
+      <td style="text-align:right;font-size:12px;color:var(--text-muted);">${r.type}</td>
+      <td style="text-align:right;font-weight:600;">${fmtN(r.ltrs)}</td>
+      <td style="text-align:right;">
+        <div style="font-weight:700;color:var(--text-head);">${fmtN(r.amount)}</div>
+        <div style="font-size:11px;color:#0f766e;font-weight:600;">${sharePct}% of total</div>
+      </td>
+    </tr>`;
+  });
+  const subLtrs = rows.reduce((s, r) => s + r.ltrs, 0);
+  const subAmt  = rows.reduce((s, r) => s + r.amount, 0);
+  html += `<tr class="total-row">
+    <td colspan="3">TOTALS (${rows.length} channel${rows.length !== 1 ? 's' : ''})</td>
+    <td style="text-align:right;">${fmtN(subLtrs)}</td>
+    <td style="text-align:right;">${fmtN(subAmt)}</td>
+  </tr>`;
+  document.getElementById('channelNameTbody').innerHTML = html;
+}
+
+function filterChannelNameTable() {
+  if (!window._chanNameRows) return;
+  const q   = (document.getElementById('channelNameSearch').value  || '').toLowerCase().trim();
+  const ch  = (document.getElementById('channelNameFilter').value  || '').toUpperCase();
+  let rows = window._chanNameRows;
+  if (q)  rows = rows.filter(r => r.name.toLowerCase().includes(q) || r.region.toLowerCase().includes(q));
+  if (ch) rows = rows.filter(r => r.type === ch);
+  renderChannelNameTable(rows);
+}
 
 // Init
 // ═══════════════════════════════════════════════════════
