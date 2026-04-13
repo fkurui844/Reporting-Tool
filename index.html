@@ -1171,14 +1171,14 @@
         <div class="tbl-card" id="top5Card">
           <div class="tbl-card-head" style="background:#7c3aed;">Top 20 Customers — Revenue Drivers</div>
           <table>
-            <colgroup><col style="width:4%"><col style="width:30%"><col style="width:18%"><col style="width:18%"><col style="width:16%"><col style="width:14%"></colgroup>
+            <colgroup><col style="width:4%"><col style="width:28%"><col style="width:16%"><col style="width:18%"><col style="width:14%"><col style="width:20%"></colgroup>
             <thead><tr>
               <th style="text-align:center">No.</th>
               <th style="text-align:left">Customer</th>
-              <th style="text-align:right">Region</th>
-              <th style="text-align:right">Channel</th>
-              <th style="text-align:right">Ltrs/Kgs</th>
-              <th style="text-align:right">Amt KSH</th>
+              <th style="text-align:right;white-space:nowrap">Region</th>
+              <th style="text-align:right;white-space:nowrap">Channel</th>
+              <th style="text-align:right;white-space:nowrap">Ltrs/Kgs</th>
+              <th style="text-align:right;white-space:nowrap;min-width:110px">Amt KSH</th>
             </tr></thead>
             <tbody id="top5Tbody"></tbody>
           </table>
@@ -1996,23 +1996,23 @@ function renderReport(data){
 
     // ── Default layout for other tables ──
     const tRows=rows.map(([n,d])=>{
-      return `<tr><td title="${n}">${n}</td><td>${fmt(d.ltrs)}</td><td>${fmt(d.amount)}</td></tr>`;
+      return `<tr><td title="${n}" style="width:100%">${n}</td><td style="white-space:nowrap">${fmt(d.ltrs)}</td><td style="white-space:nowrap">${fmt(d.amount)}</td></tr>`;
     }).join('');
     const pctA = tA>0 ? Math.round((totA/tA)*100) : null;
     const pctL = tL>0 ? Math.round((totL/tL)*100) : null;
     const foot=(tA||tL)?`
-      <tr class="total-row"><td>TOTALS</td><td>${fmt(totL)}</td><td>${fmt(totA)}</td></tr>
-      <tr class="target-row"><td>MONTHLY TARGET</td><td>${tL?fmt(tL):'—'}</td><td>${tA?fmt(tA):'—'}</td></tr>
+      <tr class="total-row"><td>TOTALS</td><td style="white-space:nowrap">${fmt(totL)}</td><td style="white-space:nowrap">${fmt(totA)}</td></tr>
+      <tr class="target-row"><td>MONTHLY TARGET</td><td style="white-space:nowrap">${tL?fmt(tL):'—'}</td><td style="white-space:nowrap">${tA?fmt(tA):'—'}</td></tr>
       <tr class="pct-row"><td>% ACHIEVED</td>
-        <td style="color:${pctColor(pctL)};font-weight:700">${pctL!==null?pctL+'%':'—'}</td>
-        <td style="color:${pctColor(pctA)};font-weight:700">${pctA!==null?pctA+'%':'—'}</td>
+        <td style="color:${pctColor(pctL)};font-weight:700;white-space:nowrap">${pctL!==null?pctL+'%':'—'}</td>
+        <td style="color:${pctColor(pctA)};font-weight:700;white-space:nowrap">${pctA!==null?pctA+'%':'—'}</td>
       </tr>`
-      :`<tr class="total-row"><td>TOTALS</td><td>${fmt(totL)}</td><td>${fmt(totA)}</td></tr>`;
+      :`<tr class="total-row"><td>TOTALS</td><td style="white-space:nowrap">${fmt(totL)}</td><td style="white-space:nowrap">${fmt(totA)}</td></tr>`;
     return `<div class="tbl-card">
       <div class="tbl-card-head ${headCls}">${title}</div>
       <table>
-        <colgroup><col style="min-width:90px"><col style="min-width:90px;white-space:nowrap"><col style="min-width:130px;white-space:nowrap"></colgroup>
-        <thead><tr><th>${title.replace('By ','')}</th><th style="white-space:nowrap;min-width:90px">Ltrs/Kgs</th><th style="white-space:nowrap;min-width:130px">Amt KSH</th></tr></thead>
+        <colgroup><col><col style="white-space:nowrap;min-width:90px"><col style="white-space:nowrap;min-width:130px"></colgroup>
+        <thead><tr><th style="width:100%">${title.replace('By ','')}</th><th style="white-space:nowrap;min-width:90px">Ltrs/Kgs</th><th style="white-space:nowrap;min-width:130px">Amt KSH</th></tr></thead>
         <tbody>${tRows}${foot}</tbody>
       </table>
     </div>`;
@@ -2046,7 +2046,7 @@ function renderReport(data){
     return `<div class="tbl-card">
       <div class="tbl-card-head teal">BY CHANNEL NAME</div>
       <table>
-        <colgroup><col style="width:3%"><col style="width:40%"><col style="width:20%"><col style="width:17%"><col style="width:20%"></colgroup>
+        <colgroup><col style="width:4%"><col style="width:22%"><col style="width:22%"><col style="width:22%"><col style="width:30%"></colgroup>
         <thead><tr>
           <th style="text-align:center;">#</th>
           <th style="text-align:left;">Channel Name</th>
@@ -2100,21 +2100,17 @@ function renderReport(data){
   if (top5.length) {
     document.getElementById('top5Tbody').innerHTML = top5.map((c, i) => {
       const sharePct = totalAmt > 0 ? ((c.amount / totalAmt) * 100).toFixed(1) : '—';
-      const barW = totalAmt > 0 ? Math.round((c.amount / top5[0].amount) * 100) : 0;
       return `<tr>
         <td style="text-align:center;font-size:13px;font-weight:700;color:var(--text-muted);">${i + 1}</td>
         <td>
-          <div style="font-weight:600;color:var(--text-head);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;" title="${c.name}">${c.name}</div>
-          <div style="height:4px;background:var(--bg);border-radius:99px;margin-top:4px;overflow:hidden;">
-            <div style="height:4px;width:${barW}%;background:#7c3aed;border-radius:99px;"></div>
-          </div>
+          <div style="font-weight:600;color:var(--text-head);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${c.name}">${c.name}</div>
         </td>
         <td style="text-align:right;font-size:12px;color:var(--text-muted);">${c.region||'—'}</td>
         <td style="text-align:right;font-size:12px;color:var(--text-muted);">${c.channel||'—'}</td>
         <td style="text-align:right;font-weight:600;">${fmt(c.ltrs)}</td>
         <td style="text-align:right;">
-          <div style="font-weight:700;color:var(--text-head);">${fmt(c.amount)}</div>
-          <div style="font-size:11px;color:#7c3aed;font-weight:600;">${sharePct}% of total</div>
+          <div style="font-weight:700;color:var(--text-head);white-space:nowrap;">${fmt(c.amount)}</div>
+          <div style="font-size:11px;color:#7c3aed;font-weight:600;white-space:nowrap;">${sharePct}% of total</div>
         </td>
       </tr>`;
     }).join('');
