@@ -429,9 +429,9 @@
     }
     .tables-grid {
       display: grid;
-      grid-template-columns: minmax(260px,1.2fr) minmax(560px,2.5fr) minmax(260px,1.1fr);
+      grid-template-columns: minmax(260px,1.2fr) minmax(560px,2.5fr) minmax(290px,1.1fr);
       gap: 14px;
-      min-width: 1100px;
+      min-width: 1130px;
     }
     @media (max-width: 760px) { .tables-grid { grid-template-columns: 1fr; min-width: 0; } }
 
@@ -1995,23 +1995,27 @@ function renderReport(data){
 
     // ── Default layout for other tables ──
     const tRows=rows.map(([n,d])=>{
-      return `<tr><td title="${n}" style="width:100%">${n}</td><td style="white-space:nowrap">${fmt(d.ltrs)}</td><td style="white-space:nowrap">${fmt(d.amount)}</td></tr>`;
+      return `<tr><td style="text-align:left;padding:4px 8px;" title="${n}">${n}</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${fmt(d.ltrs)}</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${fmt(d.amount)}</td></tr>`;
     }).join('');
     const pctA = tA>0 ? Math.round((totA/tA)*100) : null;
     const pctL = tL>0 ? Math.round((totL/tL)*100) : null;
     const foot=(tA||tL)?`
-      <tr class="total-row"><td>TOTALS</td><td style="white-space:nowrap">${fmt(totL)}</td><td style="white-space:nowrap">${fmt(totA)}</td></tr>
-      <tr class="target-row"><td>MONTHLY TARGET</td><td style="white-space:nowrap">${tL?fmt(tL):'—'}</td><td style="white-space:nowrap">${tA?fmt(tA):'—'}</td></tr>
-      <tr class="pct-row"><td>% ACHIEVED</td>
-        <td style="color:${pctColor(pctL)};font-weight:700;white-space:nowrap">${pctL!==null?pctL+'%':'—'}</td>
-        <td style="color:${pctColor(pctA)};font-weight:700;white-space:nowrap">${pctA!==null?pctA+'%':'—'}</td>
+      <tr class="total-row"><td style="padding:4px 8px;">TOTALS</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${fmt(totL)}</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${fmt(totA)}</td></tr>
+      <tr class="target-row"><td style="padding:4px 8px;">MONTHLY TARGET</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${tL?fmt(tL):'—'}</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${tA?fmt(tA):'—'}</td></tr>
+      <tr class="pct-row"><td style="padding:4px 8px;">% ACHIEVED</td>
+        <td style="text-align:right;color:${pctColor(pctL)};font-weight:700;white-space:nowrap;padding:4px 8px;">${pctL!==null?pctL+'%':'—'}</td>
+        <td style="text-align:right;color:${pctColor(pctA)};font-weight:700;white-space:nowrap;padding:4px 8px;">${pctA!==null?pctA+'%':'—'}</td>
       </tr>`
-      :`<tr class="total-row"><td>TOTALS</td><td style="white-space:nowrap">${fmt(totL)}</td><td style="white-space:nowrap">${fmt(totA)}</td></tr>`;
+      :`<tr class="total-row"><td style="padding:4px 8px;">TOTALS</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${fmt(totL)}</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${fmt(totA)}</td></tr>`;
     return `<div class="tbl-card">
       <div class="tbl-card-head ${headCls}">${title}</div>
       <table>
-        <colgroup><col><col style="white-space:nowrap"><col style="white-space:nowrap"></colgroup>
-        <thead><tr><th style="text-align:left;width:100%">${title.replace('By ','')}</th><th style="text-align:right;white-space:nowrap;min-width:80px">Ltrs/Kgs</th><th style="text-align:right;white-space:nowrap;min-width:110px">Amt KSH</th></tr></thead>
+        <colgroup><col style="width:auto"><col style="width:90px"><col style="width:130px"></colgroup>
+        <thead><tr>
+          <th style="text-align:left;padding:5px 8px;">${title.replace('By ','')}</th>
+          <th style="text-align:right;white-space:nowrap;padding:5px 8px;width:90px">Ltrs/Kgs</th>
+          <th style="text-align:right;white-space:nowrap;padding:5px 8px;width:130px">Amt KSH</th>
+        </tr></thead>
         <tbody>${tRows}${foot}</tbody>
       </table>
     </div>`;
