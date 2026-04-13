@@ -2001,7 +2001,7 @@ function renderReport(data){
     const pctL = tL>0 ? Math.round((totL/tL)*100) : null;
     const foot=(tA||tL)?`
       <tr class="total-row"><td style="padding:4px 8px;">TOTALS</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${fmt(totL)}</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${fmt(totA)}</td></tr>
-      <tr class="target-row"><td style="padding:4px 8px;">MONTHLY TARGET</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${tL?fmt(tL):'—'}</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${tA?fmt(tA):'—'}</td></tr>
+      <tr class="target-row"><td style="padding:4px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px;" title="MONTHLY TARGET">MTH TARGET</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${tL?fmt(tL):'—'}</td><td style="text-align:right;white-space:nowrap;padding:4px 8px;">${tA?fmt(tA):'—'}</td></tr>
       <tr class="pct-row"><td style="padding:4px 8px;">% ACHIEVED</td>
         <td style="text-align:right;color:${pctColor(pctL)};font-weight:700;white-space:nowrap;padding:4px 8px;">${pctL!==null?pctL+'%':'—'}</td>
         <td style="text-align:right;color:${pctColor(pctA)};font-weight:700;white-space:nowrap;padding:4px 8px;">${pctA!==null?pctA+'%':'—'}</td>
