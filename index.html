@@ -2098,7 +2098,7 @@ function renderReport(data){
       const sharePct = totalAmt > 0 ? ((c.amount / totalAmt) * 100).toFixed(1) : '—';
       return `<tr>
         <td style="text-align:center;font-size:12px;font-weight:700;color:var(--text-muted);padding:4px 8px;white-space:nowrap;">${i + 1}</td>
-        <td style="text-align:left;font-weight:600;color:var(--text-head);font-size:12px;padding:4px 8px;white-space:nowrap;">${c.name}</td>
+        <td style="text-align:left;font-weight:600;color:var(--text-head);font-size:12px;padding:4px 8px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;" title="${c.name}">${c.name}</td>
         <td style="text-align:left;font-size:11px;color:var(--text-muted);padding:4px 8px;white-space:nowrap;">${c.region||'—'}</td>
         <td style="text-align:left;font-size:11px;color:var(--text-muted);padding:4px 8px;white-space:nowrap;">${c.channel||'—'}</td>
         <td style="text-align:right;font-weight:600;font-size:12px;padding:4px 8px;white-space:nowrap;">${fmt(c.ltrs)}</td>
