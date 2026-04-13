@@ -423,24 +423,27 @@
     .metric-card.green .m-value { color: #1db87a; }
 
     /* Tables grid */
-    .tables-grid {
-      display: grid;
-      grid-template-columns: 1.5fr 2fr 1.2fr 1.4fr;
-      gap: 14px;
+    .tables-grid-wrap {
+      overflow-x: auto;
       margin-bottom: 20px;
     }
-    @media (max-width: 1300px) { .tables-grid { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 760px)  { .tables-grid { grid-template-columns: 1fr; } }
+    .tables-grid {
+      display: grid;
+      grid-template-columns: minmax(220px,1.5fr) minmax(320px,2fr) minmax(220px,1.2fr) minmax(220px,1.4fr);
+      gap: 14px;
+      min-width: 960px;
+    }
+    @media (max-width: 760px) { .tables-grid { grid-template-columns: 1fr 1fr; min-width: 0; } }
 
     .tbl-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 10px;
       overflow: hidden;
-      min-width: 0;
+      min-width: 200px;
     }
     .tbl-card table {
-      table-layout: auto;
+      table-layout: fixed;
       width: 100%;
     }
     .tbl-card-head {
@@ -450,6 +453,7 @@
       text-transform: uppercase;
       letter-spacing: 0.07em;
       color: white;
+      white-space: nowrap;
     }
     .tbl-card-head.navy   { background: #0f2744; }
     .tbl-card-head.red    { background: #E1245A; }
@@ -464,18 +468,21 @@
       padding: 7px 10px;
       text-align: left;
       border-bottom: 1px solid var(--border2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     th:last-child, td:last-child { text-align: right; }
     th:nth-child(2), td:nth-child(2) { text-align: right; }
-    .tbl-card td:first-child { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tbl-card td:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     td {
       padding: 6px 10px;
       border-bottom: 1px solid var(--border2);
       color: var(--text);
       font-size: 14px;
       white-space: nowrap;
-      overflow: visible;
-      text-overflow: clip;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     tr:last-child td { border-bottom: none; }
     tr.total-row td { font-weight: 700; background: var(--row-total); color: #E1245A; }
@@ -1157,7 +1164,9 @@
     <div class="metrics-grid" id="metricsGrid"></div>
 
     <!-- Tables -->
-    <div class="tables-grid" id="tablesGrid"></div>
+    <div class="tables-grid-wrap">
+      <div class="tables-grid" id="tablesGrid"></div>
+    </div>
 
     <!-- Top 5 Customers -->
     <div class="tbl-card" id="top5Card" style="display:none;margin-bottom:20px;">
@@ -2009,7 +2018,7 @@ function renderReport(data){
     return `<div class="tbl-card">
       <div class="tbl-card-head ${headCls}">${title}</div>
       <table>
-        <colgroup><col style="width:35%"><col style="width:28%"><col style="width:37%"></colgroup>
+        <colgroup><col style="width:42%"><col style="width:25%"><col style="width:33%"></colgroup>
         <thead><tr><th>${title.replace('By ','')}</th><th>Ltrs/Kgs</th><th>Amt KSH</th></tr></thead>
         <tbody>${tRows}${foot}</tbody>
       </table>
@@ -2034,7 +2043,7 @@ function renderReport(data){
     return `<div class="tbl-card" id="channelNameCard">
       <div class="tbl-card-head teal">BY CHANNEL NAME</div>
       <table>
-        <colgroup><col style="width:40%"><col style="width:25%"><col style="width:35%"></colgroup>
+        <colgroup><col style="width:45%"><col style="width:27%"><col style="width:28%"></colgroup>
         <thead><tr><th>Channel Name</th><th>Ltrs/Kgs</th><th>Amt KSH</th></tr></thead>
         <tbody id="channelNameTbody">${tRows}${foot}</tbody>
       </table>
