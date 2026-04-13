@@ -2026,29 +2026,29 @@ function renderReport(data){
       return `<tr>
         <td style="text-align:center;font-size:12px;font-weight:700;color:var(--text-muted);padding:4px 8px;">${i + 1}</td>
         <td style="padding:4px 8px;font-weight:600;color:var(--text-head);font-size:12px;white-space:nowrap;">${r.name}</td>
-        <td style="text-align:right;font-size:11px;color:var(--text-muted);padding:4px 8px;white-space:nowrap;">${r.type}</td>
+        <td style="text-align:left;font-size:11px;color:var(--text-muted);padding:4px 8px;white-space:nowrap;">${r.type}</td>
         <td style="text-align:right;font-weight:600;font-size:12px;padding:4px 8px;white-space:nowrap;">${fmtN(r.ltrs)}</td>
-        <td style="text-align:right;padding:4px 8px;white-space:nowrap;">
-          <span style="font-weight:700;color:var(--text-head);font-size:12px;">${fmtN(r.amount)}</span>
-          <span style="font-size:10px;color:#0f766e;font-weight:600;margin-left:4px;">${sharePct}%</span>
-        </td>
+        <td style="text-align:right;font-weight:700;color:var(--text-head);font-size:12px;padding:4px 8px;white-space:nowrap;">${fmtN(r.amount)}</td>
+        <td style="text-align:right;font-size:12px;font-weight:600;color:#0f766e;padding:4px 8px;white-space:nowrap;">${sharePct}%</td>
       </tr>`;
     }).join('');
     const foot = `<tr class="total-row">
       <td colspan="3" style="padding:4px 8px;font-size:12px;">TOTALS (${chanRows.length} channels)</td>
       <td style="text-align:right;padding:4px 8px;font-size:12px;white-space:nowrap;">${fmtN(grandLtrs)}</td>
       <td style="text-align:right;padding:4px 8px;font-size:12px;white-space:nowrap;">${fmtN(grandAmt)}</td>
+      <td style="text-align:right;padding:4px 8px;font-size:12px;white-space:nowrap;">100%</td>
     </tr>`;
     return `<div class="tbl-card">
       <div class="tbl-card-head teal">BY CHANNEL NAME</div>
       <table>
-        <colgroup><col style="width:4%"><col style="width:22%"><col style="width:22%"><col style="width:22%"><col style="width:30%"></colgroup>
+        <colgroup><col style="width:4%"><col><col style="white-space:nowrap"><col style="white-space:nowrap;min-width:80px"><col style="white-space:nowrap;min-width:110px"><col style="white-space:nowrap;min-width:100px"></colgroup>
         <thead><tr>
           <th style="text-align:center;padding:5px 8px;">#</th>
           <th style="text-align:left;padding:5px 8px;">Channel Name</th>
-          <th style="text-align:right;padding:5px 8px;">Channel Type</th>
+          <th style="text-align:left;padding:5px 8px;">Channel Type</th>
           <th style="text-align:right;padding:5px 8px;">Ltrs/Kgs</th>
           <th style="text-align:right;padding:5px 8px;">Amt KSH</th>
+          <th style="text-align:right;padding:5px 8px;">% Contri to Total Sales</th>
         </tr></thead>
         <tbody>${tRows}${foot}</tbody>
       </table>
