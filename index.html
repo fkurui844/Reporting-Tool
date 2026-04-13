@@ -429,9 +429,9 @@
     }
     .tables-grid {
       display: grid;
-      grid-template-columns: minmax(260px,1.5fr) minmax(520px,2.5fr) minmax(260px,1.2fr);
+      grid-template-columns: minmax(300px,1.5fr) minmax(520px,2.5fr) minmax(300px,1.2fr);
       gap: 14px;
-      min-width: 1060px;
+      min-width: 1140px;
     }
     @media (max-width: 760px) { .tables-grid { grid-template-columns: 1fr; min-width: 0; } }
 
@@ -1164,24 +1164,26 @@
       <div class="tables-grid" id="tablesGrid"></div>
     </div>
 
-    <!-- By Channel Name (full-width, below grid) -->
-    <div id="channelNameCard" style="display:none;margin-bottom:20px;"></div>
-
-    <!-- Top 5 Customers -->
-    <div class="tbl-card" id="top5Card" style="display:none;margin-bottom:20px;">
-      <div class="tbl-card-head" style="background:#7c3aed;">Top 5 Customers — Revenue Drivers</div>
-      <table>
-        <colgroup><col style="width:4%"><col style="width:30%"><col style="width:18%"><col style="width:18%"><col style="width:16%"><col style="width:14%"></colgroup>
-        <thead><tr>
-          <th style="text-align:center">No.</th>
-          <th style="text-align:left">Customer</th>
-          <th style="text-align:right">Region</th>
-          <th style="text-align:right">Channel</th>
-          <th style="text-align:right">Ltrs/Kgs</th>
-          <th style="text-align:right">Amt KSH</th>
-        </tr></thead>
-        <tbody id="top5Tbody"></tbody>
-      </table>
+    <!-- By Channel Name + Top 20 Customers — side by side -->
+    <div id="channelTop20Wrap" style="display:none;margin-bottom:20px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;">
+        <div id="channelNameCard"></div>
+        <div class="tbl-card" id="top5Card">
+          <div class="tbl-card-head" style="background:#7c3aed;">Top 20 Customers — Revenue Drivers</div>
+          <table>
+            <colgroup><col style="width:4%"><col style="width:30%"><col style="width:18%"><col style="width:18%"><col style="width:16%"><col style="width:14%"></colgroup>
+            <thead><tr>
+              <th style="text-align:center">No.</th>
+              <th style="text-align:left">Customer</th>
+              <th style="text-align:right">Region</th>
+              <th style="text-align:right">Channel</th>
+              <th style="text-align:right">Ltrs/Kgs</th>
+              <th style="text-align:right">Amt KSH</th>
+            </tr></thead>
+            <tbody id="top5Tbody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- Export PDF button -->
@@ -2009,8 +2011,8 @@ function renderReport(data){
     return `<div class="tbl-card">
       <div class="tbl-card-head ${headCls}">${title}</div>
       <table>
-        <colgroup><col style="width:42%"><col style="width:25%"><col style="width:33%"></colgroup>
-        <thead><tr><th>${title.replace('By ','')}</th><th>Ltrs/Kgs</th><th>Amt KSH</th></tr></thead>
+        <colgroup><col style="min-width:90px"><col style="min-width:90px;white-space:nowrap"><col style="min-width:130px;white-space:nowrap"></colgroup>
+        <thead><tr><th>${title.replace('By ','')}</th><th style="white-space:nowrap;min-width:90px">Ltrs/Kgs</th><th style="white-space:nowrap;min-width:130px">Amt KSH</th></tr></thead>
         <tbody>${tRows}${foot}</tbody>
       </table>
     </div>`;
@@ -2087,7 +2089,7 @@ function renderReport(data){
   // Render Channel Name table into standalone div below the grid
   const cnCard = document.getElementById('channelNameCard');
   cnCard.innerHTML = buildChannelNameTbl(window._chanNameRows);
-  cnCard.style.display = 'block';
+  document.getElementById('channelTop20Wrap').style.display = 'block';
 
   // ── Top 5 Customers by Revenue ──
   const custMap = {};
@@ -2097,7 +2099,7 @@ function renderReport(data){
     custMap[k].ltrs   += t.ltrs;
     custMap[k].amount += t.amount;
   }
-  const top5 = Object.values(custMap).sort((a,b) => b.amount - a.amount).slice(0, 5);
+  const top5 = Object.values(custMap).sort((a,b) => b.amount - a.amount).slice(0, 20);
   const top5Card = document.getElementById('top5Card');
   if (top5.length) {
     document.getElementById('top5Tbody').innerHTML = top5.map((c, i) => {
@@ -2120,9 +2122,9 @@ function renderReport(data){
         </td>
       </tr>`;
     }).join('');
-    top5Card.style.display = 'block';
+    // top5Card is inside channelTop20Wrap, visibility handled by wrapper
   } else {
-    top5Card.style.display = 'none';
+    document.getElementById('channelTop20Wrap').style.display = 'none';
   }
 
   // ── Customers Not Trading ──────────────────────────
