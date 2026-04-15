@@ -1728,10 +1728,12 @@ function parseSAP(text){
       const nums=cols.filter(c=>/^-?[\d,]+\.?\d*$/.test(c.replace(/\s/,'')));
       const qty=nums.length>=2?parseFloat(nums[nums.length-2].replace(/,/g,'')):0;
       const amount=nums.length>=1?parseFloat(nums[nums.length-1].replace(/,/g,'')):0;
+      // Extract product description from the SAP line (non-code, non-numeric text columns)
+      const matDesc=cols.filter(c=>c&&c!==sapCol&&!/^-?[\d,]+\.?\d*$/.test(c.replace(/\s/,''))&&!/^(440|330)\d{8}$/.test(c)).join(' ').trim();
       const prod=refData.products[matCode]||{};
       const category=prod.category||inferCategory(cols.join(' '));
       const ltrs=qty*(prod.ltrs||inferLtrs(cols.join(' ')));
-      result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,category,ltrs});
+      result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,matDesc,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,category,ltrs});
       if(!curCust.found&&result.missingCustomers[curCust.code]){
         result.missingCustomers[curCust.code].ltrs+=ltrs;
         result.missingCustomers[curCust.code].amount+=amount;
@@ -1990,9 +1992,9 @@ function renderReport(data){
       for (const tx of data.transactions) {
         if ((tx.category || '').toUpperCase() === 'OTHER') {
           const prodInfo = refData.products[tx.matCode] || {};
-          const prodName = prodInfo.description || tx.matCode || 'Unknown';
-          if (!otherProductMap[prodName]) otherProductMap[prodName] = { ltrs: 0, amount: 0 };
-          otherProductMap[prodName].ltrs   += tx.ltrs;
+          // Resolve name: Products sheet description → SAP line text → SAP code fallback
+          const prodName = (prodInfo.description && prodInfo.description.trim()) || (tx.matDesc && tx.matDesc.trim()) || tx.matCode || 'Unknown';
+          if (!otherProductMap[prodName]) otherProductMap[prodName] = { amount: 0 };
           otherProductMap[prodName].amount += tx.amount;
         }
       }
@@ -2000,7 +2002,7 @@ function renderReport(data){
         .sort((a, b) => b[1].amount - a[1].amount)
         .map(([name, d]) => `<tr style="background:rgba(0,0,0,0.02);">
           <td style="padding-left:24px;font-size:11px;color:var(--text-muted);font-style:italic;">${name}</td>
-          <td style="text-align:right;font-size:11px;color:var(--text-muted);">${fmt(d.ltrs)}</td>
+          <td style="text-align:right;font-size:11px;color:var(--text-muted);">—</td>
           <td style="text-align:right;font-size:11px;color:var(--text-muted);">—</td>
           <td style="text-align:right;font-size:11px;color:var(--text-muted);">—</td>
           <td style="text-align:right;font-size:11px;color:var(--text-muted);">${fmt(d.amount)}</td>
