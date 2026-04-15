@@ -1985,6 +1985,35 @@ function renderReport(data){
       }).join('');
       const pctA = tA>0 ? Math.round((totA/tA)*100) : null;
       const pctL = tL>0 ? Math.round((totL/tL)*100) : null;
+      // Build OTHER product breakdown rows
+      const otherProductMap = {};
+      for (const tx of data.transactions) {
+        if ((tx.category || '').toUpperCase() === 'OTHER') {
+          const prodInfo = refData.products[tx.matCode] || {};
+          const prodName = prodInfo.description || tx.matCode || 'Unknown';
+          if (!otherProductMap[prodName]) otherProductMap[prodName] = { ltrs: 0, amount: 0 };
+          otherProductMap[prodName].ltrs   += tx.ltrs;
+          otherProductMap[prodName].amount += tx.amount;
+        }
+      }
+      const otherProductRows = Object.entries(otherProductMap)
+        .sort((a, b) => b[1].amount - a[1].amount)
+        .map(([name, d]) => `<tr style="background:rgba(0,0,0,0.02);">
+          <td style="padding-left:24px;font-size:11px;color:var(--text-muted);font-style:italic;">${name}</td>
+          <td style="text-align:right;font-size:11px;color:var(--text-muted);">${fmt(d.ltrs)}</td>
+          <td style="text-align:right;font-size:11px;color:var(--text-muted);">—</td>
+          <td style="text-align:right;font-size:11px;color:var(--text-muted);">—</td>
+          <td style="text-align:right;font-size:11px;color:var(--text-muted);">${fmt(d.amount)}</td>
+          <td style="text-align:right;font-size:11px;color:var(--text-muted);">—</td>
+          <td style="text-align:right;font-size:11px;color:var(--text-muted);">—</td>
+        </tr>`).join('');
+      const otherBreakdownSection = otherProductRows.length > 0 ? `
+        <tr style="background:var(--bg2,#f0f4f8);">
+          <td colspan="7" style="padding:4px 8px 2px 12px;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.05em;border-top:1px solid var(--border2);">
+            OTHER — PRODUCT BREAKDOWN
+          </td>
+        </tr>
+        ${otherProductRows}` : '';
       const foot = `
         <tr class="total-row">
           <td>Totals</td>
@@ -1994,7 +2023,8 @@ function renderReport(data){
           <td style="text-align:right;">${fmt(totA)}</td>
           <td style="text-align:right;">${tA?fmt(tA):'—'}</td>
           <td style="text-align:right;color:${pctColor(pctA)};font-weight:700;">${pctA!==null?pctA+'%':'—'}</td>
-        </tr>`;
+        </tr>
+        ${otherBreakdownSection}`;
       return `<div class="tbl-card">
         <div class="tbl-card-head ${headCls}">${title}</div>
         <table>
