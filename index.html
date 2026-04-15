@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -276,6 +277,22 @@
       transition: background 0.15s;
     }
     .btn-pdf:hover { background: #c01f4e; }
+    .btn-excel {
+      padding: 7px 16px;
+      border: none;
+      background: #1d6f42;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn-excel:hover { background: #165a34; }
     @media print {
       .app-header, .upload-page, .sheet-status-bar, .report-topbar .btn-pdf,
       .btn-upload-again, .missing-head .btn-copy, .cov-toggle { display: none !important; }
@@ -1185,8 +1202,12 @@
       </div>
     </div>
 
-    <!-- Export PDF button -->
-    <div style="display:flex;justify-content:flex-end;margin-bottom:28px;">
+    <!-- Export PDF / Excel buttons -->
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:28px;">
+      <button class="btn-excel" onclick="exportExcel()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Export Excel
+      </button>
       <button class="btn-pdf" onclick="exportPDF()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
         Export PDF
@@ -1297,7 +1318,7 @@
         <select class="locsales-filter-select" id="locCatFilter" onchange="filterLocSales()">
           <option value="">All Categories</option>
         </select>
-        <button class="locsales-export-btn" onclick="exportLocSalesCSV()">⬇ Export CSV</button>
+        <button class="locsales-export-btn" onclick="exportLocSalesExcel()">⬇ Export Excel</button>
       </div>
     </div>
 
@@ -1733,6 +1754,7 @@ function fmt(n){return Math.round(n).toLocaleString();}
 function pct(a,b){return b?Math.round((a/b)*100)+'%':'—';}
 
 function renderReport(data){
+  window._lastReportData = data; // store for Excel export
   document.querySelector('.upload-page').style.display='none';
   document.getElementById('report').style.display='block';
   document.getElementById('reportPeriod').textContent='Period: '+(data.period||'—');
@@ -2557,6 +2579,131 @@ function exportPDF() {
   document.title = orig;
 }
 
+function exportExcel() {
+  const data = window._lastReportData;
+  if (!data) { showToast('No data to export — upload a SAP file first.', 'err'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const period = data.period || 'Report';
+
+  // ── Helper ──
+  function numFmt(n) { return Math.round(n); }
+
+  // ── Sheet 1: Summary ──
+  const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
+  const totalLtrs = data.transactions.reduce((s,t)=>s+t.ltrs,0);
+  const custCount = new Set(data.transactions.map(t=>t.custCode)).size;
+
+  function groupBy(arr, key) {
+    const m = {};
+    for (const t of arr) {
+      const k = (t[key]||'UNKNOWN').toUpperCase();
+      if (!m[k]) m[k] = { ltrs:0, amount:0 };
+      m[k].ltrs   += t.ltrs;
+      m[k].amount += t.amount;
+    }
+    return m;
+  }
+  const byRegion   = Object.entries(groupBy(data.transactions,'region')).sort((a,b)=>b[1].amount-a[1].amount);
+  const byCategory = Object.entries(groupBy(data.transactions,'category')).sort((a,b)=>b[1].amount-a[1].amount);
+  const byChannel  = Object.entries(groupBy(data.transactions,'channel')).sort((a,b)=>b[1].amount-a[1].amount);
+
+  // Summary sheet
+  const summRows = [
+    ['SALES REPORT SUMMARY'],
+    ['Period:', period],
+    ['Generated:', new Date().toLocaleString()],
+    [],
+    ['OVERALL TOTALS'],
+    ['Total Revenue (KSH)', numFmt(totalAmt)],
+    ['Total Volume (Ltrs/Kgs)', numFmt(totalLtrs)],
+    ['Active Customers', custCount],
+    [],
+    ['BY REGION', 'Ltrs/Kgs', 'Amt KSH', '% Revenue'],
+    ...byRegion.map(([k,d]) => [k, numFmt(d.ltrs), numFmt(d.amount), totalAmt ? +(d.amount/totalAmt*100).toFixed(1) : 0]),
+    ['TOTALS', numFmt(totalLtrs), numFmt(totalAmt), 100],
+    [],
+    ['BY CATEGORY', 'Ltrs/Kgs', 'Amt KSH', '% Revenue'],
+    ...byCategory.map(([k,d]) => [k, numFmt(d.ltrs), numFmt(d.amount), totalAmt ? +(d.amount/totalAmt*100).toFixed(1) : 0]),
+    ['TOTALS', numFmt(totalLtrs), numFmt(totalAmt), 100],
+    [],
+    ['BY CHANNEL', 'Ltrs/Kgs', 'Amt KSH', '% Revenue'],
+    ...byChannel.map(([k,d]) => [k, numFmt(d.ltrs), numFmt(d.amount), totalAmt ? +(d.amount/totalAmt*100).toFixed(1) : 0]),
+    ['TOTALS', numFmt(totalLtrs), numFmt(totalAmt), 100],
+  ];
+  const wsSummary = XLSX.utils.aoa_to_sheet(summRows);
+  wsSummary['!cols'] = [{wch:30},{wch:16},{wch:18},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+  // ── Sheet 2: Channel Name (By Channel Name table) ──
+  const chanRows = window._chanNameRows || [];
+  const chanData = [
+    ['BY CHANNEL NAME'],
+    ['Channel Name', 'Channel Type', 'Ltrs/Kgs', 'Amt KSH', '% Contribution'],
+    ...chanRows.map(r => [r.name, r.type, numFmt(r.ltrs), numFmt(r.amount), totalAmt ? +(r.amount/totalAmt*100).toFixed(1) : 0]),
+    ['TOTALS ('+chanRows.length+' channels)', '', numFmt(totalLtrs), numFmt(totalAmt), 100],
+  ];
+  const wsChannel = XLSX.utils.aoa_to_sheet(chanData);
+  wsChannel['!cols'] = [{wch:28},{wch:22},{wch:16},{wch:18},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, wsChannel, 'By Channel');
+
+  // ── Sheet 3: Top 20 Customers ──
+  const custMap = {};
+  for (const t of data.transactions) {
+    const k = t.custCode;
+    if (!custMap[k]) custMap[k] = { name:t.custName, region:t.region, channel:t.channel, ltrs:0, amount:0 };
+    custMap[k].ltrs   += t.ltrs;
+    custMap[k].amount += t.amount;
+  }
+  const top20 = Object.values(custMap).sort((a,b)=>b.amount-a.amount).slice(0,20);
+  const top20Data = [
+    ['TOP 20 CUSTOMERS — REVENUE DRIVERS'],
+    ['#', 'Customer Name', 'Region', 'Channel', 'Ltrs/Kgs', 'Amt KSH', '% Contribution'],
+    ...top20.map((c,i) => [i+1, c.name, c.region||'—', c.channel||'—', numFmt(c.ltrs), numFmt(c.amount), totalAmt ? +(c.amount/totalAmt*100).toFixed(1) : 0]),
+  ];
+  const wsTop20 = XLSX.utils.aoa_to_sheet(top20Data);
+  wsTop20['!cols'] = [{wch:4},{wch:35},{wch:20},{wch:22},{wch:14},{wch:18},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, wsTop20, 'Top 20 Customers');
+
+  // ── Sheet 4: All Transactions ──
+  const txHeader = ['Customer Code','Customer Name','Region','Channel','Type','Category','Qty','Ltrs/Kgs','Amt KSH'];
+  const txRows = data.transactions.map(t => [
+    t.custCode, t.custName, t.region||'', t.channel||'', t.type||'', t.category||'',
+    numFmt(t.qty), numFmt(t.ltrs), numFmt(t.amount)
+  ]);
+  const wsTx = XLSX.utils.aoa_to_sheet([txHeader, ...txRows]);
+  wsTx['!cols'] = [{wch:14},{wch:30},{wch:18},{wch:20},{wch:16},{wch:14},{wch:10},{wch:12},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, wsTx, 'Transactions');
+
+  // ── Sheet 5: Location Sales (if available) ──
+  if (window._locSalesData) {
+    const { regions, categories, pivot } = window._locSalesData;
+    const locHeader = ['Category', 'Metric', ...regions, 'TOTALS'];
+    const locRows = [locHeader];
+    for (const c of categories) {
+      const ltrsRow = [c, 'Ltrs/Kgs'];
+      let cLtrs = 0;
+      for (const r of regions) { const v = pivot[r]?.[c]?.ltrs||0; ltrsRow.push(numFmt(v)); cLtrs+=v; }
+      ltrsRow.push(numFmt(cLtrs));
+      locRows.push(ltrsRow);
+
+      const amtRow = [c, 'Amt KSH'];
+      let cAmt = 0;
+      for (const r of regions) { const v = pivot[r]?.[c]?.amount||0; amtRow.push(numFmt(v)); cAmt+=v; }
+      amtRow.push(numFmt(cAmt));
+      locRows.push(amtRow);
+    }
+    const wsLoc = XLSX.utils.aoa_to_sheet(locRows);
+    wsLoc['!cols'] = [{wch:18},{wch:10}, ...regions.map(()=>({wch:16})), {wch:14}];
+    XLSX.utils.book_append_sheet(wb, wsLoc, 'Location Sales');
+  }
+
+  // ── Download ──
+  const filename = 'SalesReport_' + period.replace(/[^a-zA-Z0-9]/g,'_') + '.xlsx';
+  XLSX.writeFile(wb, filename);
+  showToast('Excel exported ✓', 'ok');
+}
+
 function resetUpload(){
   document.querySelector('.upload-page').style.display='block';
   document.getElementById('report').style.display='none';
@@ -2946,35 +3093,53 @@ function populateLocSalesPage(data) {
   renderLocSalesTable(d, '', '');
 }
 
-function exportLocSalesCSV() {
+function exportLocSalesExcel() {
   if (!_locSalesData) { showToast('No data to export — upload a SAP file first.', 'err'); return; }
-  const { regions, categories, pivot, regionTotals } = _locSalesData;
+  const { regions, categories, pivot } = _locSalesData;
   const q   = (document.getElementById('locSearch').value || '').toLowerCase().trim();
   const cat = document.getElementById('locCatFilter').value;
   const visRegions = q ? regions.filter(r => r.toLowerCase().includes(q)) : regions;
   const visCats    = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
 
-  let csv = 'Location,Grand Total Ltrs/Kgs,Grand Total Amt KSH';
-  for (const c of visCats) csv += `,${c} Ltrs/Kgs,${c} Amt KSH`;
-  csv += '\n';
+  const header = ['Category', 'Metric', ...visRegions, 'TOTALS'];
+  const rows = [header];
 
-  for (const r of visRegions) {
-    let rowLtrs = 0, rowAmt = 0;
-    for (const c of visCats) { rowLtrs += pivot[r]?.[c]?.ltrs||0; rowAmt += pivot[r]?.[c]?.amount||0; }
-    csv += `"${r}",${Math.round(rowLtrs)},${Math.round(rowAmt)}`;
-    for (const c of visCats) {
-      const cell = pivot[r]?.[c];
-      csv += `,${Math.round(cell?.ltrs||0)},${Math.round(cell?.amount||0)}`;
-    }
-    csv += '\n';
+  for (const c of visCats) {
+    const ltrsRow = [c, 'Ltrs/Kgs'];
+    let cLtrs = 0;
+    for (const r of visRegions) { const v = pivot[r]?.[c]?.ltrs||0; ltrsRow.push(Math.round(v)); cLtrs+=v; }
+    ltrsRow.push(Math.round(cLtrs));
+    rows.push(ltrsRow);
+
+    const amtRow = [c, 'Amt KSH'];
+    let cAmt = 0;
+    for (const r of visRegions) { const v = pivot[r]?.[c]?.amount||0; amtRow.push(Math.round(v)); cAmt+=v; }
+    amtRow.push(Math.round(cAmt));
+    rows.push(amtRow);
   }
 
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = 'location_sales.csv'; a.click();
-  URL.revokeObjectURL(url);
-  showToast('CSV exported ✓', 'ok');
+  // Grand total rows
+  const gtLtrs = ['GRAND TOTAL', 'Ltrs/Kgs'];
+  const gtAmt  = ['GRAND TOTAL', 'Amt KSH'];
+  let sumLtrs = 0, sumAmt = 0;
+  for (const r of visRegions) {
+    const rLtrs = visCats.reduce((s,c)=>s+(pivot[r]?.[c]?.ltrs||0),0);
+    const rAmt  = visCats.reduce((s,c)=>s+(pivot[r]?.[c]?.amount||0),0);
+    gtLtrs.push(Math.round(rLtrs)); sumLtrs += rLtrs;
+    gtAmt.push(Math.round(rAmt));   sumAmt  += rAmt;
+  }
+  gtLtrs.push(Math.round(sumLtrs));
+  gtAmt.push(Math.round(sumAmt));
+  rows.push(gtLtrs);
+  rows.push(gtAmt);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:18},{wch:10}, ...visRegions.map(()=>({wch:16})), {wch:14}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Location Sales');
+  XLSX.writeFile(wb, 'location_sales.xlsx');
+  showToast('Excel exported ✓', 'ok');
 }
 
 
