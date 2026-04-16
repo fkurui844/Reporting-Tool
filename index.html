@@ -1319,6 +1319,14 @@
         <span class="loc-stat-label">Total Volume</span>
         <span class="loc-stat-value" id="locStatVol">—</span>
       </div>
+      <div class="loc-stat-pill" id="locStatTargetPill" style="display:none">
+        <span class="loc-stat-label">Target (KSH)</span>
+        <span class="loc-stat-value" id="locStatTarget">—</span>
+      </div>
+      <div class="loc-stat-pill" id="locStatAchPill" style="display:none">
+        <span class="loc-stat-label">% Achieved</span>
+        <span class="loc-stat-value" id="locStatAch" style="font-size:22px;">—</span>
+      </div>
     </div>
 
     <!-- Table container -->
@@ -2833,9 +2841,40 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
   const { regions, categories, pivot, regionTotals, catTotals, grandTotal } = data;
   const fmtN = v => Math.round(v).toLocaleString();
   const fmtA = v => Math.round(v).toLocaleString();
+  const targets = refData.targets || {}; // { REGION: { ksh, ltrs } }
+
+  // Helper: find target for a region (case-insensitive, partial match)
+  function getRegionTarget(region) {
+    const rUpper = region.toUpperCase();
+    if (targets[rUpper]) return targets[rUpper];
+    // Try partial match
+    for (const k of Object.keys(targets)) {
+      if (rUpper.includes(k) || k.includes(rUpper)) return targets[k];
+    }
+    return null;
+  }
+
+  // Helper: color class for % achieved
+  function pctColor(pct) {
+    if (pct === null) return '#718096';
+    if (pct >= 100) return '#1db87a';
+    if (pct >= 70)  return '#f6ad2b';
+    return '#E1245A';
+  }
+  function pctLabel(actual, target) {
+    if (!target || target === 0) return '—';
+    return Math.round((actual / target) * 100) + '%';
+  }
+  function pctVal(actual, target) {
+    if (!target || target === 0) return null;
+    return Math.round((actual / target) * 100);
+  }
 
   const visRegions = filterRegion ? regions.filter(r => r.toLowerCase().includes(filterRegion)) : regions;
   const visCats    = filterCat    ? categories.filter(c => c === filterCat.toUpperCase())         : categories;
+
+  // Check if any region has targets loaded
+  const anyTarget = visRegions.some(r => getRegionTarget(r) !== null);
 
   // ── TRANSPOSED: Categories = rows, Locations = columns ──
 
@@ -2888,8 +2927,10 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
   bodyHtml += `<td rowspan="2" style="vertical-align:middle;">GRAND TOTAL</td>`;
   bodyHtml += `<td style="font-size:11px;white-space:nowrap;">Ltrs/Kgs</td>`;
   let grandLtrs = 0;
+  const rLtrsArr = {};
   for (const r of visRegions) {
     const rLtrs = visCats.reduce((s,c)=>s+(pivot[r]?.[c]?.ltrs||0),0);
+    rLtrsArr[r] = rLtrs;
     grandLtrs += rLtrs;
     bodyHtml += `<td class="num">${fmtN(rLtrs)}</td>`;
   }
@@ -2900,13 +2941,80 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
   bodyHtml += '<tr class="loc-total-row">';
   bodyHtml += `<td style="font-size:11px;white-space:nowrap;">Amt KSH</td>`;
   let grandAmt = 0;
+  const rAmtArr = {};
   for (const r of visRegions) {
     const rAmt = visCats.reduce((s,c)=>s+(pivot[r]?.[c]?.amount||0),0);
+    rAmtArr[r] = rAmt;
     grandAmt += rAmt;
     bodyHtml += `<td class="num-ksh">${fmtA(rAmt)}</td>`;
   }
   bodyHtml += `<td class="num-ksh" style="background:#1b4f72;">${fmtA(grandAmt)}</td>`;
   bodyHtml += '</tr>';
+
+  // ── TARGET & % ACHIEVED ROWS (only if any targets loaded) ──
+  if (anyTarget) {
+    // Target — Amt KSH row
+    let grandTgtKsh = 0;
+    let grandTgtLtrs = 0;
+    bodyHtml += '<tr style="background:var(--row-tgt);">';
+    bodyHtml += `<td rowspan="3" style="vertical-align:middle;font-weight:700;font-size:12px;color:var(--text-muted);letter-spacing:0.03em;border-right:1px solid var(--border);">TARGET</td>`;
+    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Ltrs/Kgs</td>`;
+    for (const r of visRegions) {
+      const tgt = getRegionTarget(r);
+      const v = tgt?.ltrs || 0;
+      grandTgtLtrs += v;
+      bodyHtml += `<td class="num" style="color:var(--text-muted);font-size:12px;">${v ? fmtN(v) : '—'}</td>`;
+    }
+    bodyHtml += `<td class="num" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;">${grandTgtLtrs ? fmtN(grandTgtLtrs) : '—'}</td>`;
+    bodyHtml += '</tr>';
+
+    // Target — Amt KSH
+    bodyHtml += '<tr style="background:var(--row-tgt);">';
+    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Amt KSH</td>`;
+    for (const r of visRegions) {
+      const tgt = getRegionTarget(r);
+      const v = tgt?.ksh || 0;
+      grandTgtKsh += v;
+      bodyHtml += `<td class="num-ksh" style="color:var(--text-muted);font-size:12px;border-bottom:1px solid var(--border);">${v ? fmtA(v) : '—'}</td>`;
+    }
+    bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;border-bottom:1px solid rgba(255,255,255,0.12);">${grandTgtKsh ? fmtA(grandTgtKsh) : '—'}</td>`;
+    bodyHtml += '</tr>';
+
+    // % Achieved row
+    bodyHtml += '<tr style="background:var(--row-pct);">';
+    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;">% Achieved</td>`;
+    let grandPctVal = pctVal(grandAmt, grandTgtKsh);
+    for (const r of visRegions) {
+      const tgt = getRegionTarget(r);
+      const actual = rAmtArr[r] || 0;
+      const target = tgt?.ksh || 0;
+      const p = pctVal(actual, target);
+      const col = pctColor(p);
+      const label = pctLabel(actual, target);
+      const barW = p !== null ? Math.min(p, 100) : 0;
+      bodyHtml += `<td style="padding:6px 8px;border-bottom:2px solid var(--border);">
+        <div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-bottom:3px;">
+          <span style="font-size:13px;font-weight:800;color:${col}">${label}</span>
+        </div>
+        <div style="height:5px;background:var(--border);border-radius:99px;overflow:hidden;">
+          <div style="height:5px;width:${barW}%;background:${col};border-radius:99px;transition:width 0.6s;"></div>
+        </div>
+      </td>`;
+    }
+    // Grand % achieved
+    const grandCol = pctColor(grandPctVal);
+    const grandLabel = pctLabel(grandAmt, grandTgtKsh);
+    const grandBarW = grandPctVal !== null ? Math.min(grandPctVal, 100) : 0;
+    bodyHtml += `<td style="background:#1b4f72;padding:6px 8px;border-bottom:2px solid rgba(255,255,255,0.18);">
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-bottom:3px;">
+        <span style="font-size:13px;font-weight:800;color:${grandCol}">${grandLabel}</span>
+      </div>
+      <div style="height:5px;background:rgba(255,255,255,0.15);border-radius:99px;overflow:hidden;">
+        <div style="height:5px;width:${grandBarW}%;background:${grandCol};border-radius:99px;transition:width 0.6s;"></div>
+      </div>
+    </td>`;
+    bodyHtml += '</tr>';
+  }
 
   document.getElementById('locSalesTbody').innerHTML = bodyHtml;
 }
@@ -2933,6 +3041,22 @@ function populateLocSalesPage(data) {
   document.getElementById('locStatRev').textContent  = 'KSH ' + fmtBig(d.grandTotal.amount);
   document.getElementById('locStatVol').textContent  = fmtBig(d.grandTotal.ltrs) + ' L/Kg';
   document.getElementById('locSalesSummary').style.display = 'flex';
+
+  // Target & % achieved pills
+  const targets = refData.targets || {};
+  const totalTgtKsh = Object.values(targets).reduce((s, t) => s + (t.ksh || 0), 0);
+  if (totalTgtKsh > 0) {
+    const achPct = Math.round((d.grandTotal.amount / totalTgtKsh) * 100);
+    const achColor = achPct >= 100 ? '#1db87a' : achPct >= 70 ? '#b45309' : '#E1245A';
+    document.getElementById('locStatTarget').textContent = 'KSH ' + fmtBig(totalTgtKsh);
+    document.getElementById('locStatAch').textContent    = achPct + '%';
+    document.getElementById('locStatAch').style.color    = achColor;
+    document.getElementById('locStatTargetPill').style.display = '';
+    document.getElementById('locStatAchPill').style.display    = '';
+  } else {
+    document.getElementById('locStatTargetPill').style.display = 'none';
+    document.getElementById('locStatAchPill').style.display    = 'none';
+  }
 
   // Populate category filter dropdown
   const catSel = document.getElementById('locCatFilter');
