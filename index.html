@@ -856,6 +856,51 @@
     }
     .nontrading-filter-select:focus { outline: none; border-color: #0f2744; }
     .nontrading-count-note { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+    /* ── BY CATEGORY section in Location Sales tab ── */
+    #locCatSummaryContent .tbl-card {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      margin-bottom: 24px;
+    }
+    #locCatSummaryContent .tbl-card-head {
+      background: #0f2744;
+      color: #fff;
+      padding: 14px 18px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+    #locCatSummaryContent table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    #locCatSummaryContent thead th {
+      background: var(--th-bg);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    #locCatSummaryContent tbody td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border2);
+      color: var(--text);
+    }
+    #locCatSummaryContent tbody tr:last-child td { border-bottom: none; }
+    #locCatSummaryContent tbody tr:hover td { background: var(--row-hover); }
+    #locCatSummaryContent tbody tr.total-row td {
+      background: var(--row-total);
+      font-weight: 700;
+      color: #E1245A;
+      border-top: 2px solid var(--border);
+    }
+
     .nontrading-table-wrap { max-height: 420px; overflow-y: auto; }
     .nontrading-table-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .nontrading-table-wrap th {
@@ -1329,6 +1374,11 @@
       </div>
     </div>
 
+    <!-- BY CATEGORY performance section -->
+    <div id="locCatSummaryWrap" style="display:none; padding: 0 0 8px 0;">
+      <div id="locCatSummaryContent"></div>
+    </div>
+
     <!-- Table container -->
     <div class="locsales-table-outer" id="locSalesTableOuter">
       <div class="locsales-empty" id="locSalesEmpty">
@@ -1504,6 +1554,32 @@ async function loadSheetData() {
 
   // refresh customer table if on that page
   if (allCustomers.length) buildCustomerTable(allCustomers);
+
+  // Re-render Location Sales BY CATEGORY and target rows if data is already loaded
+  if (_lastSalesData) {
+    // Refresh BY CATEGORY table
+    const catSummaryEl = document.getElementById('locCatSummaryContent');
+    const catSummaryWrap = document.getElementById('locCatSummaryWrap');
+    if (catSummaryEl && catSummaryWrap) {
+      catSummaryEl.innerHTML = buildLocCatSummaryHtml(_lastSalesData.transactions);
+      catSummaryWrap.style.display = '';
+    }
+    // Refresh Location pivot table (target rows)
+    if (_locSalesData) renderLocSalesTable(_locSalesData, '', '');
+    // Refresh target & % achieved pills
+    const targets2 = refData.targets || {};
+    const totalTgtKsh2 = Object.values(targets2).reduce((s, t) => s + (t.ksh || 0), 0);
+    if (totalTgtKsh2 > 0) {
+      const fmtBig = v => Math.round(v).toLocaleString();
+      const achPct2 = Math.round((_lastSalesData.transactions.reduce((s,t)=>s+t.amount,0) / totalTgtKsh2) * 100);
+      const achColor2 = achPct2 >= 100 ? '#1db87a' : achPct2 >= 70 ? '#b45309' : '#E1245A';
+      document.getElementById('locStatTarget').textContent = 'KSH ' + fmtBig(totalTgtKsh2);
+      document.getElementById('locStatAch').textContent = achPct2 + '%';
+      document.getElementById('locStatAch').style.color = achColor2;
+      document.getElementById('locStatTargetPill').style.display = '';
+      document.getElementById('locStatAchPill').style.display = '';
+    }
+  }
 }
 
 function setSheetDot(state, msg) {
@@ -2780,7 +2856,8 @@ function toggleTheme(isDark) {
 // ═══════════════════════════════════════════════════════
 // LOCATION SALES PAGE
 // ═══════════════════════════════════════════════════════
-let _locSalesData = null; // { regions, categories, pivot, totals }
+let _locSalesData = null;        // { regions, categories, pivot, totals }
+let _lastSalesData = null;       // full data object from last parseSAP — used to re-render on target reload
 
 function buildLocSalesData(transactions) {
   // pivot[region][category] = { ltrs, amount }
@@ -2842,7 +2919,6 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
   const fmtN = v => Math.round(v).toLocaleString();
   const fmtA = v => Math.round(v).toLocaleString();
   const targets = refData.targets || {}; // { REGION: { ksh, ltrs } }
-  const catTargets = refData.categoryTargets || {}; // { CATEGORY: { ksh, ltrs } }
 
   // Helper: find target for a region (case-insensitive, partial match)
   function getRegionTarget(region) {
@@ -2853,12 +2929,6 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
       if (rUpper.includes(k) || k.includes(rUpper)) return targets[k];
     }
     return null;
-  }
-
-  // Helper: find category target (normalised)
-  function getCatTarget(cat) {
-    const norm = normalizeCat(cat);
-    return catTargets[norm] || catTargets[cat] || null;
   }
 
   // Helper: color class for % achieved
@@ -2876,28 +2946,12 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
     if (!target || target === 0) return null;
     return Math.round((actual / target) * 100);
   }
-  function pctBarCell(actual, target, bgStyle) {
-    const p = pctVal(actual, target);
-    const col = pctColor(p);
-    const label = p !== null ? Math.round((actual/target)*100) + '%' : '—';
-    const barW = p !== null ? Math.min(p, 100) : 0;
-    return `<td style="${bgStyle}padding:5px 8px;border-bottom:1px solid var(--border);">
-      <div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-bottom:3px;">
-        <span style="font-size:12px;font-weight:800;color:${col}">${label}</span>
-      </div>
-      <div style="height:4px;background:var(--border);border-radius:99px;overflow:hidden;">
-        <div style="height:4px;width:${barW}%;background:${col};border-radius:99px;transition:width 0.6s;"></div>
-      </div>
-    </td>`;
-  }
 
   const visRegions = filterRegion ? regions.filter(r => r.toLowerCase().includes(filterRegion)) : regions;
   const visCats    = filterCat    ? categories.filter(c => c === filterCat.toUpperCase())         : categories;
 
-  // Determine what targets are available
-  const anyRegionTarget = visRegions.some(r => getRegionTarget(r) !== null);
-  const anyCatTarget    = visCats.some(c => getCatTarget(c) !== null);
-  const anyTarget       = anyRegionTarget;
+  // Check if any region has targets loaded
+  const anyTarget = visRegions.some(r => getRegionTarget(r) !== null);
 
   // ── TRANSPOSED: Categories = rows, Locations = columns ──
 
@@ -2912,20 +2966,12 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
   headHtml += '</tr>';
   document.getElementById('locSalesHead').innerHTML = headHtml;
 
-  // Precompute total region targets (used for per-category % achieved in TOTALS column)
-  const totalRegionTgtKsh  = visRegions.reduce((s,r)=>s+(getRegionTarget(r)?.ksh||0),0);
-  const totalRegionTgtLtrs = visRegions.reduce((s,r)=>s+(getRegionTarget(r)?.ltrs||0),0);
-
-  // Body: rows per category (Ltrs/Kgs + Amt KSH + optional Target KSH + % Achieved), then Grand Total
+  // Body: two rows per category (Ltrs/Kgs + Amt KSH), then Grand Total
   let bodyHtml = '';
   for (const c of visCats) {
-    const catTgt = getCatTarget(c); // category-level target if available
-    // Rows: Ltrs/Kgs, Amt KSH, [Target KSH, % Achieved if anyTarget]
-    const rowspan = anyTarget ? 4 : 2;
-
     // Ltrs/Kgs row
     bodyHtml += '<tr>';
-    bodyHtml += `<td rowspan="${rowspan}" style="font-weight:700;color:var(--text-head);font-size:13px;vertical-align:middle;border-right:1px solid var(--border);">${esc(c)}</td>`;
+    bodyHtml += `<td rowspan="2" style="font-weight:700;color:var(--text-head);font-size:13px;vertical-align:middle;border-right:1px solid var(--border);">${esc(c)}</td>`;
     bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Ltrs/Kgs</td>`;
     let cLtrsTotal = 0;
     for (const r of visRegions) {
@@ -2947,52 +2993,10 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
       const v = cell?.amount || 0;
       cAmtTotal += v;
       const isZero = v === 0;
-      bodyHtml += `<td class="num-ksh${isZero?' zero':''}" style="font-weight:600;color:var(--text-head);">${isZero ? '—' : fmtA(v)}</td>`;
+      bodyHtml += `<td class="num-ksh${isZero?' zero':''}" style="font-weight:600;color:var(--text-head);border-bottom:2px solid var(--border);">${isZero ? '—' : fmtA(v)}</td>`;
     }
-    bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:#f6ad2b;font-weight:700;">${fmtA(cAmtTotal)}</td>`;
+    bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:#f6ad2b;font-weight:700;border-bottom:2px solid rgba(255,255,255,0.18);">${fmtA(cAmtTotal)}</td>`;
     bodyHtml += '</tr>';
-
-    if (anyTarget) {
-      // ── Target KSH row (per-category target in TOTALS; region cells show region target proportionally or just the region total target) ──
-      // For each region cell: show the region's total KSH target (since targets are by region, not region×category)
-      // For TOTALS cell: show category-level target if available, else show total region targets
-      bodyHtml += '<tr style="background:var(--row-tgt);">';
-      bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-style:italic;">Target KSH</td>`;
-      for (const r of visRegions) {
-        const tgt = getRegionTarget(r);
-        const v = tgt?.ksh || 0;
-        bodyHtml += `<td class="num-ksh" style="color:var(--text-muted);font-size:12px;border-bottom:1px solid var(--border);">${v ? fmtA(v) : '—'}</td>`;
-      }
-      // TOTALS column: use category target if available, else sum of region targets
-      const catTgtKsh = catTgt?.ksh || totalRegionTgtKsh || 0;
-      bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:rgba(255,255,255,0.6);font-size:12px;border-bottom:1px solid rgba(255,255,255,0.12);">${catTgtKsh ? fmtA(catTgtKsh) : '—'}</td>`;
-      bodyHtml += '</tr>';
-
-      // ── % Achieved row ──
-      bodyHtml += '<tr style="background:var(--row-pct);">';
-      bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;">% Achieved</td>`;
-      for (const r of visRegions) {
-        const tgt = getRegionTarget(r);
-        const actual = pivot[r]?.[c]?.amount || 0;
-        const target = tgt?.ksh || 0;
-        bodyHtml += pctBarCell(actual, target, 'border-bottom:2px solid var(--border);');
-      }
-      // TOTALS % achieved: category total vs category target (or total region targets)
-      const catTotKsh = catTgt?.ksh || totalRegionTgtKsh || 0;
-      const grandP = pctVal(cAmtTotal, catTotKsh);
-      const grandCol2 = pctColor(grandP);
-      const grandLabel2 = catTotKsh ? Math.round((cAmtTotal/catTotKsh)*100)+'%' : '—';
-      const grandBarW2 = grandP !== null ? Math.min(grandP, 100) : 0;
-      bodyHtml += `<td style="background:#1b4f72;padding:5px 8px;border-bottom:2px solid rgba(255,255,255,0.18);">
-        <div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-bottom:3px;">
-          <span style="font-size:12px;font-weight:800;color:${grandCol2}">${grandLabel2}</span>
-        </div>
-        <div style="height:4px;background:rgba(255,255,255,0.15);border-radius:99px;overflow:hidden;">
-          <div style="height:4px;width:${grandBarW2}%;background:${grandCol2};border-radius:99px;transition:width 0.6s;"></div>
-        </div>
-      </td>`;
-      bodyHtml += '</tr>';
-    }
   }
 
   // Grand Total — Ltrs/Kgs
@@ -3024,13 +3028,13 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
   bodyHtml += `<td class="num-ksh" style="background:#1b4f72;">${fmtA(grandAmt)}</td>`;
   bodyHtml += '</tr>';
 
-  // ── GRAND TARGET & OVERALL % ACHIEVED ROWS (only if any targets loaded) ──
+  // ── TARGET & % ACHIEVED ROWS (only if any targets loaded) ──
   if (anyTarget) {
-    // Target — Ltrs/Kgs
+    // Target — Amt KSH row
     let grandTgtKsh = 0;
     let grandTgtLtrs = 0;
     bodyHtml += '<tr style="background:var(--row-tgt);">';
-    bodyHtml += `<td rowspan="3" style="vertical-align:middle;font-weight:700;font-size:12px;color:var(--text-muted);letter-spacing:0.03em;border-right:1px solid var(--border);">TOTAL TARGET</td>`;
+    bodyHtml += `<td rowspan="3" style="vertical-align:middle;font-weight:700;font-size:12px;color:var(--text-muted);letter-spacing:0.03em;border-right:1px solid var(--border);">TARGET</td>`;
     bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Ltrs/Kgs</td>`;
     for (const r of visRegions) {
       const tgt = getRegionTarget(r);
@@ -3053,7 +3057,7 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
     bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;border-bottom:1px solid rgba(255,255,255,0.12);">${grandTgtKsh ? fmtA(grandTgtKsh) : '—'}</td>`;
     bodyHtml += '</tr>';
 
-    // % Achieved row (overall)
+    // % Achieved row
     bodyHtml += '<tr style="background:var(--row-pct);">';
     bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;">% Achieved</td>`;
     let grandPctVal = pctVal(grandAmt, grandTgtKsh);
@@ -3099,7 +3103,96 @@ function filterLocSales() {
   renderLocSalesTable(_locSalesData, q, cat);
 }
 
+/* ── BY CATEGORY table for Location Sales tab ── */
+function buildLocCatSummaryHtml(transactions) {
+  const byCategory = groupBy(transactions, 'category');
+  const rows = Object.entries(byCategory).sort((a, b) => b[1].amount - a[1].amount);
+  const fmt = v => Math.round(v).toLocaleString();
+  const pctColor = p => p === null ? 'inherit' : p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
+
+  const catTgts = refData.categoryTargets || {};
+  const hasCatTargets = Object.keys(catTgts).length > 0;
+
+  // Also check region-level targets to derive a grand total fallback
+  const regionTgts = refData.targets || {};
+  const grandRegKsh  = Object.values(regionTgts).reduce((s, t) => s + (t.ksh  || 0), 0);
+  const grandRegLtrs = Object.values(regionTgts).reduce((s, t) => s + (t.ltrs || 0), 0);
+
+  const tRows = rows.map(([n, d]) => {
+    const normN = normalizeCat(n);
+    const ct = catTgts[normN] || catTgts[n];
+    const pVol = ct && ct.ltrs > 0 ? Math.round((d.ltrs   / ct.ltrs) * 100) : null;
+    const pRev = ct && ct.ksh  > 0 ? Math.round((d.amount / ct.ksh)  * 100) : null;
+    const volPct = pVol !== null
+      ? `<span style="font-weight:700;color:${pctColor(pVol)}">${pVol}%</span>`
+      : `<span style="color:var(--text-muted)">—</span>`;
+    const revPct = pRev !== null
+      ? `<span style="font-weight:700;color:${pctColor(pRev)}">${pRev}%</span>`
+      : `<span style="color:var(--text-muted)">—</span>`;
+    const tVol = ct && ct.ltrs ? fmt(ct.ltrs) : '—';
+    const tAmt = ct && ct.ksh  ? fmt(ct.ksh)  : '—';
+    return `<tr>
+      <td style="font-weight:600;">${esc(n)}</td>
+      <td style="text-align:right;">${fmt(d.ltrs)}</td>
+      <td style="text-align:right;color:var(--text-muted);">${tVol}</td>
+      <td style="text-align:right;">${volPct}</td>
+      <td style="text-align:right;">${fmt(d.amount)}</td>
+      <td style="text-align:right;color:var(--text-muted);">${tAmt}</td>
+      <td style="text-align:right;">${revPct}</td>
+    </tr>`;
+  }).join('');
+
+  const totL = rows.reduce((s, [, d]) => s + d.ltrs, 0);
+  const totA = rows.reduce((s, [, d]) => s + d.amount, 0);
+
+  // Per-category targets sum (preferred); fall back to grand region totals
+  const tA = hasCatTargets
+    ? rows.reduce((s, [n]) => s + ((catTgts[normalizeCat(n)] || catTgts[n])?.ksh  || 0), 0)
+    : grandRegKsh;
+  const tL = hasCatTargets
+    ? rows.reduce((s, [n]) => s + ((catTgts[normalizeCat(n)] || catTgts[n])?.ltrs || 0), 0)
+    : grandRegLtrs;
+
+  const pctA = tA > 0 ? Math.round((totA / tA) * 100) : null;
+  const pctL = tL > 0 ? Math.round((totL / tL) * 100) : null;
+
+  const foot = `<tr class="total-row">
+    <td>Totals</td>
+    <td style="text-align:right;">${fmt(totL)}</td>
+    <td style="text-align:right;">${tL ? fmt(tL) : '—'}</td>
+    <td style="text-align:right;color:${pctColor(pctL)};font-weight:700;">${pctL !== null ? pctL + '%' : '—'}</td>
+    <td style="text-align:right;">${fmt(totA)}</td>
+    <td style="text-align:right;">${tA ? fmt(tA) : '—'}</td>
+    <td style="text-align:right;color:${pctColor(pctA)};font-weight:700;">${pctA !== null ? pctA + '%' : '—'}</td>
+  </tr>`;
+
+  return `<div class="tbl-card">
+    <div class="tbl-card-head">BY CATEGORY</div>
+    <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2" style="vertical-align:bottom;text-align:left;border-right:1px solid var(--border);min-width:120px;">Category</th>
+          <th colspan="3" style="text-align:center;border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);letter-spacing:0.06em;">SALES IN VOLUME</th>
+          <th colspan="3" style="text-align:center;border-bottom:1px solid var(--border2);letter-spacing:0.06em;">SALES IN REVENUE</th>
+        </tr>
+        <tr>
+          <th style="text-align:right;min-width:90px;">ACTUAL</th>
+          <th style="text-align:right;min-width:90px;">TARGET</th>
+          <th style="text-align:right;min-width:70px;border-right:1px solid var(--border2);">VOL%</th>
+          <th style="text-align:right;min-width:110px;">ACTUAL</th>
+          <th style="text-align:right;min-width:110px;">TARGET</th>
+          <th style="text-align:right;min-width:70px;">Rev%</th>
+        </tr>
+      </thead>
+      <tbody>${tRows}${foot}</tbody>
+    </table>
+    </div>
+  </div>`;
+}
+
 function populateLocSalesPage(data) {
+  _lastSalesData = data;  // cache so targets reload can refresh
   const d = buildLocSalesData(data.transactions);
   _locSalesData = d;
   const fmtBig = v => Math.round(v).toLocaleString();
@@ -3135,6 +3228,15 @@ function populateLocSalesPage(data) {
   const catSel = document.getElementById('locCatFilter');
   catSel.innerHTML = '<option value="">All Categories</option>' +
     d.categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  // BY CATEGORY performance summary
+  const catSummaryHtml = buildLocCatSummaryHtml(data.transactions);
+  const catSummaryEl = document.getElementById('locCatSummaryContent');
+  const catSummaryWrap = document.getElementById('locCatSummaryWrap');
+  if (catSummaryEl && catSummaryWrap) {
+    catSummaryEl.innerHTML = catSummaryHtml;
+    catSummaryWrap.style.display = '';
+  }
 
   // Show table
   document.getElementById('locSalesEmpty').style.display = 'none';
