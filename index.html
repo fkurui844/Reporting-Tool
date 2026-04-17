@@ -1058,7 +1058,7 @@
     #locSalesTable thead .sub-head th {
       background: #0d2138;
       font-size: 10px;
-      padding: 6px 10px;
+      padding: 5px 10px;
     }
 
     /* Body rows */
@@ -2934,270 +2934,283 @@ function buildLocSalesData(transactions) {
 }
 
 function renderLocSalesTable(data, filterRegion, filterCat) {
-  const { regions, categories, pivot, regionTotals, catTotals, grandTotal } = data;
+  const { regions, categories, pivot } = data;
   const fmtN = v => Math.round(v).toLocaleString();
   const fmtA = v => Math.round(v).toLocaleString();
-  const regionTargets = refData.targets || {};            // { REGION: { ksh, ltrs } }
-  const locCatTgts    = refData.locationCategoryTargets || {}; // { REGION: { CAT: { ksh, ltrs } } }
+  const regionTargets = refData.targets || {};
+  const locCatTgts    = refData.locationCategoryTargets || {};
   const hasCatTgts    = Object.keys(locCatTgts).length > 0;
 
   function getRegionTarget(region) {
-    const rUpper = region.toUpperCase();
-    if (regionTargets[rUpper]) return regionTargets[rUpper];
-    for (const k of Object.keys(regionTargets)) {
-      if (rUpper.includes(k) || k.includes(rUpper)) return regionTargets[k];
-    }
+    const rU = region.toUpperCase();
+    if (regionTargets[rU]) return regionTargets[rU];
+    for (const k of Object.keys(regionTargets))
+      if (rU.includes(k) || k.includes(rU)) return regionTargets[k];
     return null;
   }
   function getLocCatTarget(region, category) {
-    const rUpper = region.toUpperCase();
-    const cUpper = normalizeCat(category);
-    if (locCatTgts[rUpper]) return locCatTgts[rUpper][cUpper] || locCatTgts[rUpper][category.toUpperCase()] || null;
-    // Try partial match on location key
-    for (const k of Object.keys(locCatTgts)) {
-      if (rUpper.includes(k) || k.includes(rUpper)) {
-        const lcRow = locCatTgts[k];
-        return lcRow[cUpper] || lcRow[category.toUpperCase()] || null;
-      }
-    }
+    const rU = region.toUpperCase(), cU = normalizeCat(category);
+    if (locCatTgts[rU]) return locCatTgts[rU][cU] || locCatTgts[rU][category.toUpperCase()] || null;
+    for (const k of Object.keys(locCatTgts))
+      if (rU.includes(k) || k.includes(rU)) return locCatTgts[k][cU] || locCatTgts[k][category.toUpperCase()] || null;
     return null;
   }
-  function pctColor(pct) {
-    if (pct === null) return '#718096';
-    if (pct >= 100) return '#1db87a';
-    if (pct >= 70)  return '#f6ad2b';
-    return '#E1245A';
+  function pctColor(p) {
+    if (p === null) return '#718096';
+    return p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
   }
-  function pctLabel(actual, target) {
-    if (!target || target === 0) return '—';
-    return Math.round((actual / target) * 100) + '%';
-  }
-  function pctVal(actual, target) {
-    if (!target || target === 0) return null;
-    return Math.round((actual / target) * 100);
-  }
-  function pctBadge(actual, tgt) {
-    if (!tgt || tgt === 0) return '<span style="color:var(--text-muted);font-size:11px;">—</span>';
-    const p = Math.round((actual / tgt) * 100);
+  function pctVal(a, t) { return (!t || t === 0) ? null : Math.round((a / t) * 100); }
+
+  // Renders a compact "Actual / Target / % bar" cell
+  function metricCell(actual, target, isTotalsCol) {
+    const p   = pctVal(actual, target);
     const col = pctColor(p);
-    const barW = Math.min(p, 100);
-    return `<div style="display:flex;flex-direction:column;gap:2px;">
-      <span style="font-size:12px;font-weight:800;color:${col};text-align:right;">${p}%</span>
-      <div style="height:4px;background:var(--border);border-radius:99px;overflow:hidden;">
-        <div style="height:4px;width:${barW}%;background:${col};border-radius:99px;transition:width 0.6s;"></div>
-      </div>
-    </div>`;
+    const barW = p !== null ? Math.min(p, 100) : 0;
+    const pctHtml = p !== null
+      ? `<span style="font-size:11px;font-weight:800;color:${col};white-space:nowrap;">${p}%</span>`
+      : `<span style="font-size:11px;color:var(--text-muted);">—</span>`;
+    const tgtHtml = target
+      ? `<span style="font-size:10px;color:var(--text-muted);white-space:nowrap;">/ ${fmtN(target)}</span>`
+      : '';
+    const barHtml = p !== null
+      ? `<div style="height:3px;background:var(--border${isTotalsCol?'2':''});border-radius:99px;overflow:hidden;margin-top:3px;">
+           <div style="height:3px;width:${barW}%;background:${col};border-radius:99px;transition:width 0.6s;"></div>
+         </div>`
+      : '';
+    const bgAlpha = isTotalsCol ? 'rgba(27,79,114,0.0)' : 'transparent';
+    return `<td style="padding:8px 10px;vertical-align:top;background:${bgAlpha};">
+      <div style="font-size:12px;font-weight:700;color:var(--text-head);text-align:right;white-space:nowrap;">${fmtN(actual)}</div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-top:2px;">${tgtHtml}${pctHtml}</div>
+      ${barHtml}
+    </td>`;
+  }
+
+  // Same but for KSH (larger number formatting, slightly different label)
+  function metricCellKsh(actual, target, isTotalsCol) {
+    const p   = pctVal(actual, target);
+    const col = pctColor(p);
+    const barW = p !== null ? Math.min(p, 100) : 0;
+    const pctHtml = p !== null
+      ? `<span style="font-size:11px;font-weight:800;color:${col};white-space:nowrap;">${p}%</span>`
+      : `<span style="font-size:11px;color:var(--text-muted);">—</span>`;
+    const tgtHtml = target
+      ? `<span style="font-size:10px;color:var(--text-muted);white-space:nowrap;">/ ${fmtA(target)}</span>`
+      : '';
+    const barHtml = p !== null
+      ? `<div style="height:3px;background:var(--border${isTotalsCol?'2':''});border-radius:99px;overflow:hidden;margin-top:3px;">
+           <div style="height:3px;width:${barW}%;background:${col};border-radius:99px;transition:width 0.6s;"></div>
+         </div>`
+      : '';
+    return `<td style="padding:8px 10px;vertical-align:top;border-bottom:3px solid var(--border);">
+      <div style="font-size:12px;font-weight:700;color:var(--text-head);text-align:right;white-space:nowrap;">${fmtA(actual)}</div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-top:2px;">${tgtHtml}${pctHtml}</div>
+      ${barHtml}
+    </td>`;
   }
 
   const visRegions = filterRegion ? regions.filter(r => r.toLowerCase().includes(filterRegion)) : regions;
-  const visCats    = filterCat    ? categories.filter(c => c === filterCat.toUpperCase())         : categories;
+  const visCats    = filterCat    ? categories.filter(c => c === filterCat.toUpperCase()) : categories;
+  const allCols    = [...visRegions, '__TOTALS__'];
 
-  // Decide metric rows per category:
-  // If any location×category target exists → show 4 rows (Actual Ltrs, Actual KSH, Target KSH, % Ach)
-  // If only region-level targets → show 2 rows + grand target/% rows at the bottom (old behaviour)
-  const showPerCatTargets = hasCatTgts;
-
-  // ── Header ──────────────────────────────────────────────
+  // ── Header: two rows — location names + sub-labels ──────
+  // Row 1: Category | 📦 VOLUME (spanning 2 sub-cols per region) | 💰 REVENUE (spanning 2 sub-cols)
+  // Simpler approach: single header row, each location spans both metrics in the cell body
   let headHtml = '<tr>';
-  headHtml += '<th style="vertical-align:middle;min-width:120px;text-align:left;border-right:1px solid rgba(255,255,255,0.12);">Category</th>';
-  headHtml += '<th style="vertical-align:middle;min-width:75px;text-align:left;color:rgba(255,255,255,0.6);font-size:11px;font-weight:500;border-right:1px solid rgba(255,255,255,0.08);">Metric</th>';
+  headHtml += `<th style="vertical-align:bottom;min-width:130px;text-align:left;border-right:2px solid rgba(255,255,255,0.15);padding-bottom:10px;">CATEGORY</th>`;
   for (const r of visRegions) {
-    headHtml += `<th class="cat-head" style="min-width:140px;border-right:1px solid rgba(255,255,255,0.08);">${esc(r)}</th>`;
+    headHtml += `<th class="cat-head" colspan="2" style="min-width:260px;text-align:center;border-right:1px solid rgba(255,255,255,0.1);">${esc(r)}</th>`;
   }
-  headHtml += '<th class="cat-head" style="background:#1b4f72;min-width:140px;">TOTALS</th>';
+  headHtml += `<th class="cat-head" colspan="2" style="background:#1b4f72;min-width:260px;text-align:center;">TOTALS</th>`;
   headHtml += '</tr>';
+
+  // Row 2: sub-labels — 📦 Vol & 💰 Rev per location
+  headHtml += '<tr style="background:#0d2138;">';
+  headHtml += `<th style="background:#0d2138;border-right:2px solid rgba(255,255,255,0.15);"></th>`;
+  for (const r of visRegions) {
+    headHtml += `<th style="background:#0d2138;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.07em;color:rgba(255,255,255,0.5);padding:5px 10px;border-right:none;">📦 VOLUME (Ltrs/Kgs)</th>`;
+    headHtml += `<th style="background:#0d2138;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.07em;color:rgba(255,255,255,0.5);padding:5px 10px;border-right:1px solid rgba(255,255,255,0.1);">💰 REVENUE (KSH)</th>`;
+  }
+  headHtml += `<th style="background:#163a52;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.07em;color:rgba(255,255,255,0.5);padding:5px 10px;border-right:none;">📦 VOLUME</th>`;
+  headHtml += `<th style="background:#163a52;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.07em;color:rgba(255,255,255,0.5);padding:5px 10px;">💰 REVENUE</th>`;
+  headHtml += '</tr>';
+
   document.getElementById('locSalesHead').innerHTML = headHtml;
 
   // ── Body ────────────────────────────────────────────────
   let bodyHtml = '';
 
   for (const c of visCats) {
-    const normC = normalizeCat(c);
-    const anyLocHasTarget = showPerCatTargets && visRegions.some(r => getLocCatTarget(r, c) !== null);
+    const anyLocHasTarget = hasCatTgts && visRegions.some(r => getLocCatTarget(r, c) !== null);
 
-    // Determine row count: 2 always (Actual Ltrs + Actual KSH), +4 if targets present (Tgt Ltrs, Vol%, Tgt KSH, Rev%)
-    const rowSpan = anyLocHasTarget ? 6 : 2;
-    const rowBorder = 'border-top:2px solid var(--border2);';
-
-    // Row 1: Actual Ltrs/Kgs
-    let cLtrsTotal = 0;
-    bodyHtml += `<tr style="${rowBorder}">`;
-    bodyHtml += `<td rowspan="${rowSpan}" style="font-weight:700;color:var(--text-head);font-size:13px;vertical-align:middle;border-right:1px solid var(--border);background:var(--surface);">${esc(c)}</td>`;
-    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;padding-right:6px;">Actual Ltrs/Kgs</td>`;
+    // Totals for this category
+    let cLtrsTotal = 0, cAmtTotal = 0, cTgtLtrsTotal = 0, cTgtKshTotal = 0;
     for (const r of visRegions) {
-      const v = pivot[r]?.[c]?.ltrs || 0;
-      cLtrsTotal += v;
-      bodyHtml += `<td class="num${v===0?' zero':''}">${v===0?'—':fmtN(v)}</td>`;
+      cLtrsTotal += pivot[r]?.[c]?.ltrs   || 0;
+      cAmtTotal  += pivot[r]?.[c]?.amount || 0;
+      if (anyLocHasTarget) {
+        const tgt = getLocCatTarget(r, c);
+        cTgtLtrsTotal += tgt?.ltrs || 0;
+        cTgtKshTotal  += tgt?.ksh  || 0;
+      }
     }
-    bodyHtml += `<td class="num" style="background:#1b4f72;color:#f6ad2b;font-weight:700;">${fmtN(cLtrsTotal)}</td>`;
-    bodyHtml += '</tr>';
 
-    // Row 2: Actual Amt KSH
-    let cAmtTotal = 0;
-    bodyHtml += '<tr>';
-    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;padding-right:6px;">Actual KSH</td>`;
+    bodyHtml += `<tr style="border-top:2px solid var(--border);">`;
+    // Category name cell — rowspan=1 (single data row per category now)
+    bodyHtml += `<td style="font-weight:800;color:var(--text-head);font-size:13px;vertical-align:middle;border-right:2px solid var(--border);padding:10px 14px;letter-spacing:0.02em;">${esc(c)}</td>`;
+
+    // Per-region: Vol cell + Rev cell
     for (const r of visRegions) {
-      const v = pivot[r]?.[c]?.amount || 0;
-      cAmtTotal += v;
-      const style = anyLocHasTarget ? '' : 'border-bottom:2px solid var(--border);';
-      bodyHtml += `<td class="num-ksh${v===0?' zero':''}" style="font-weight:600;color:var(--text-head);${style}">${v===0?'—':fmtA(v)}</td>`;
+      const ltrs   = pivot[r]?.[c]?.ltrs   || 0;
+      const amount = pivot[r]?.[c]?.amount || 0;
+      const tgt    = anyLocHasTarget ? getLocCatTarget(r, c) : null;
+      const tgtL   = tgt?.ltrs || 0;
+      const tgtK   = tgt?.ksh  || 0;
+
+      const pL = pctVal(ltrs, tgtL);
+      const pK = pctVal(amount, tgtK);
+      const colL = pctColor(pL), colK = pctColor(pK);
+      const barWL = pL !== null ? Math.min(pL, 100) : 0;
+      const barWK = pK !== null ? Math.min(pK, 100) : 0;
+
+      // Volume cell
+      bodyHtml += `<td style="padding:9px 10px;vertical-align:middle;border-right:none;text-align:right;">
+        <div style="font-size:13px;font-weight:600;color:${ltrs===0?'var(--text-muted)':'var(--text-head)'};">${ltrs===0?'—':fmtN(ltrs)}</div>
+        ${tgtL ? `<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">tgt: ${fmtN(tgtL)}</div>` : ''}
+        ${pL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
+          <div style="width:40px;height:4px;background:var(--border);border-radius:99px;overflow:hidden;">
+            <div style="height:4px;width:${barWL}%;background:${colL};border-radius:99px;"></div>
+          </div>
+          <span style="font-size:11px;font-weight:800;color:${colL};">${pL}%</span>
+        </div>` : ''}
+      </td>`;
+
+      // Revenue cell
+      bodyHtml += `<td style="padding:9px 10px;vertical-align:middle;border-right:1px solid var(--border2);text-align:right;">
+        <div style="font-size:13px;font-weight:600;color:${amount===0?'var(--text-muted)':'var(--text-head)'};">${amount===0?'—':fmtA(amount)}</div>
+        ${tgtK ? `<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">tgt: ${fmtA(tgtK)}</div>` : ''}
+        ${pK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
+          <div style="width:40px;height:4px;background:var(--border);border-radius:99px;overflow:hidden;">
+            <div style="height:4px;width:${barWK}%;background:${colK};border-radius:99px;"></div>
+          </div>
+          <span style="font-size:11px;font-weight:800;color:${colK};">${pK}%</span>
+        </div>` : ''}
+      </td>`;
     }
-    const totStyle = anyLocHasTarget ? '' : 'border-bottom:2px solid rgba(255,255,255,0.18);';
-    bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:#f6ad2b;font-weight:700;${totStyle}">${fmtA(cAmtTotal)}</td>`;
+
+    // Totals cells
+    const pTL = pctVal(cLtrsTotal, cTgtLtrsTotal);
+    const pTK = pctVal(cAmtTotal,  cTgtKshTotal);
+    const colTL = pctColor(pTL), colTK = pctColor(pTK);
+    const bTL = pTL !== null ? Math.min(pTL, 100) : 0;
+    const bTK = pTK !== null ? Math.min(pTK, 100) : 0;
+
+    bodyHtml += `<td style="padding:9px 10px;vertical-align:middle;background:rgba(27,79,114,0.18);text-align:right;border-right:none;">
+      <div style="font-size:13px;font-weight:700;color:#f6ad2b;">${fmtN(cLtrsTotal)}</div>
+      ${cTgtLtrsTotal ? `<div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:1px;">tgt: ${fmtN(cTgtLtrsTotal)}</div>` : ''}
+      ${pTL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
+        <div style="width:40px;height:4px;background:rgba(255,255,255,0.15);border-radius:99px;overflow:hidden;">
+          <div style="height:4px;width:${bTL}%;background:${colTL};border-radius:99px;"></div>
+        </div>
+        <span style="font-size:11px;font-weight:800;color:${colTL};">${pTL}%</span>
+      </div>` : ''}
+    </td>`;
+
+    bodyHtml += `<td style="padding:9px 10px;vertical-align:middle;background:rgba(27,79,114,0.18);text-align:right;">
+      <div style="font-size:13px;font-weight:700;color:#f6ad2b;">${fmtA(cAmtTotal)}</div>
+      ${cTgtKshTotal ? `<div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:1px;">tgt: ${fmtA(cTgtKshTotal)}</div>` : ''}
+      ${pTK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
+        <div style="width:40px;height:4px;background:rgba(255,255,255,0.15);border-radius:99px;overflow:hidden;">
+          <div style="height:4px;width:${bTK}%;background:${colTK};border-radius:99px;"></div>
+        </div>
+        <span style="font-size:11px;font-weight:800;color:${colTK};">${pTK}%</span>
+      </div>` : ''}
+    </td>`;
+
     bodyHtml += '</tr>';
-
-    if (anyLocHasTarget) {
-      // Row 3: Target Ltrs/Kgs
-      let cTgtLtrsTotal = 0;
-      bodyHtml += '<tr style="background:var(--row-tgt);">';
-      bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;padding-right:6px;">Target Ltrs/Kgs</td>`;
-      for (const r of visRegions) {
-        const tgt = getLocCatTarget(r, c);
-        const v = tgt?.ltrs || 0;
-        cTgtLtrsTotal += v;
-        bodyHtml += `<td class="num" style="color:var(--text-muted);font-size:12px;">${v ? fmtN(v) : '—'}</td>`;
-      }
-      bodyHtml += `<td class="num" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;">${cTgtLtrsTotal ? fmtN(cTgtLtrsTotal) : '—'}</td>`;
-      bodyHtml += '</tr>';
-
-      // Row 4: % Achieved Vol
-      bodyHtml += '<tr style="background:var(--row-pct);">';
-      bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;border-bottom:1px solid var(--border2);padding-right:6px;">Vol % Achieved</td>`;
-      let grandCatTgtLtrs = 0;
-      for (const r of visRegions) {
-        const tgt = getLocCatTarget(r, c);
-        const actualL = pivot[r]?.[c]?.ltrs || 0;
-        const targetL = tgt?.ltrs || 0;
-        grandCatTgtLtrs += targetL;
-        bodyHtml += `<td style="padding:6px 8px;border-bottom:1px solid var(--border2);">${pctBadge(actualL, targetL)}</td>`;
-      }
-      bodyHtml += `<td style="background:#1b4f72;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.12);">${pctBadge(cLtrsTotal, grandCatTgtLtrs)}</td>`;
-      bodyHtml += '</tr>';
-
-      // Row 5: Target KSH
-      let cTgtKshTotal = 0;
-      bodyHtml += '<tr style="background:var(--row-tgt);">';
-      bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;padding-right:6px;">Target KSH</td>`;
-      for (const r of visRegions) {
-        const tgt = getLocCatTarget(r, c);
-        const v = tgt?.ksh || 0;
-        cTgtKshTotal += v;
-        bodyHtml += `<td class="num-ksh" style="color:var(--text-muted);font-size:12px;">${v ? fmtA(v) : '—'}</td>`;
-      }
-      bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;">${cTgtKshTotal ? fmtA(cTgtKshTotal) : '—'}</td>`;
-      bodyHtml += '</tr>';
-
-      // Row 6: % Achieved Rev
-      bodyHtml += '<tr style="background:var(--row-pct);">';
-      bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;border-bottom:2px solid var(--border);padding-right:6px;">Rev % Achieved</td>`;
-      let grandCatTgtKsh = 0;
-      for (const r of visRegions) {
-        const tgt = getLocCatTarget(r, c);
-        const actual = pivot[r]?.[c]?.amount || 0;
-        const target = tgt?.ksh || 0;
-        grandCatTgtKsh += target;
-        bodyHtml += `<td style="padding:6px 8px;border-bottom:2px solid var(--border);">${pctBadge(actual, target)}</td>`;
-      }
-      bodyHtml += `<td style="background:#1b4f72;padding:6px 8px;border-bottom:2px solid rgba(255,255,255,0.18);">${pctBadge(cAmtTotal, grandCatTgtKsh)}</td>`;
-      bodyHtml += '</tr>';
-    }
   }
 
-  // ── Grand Total rows ─────────────────────────────────
+  // ── Grand Total row ──────────────────────────────────
   let grandLtrs = 0, grandAmt = 0;
   const rLtrsArr = {}, rAmtArr = {};
   for (const r of visRegions) {
     rLtrsArr[r] = visCats.reduce((s,c)=>s+(pivot[r]?.[c]?.ltrs||0),0);
     rAmtArr[r]  = visCats.reduce((s,c)=>s+(pivot[r]?.[c]?.amount||0),0);
-    grandLtrs += rLtrsArr[r];
-    grandAmt  += rAmtArr[r];
+    grandLtrs  += rLtrsArr[r];
+    grandAmt   += rAmtArr[r];
   }
 
-  bodyHtml += '<tr class="loc-total-row">';
-  bodyHtml += `<td rowspan="2" style="vertical-align:middle;">GRAND TOTAL</td>`;
-  bodyHtml += `<td style="font-size:11px;white-space:nowrap;">Ltrs/Kgs</td>`;
-  for (const r of visRegions) bodyHtml += `<td class="num">${fmtN(rLtrsArr[r])}</td>`;
-  bodyHtml += `<td class="num" style="background:#1b4f72;">${fmtN(grandLtrs)}</td>`;
-  bodyHtml += '</tr>';
-  bodyHtml += '<tr class="loc-total-row">';
-  bodyHtml += `<td style="font-size:11px;white-space:nowrap;">Amt KSH</td>`;
-  for (const r of visRegions) bodyHtml += `<td class="num-ksh">${fmtA(rAmtArr[r])}</td>`;
-  bodyHtml += `<td class="num-ksh" style="background:#1b4f72;">${fmtA(grandAmt)}</td>`;
-  bodyHtml += '</tr>';
+  const rTgtMap = {};
+  for (const r of visRegions) rTgtMap[r] = getRegionTarget(r);
+  const grandTgtLtrs = visRegions.reduce((s,r)=>s+(rTgtMap[r]?.ltrs||0),0);
+  const grandTgtKsh  = visRegions.reduce((s,r)=>s+(rTgtMap[r]?.ksh||0),0);
 
-  // ── Region-level target & % achieved rows (shown when NO per-cat targets, or always for grand summary) ──
-  const anyRegTarget = visRegions.some(r => getRegionTarget(r) !== null);
-  if (anyRegTarget) {
-    let grandTgtKsh = 0, grandTgtLtrs = 0;
+  bodyHtml += `<tr class="loc-total-row" style="border-top:3px solid rgba(255,255,255,0.25);">`;
+  bodyHtml += `<td style="font-size:12px;font-weight:800;letter-spacing:0.05em;vertical-align:middle;border-right:2px solid rgba(255,255,255,0.15);padding:10px 14px;">GRAND TOTAL</td>`;
 
-    // Pre-collect targets so we can use them in both rows
-    const rTgtMap = {};
-    for (const r of visRegions) { rTgtMap[r] = getRegionTarget(r); }
-    for (const r of visRegions) { grandTgtLtrs += rTgtMap[r]?.ltrs || 0; grandTgtKsh += rTgtMap[r]?.ksh || 0; }
+  for (const r of visRegions) {
+    const ltrs   = rLtrsArr[r];
+    const amount = rAmtArr[r];
+    const tgtL   = rTgtMap[r]?.ltrs || 0;
+    const tgtK   = rTgtMap[r]?.ksh  || 0;
+    const pL = pctVal(ltrs, tgtL);
+    const pK = pctVal(amount, tgtK);
+    const colL = pctColor(pL), colK = pctColor(pK);
+    const bL = pL !== null ? Math.min(pL,100) : 0;
+    const bK = pK !== null ? Math.min(pK,100) : 0;
 
-    bodyHtml += '<tr style="background:var(--row-tgt);">';
-    bodyHtml += `<td rowspan="4" style="vertical-align:middle;font-weight:700;font-size:12px;color:var(--text-muted);letter-spacing:0.03em;border-right:1px solid var(--border);">TARGET</td>`;
-    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Target Ltrs/Kgs</td>`;
-    for (const r of visRegions) {
-      const v = rTgtMap[r]?.ltrs || 0;
-      bodyHtml += `<td class="num" style="color:var(--text-muted);font-size:12px;">${v ? fmtN(v) : '—'}</td>`;
-    }
-    bodyHtml += `<td class="num" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;">${grandTgtLtrs ? fmtN(grandTgtLtrs) : '—'}</td>`;
-    bodyHtml += '</tr>';
-
-    // Vol % Achieved
-    bodyHtml += '<tr style="background:var(--row-pct);">';
-    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;border-bottom:1px solid var(--border2);">Vol % Achieved</td>`;
-    for (const r of visRegions) {
-      const actualL = rLtrsArr[r] || 0;
-      const targetL = rTgtMap[r]?.ltrs || 0;
-      bodyHtml += `<td style="padding:6px 8px;border-bottom:1px solid var(--border2);">${pctBadge(actualL, targetL)}</td>`;
-    }
-    bodyHtml += `<td style="background:#1b4f72;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.12);">${pctBadge(grandLtrs, grandTgtLtrs)}</td>`;
-    bodyHtml += '</tr>';
-
-    bodyHtml += '<tr style="background:var(--row-tgt);">';
-    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Target KSH</td>`;
-    for (const r of visRegions) {
-      const v = rTgtMap[r]?.ksh || 0;
-      bodyHtml += `<td class="num-ksh" style="color:var(--text-muted);font-size:12px;border-bottom:1px solid var(--border);">${v ? fmtA(v) : '—'}</td>`;
-    }
-    bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;border-bottom:1px solid rgba(255,255,255,0.12);">${grandTgtKsh ? fmtA(grandTgtKsh) : '—'}</td>`;
-    bodyHtml += '</tr>';
-
-    // Rev % Achieved
-    bodyHtml += '<tr style="background:var(--row-pct);">';
-    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;">Rev % Achieved</td>`;
-    for (const r of visRegions) {
-      const actual = rAmtArr[r] || 0;
-      const target = rTgtMap[r]?.ksh || 0;
-      const p = pctVal(actual, target);
-      const col = pctColor(p);
-      const label = pctLabel(actual, target);
-      const barW = p !== null ? Math.min(p, 100) : 0;
-      bodyHtml += `<td style="padding:6px 8px;border-bottom:2px solid var(--border);">
-        <div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-bottom:3px;">
-          <span style="font-size:13px;font-weight:800;color:${col}">${label}</span>
+    bodyHtml += `<td style="padding:9px 10px;text-align:right;border-right:none;">
+      <div style="font-size:13px;font-weight:700;color:#f6ad2b;">${fmtN(ltrs)}</div>
+      ${tgtL ? `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:1px;">tgt: ${fmtN(tgtL)}</div>` : ''}
+      ${pL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
+        <div style="width:40px;height:4px;background:rgba(255,255,255,0.2);border-radius:99px;overflow:hidden;">
+          <div style="height:4px;width:${bL}%;background:${colL};border-radius:99px;"></div>
         </div>
-        <div style="height:5px;background:var(--border);border-radius:99px;overflow:hidden;">
-          <div style="height:5px;width:${barW}%;background:${col};border-radius:99px;transition:width 0.6s;"></div>
-        </div>
-      </td>`;
-    }
-    const grandPctVal = pctVal(grandAmt, grandTgtKsh);
-    const grandCol = pctColor(grandPctVal);
-    const grandLabel = pctLabel(grandAmt, grandTgtKsh);
-    const grandBarW = grandPctVal !== null ? Math.min(grandPctVal, 100) : 0;
-    bodyHtml += `<td style="background:#1b4f72;padding:6px 8px;border-bottom:2px solid rgba(255,255,255,0.18);">
-      <div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-bottom:3px;">
-        <span style="font-size:13px;font-weight:800;color:${grandCol}">${grandLabel}</span>
-      </div>
-      <div style="height:5px;background:rgba(255,255,255,0.15);border-radius:99px;overflow:hidden;">
-        <div style="height:5px;width:${grandBarW}%;background:${grandCol};border-radius:99px;transition:width 0.6s;"></div>
-      </div>
+        <span style="font-size:11px;font-weight:800;color:${colL};">${pL}%</span>
+      </div>` : ''}
     </td>`;
-    bodyHtml += '</tr>';
+
+    bodyHtml += `<td style="padding:9px 10px;text-align:right;border-right:1px solid rgba(255,255,255,0.1);">
+      <div style="font-size:13px;font-weight:700;color:#f6ad2b;">${fmtA(amount)}</div>
+      ${tgtK ? `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:1px;">tgt: ${fmtA(tgtK)}</div>` : ''}
+      ${pK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
+        <div style="width:40px;height:4px;background:rgba(255,255,255,0.2);border-radius:99px;overflow:hidden;">
+          <div style="height:4px;width:${bK}%;background:${colK};border-radius:99px;"></div>
+        </div>
+        <span style="font-size:11px;font-weight:800;color:${colK};">${pK}%</span>
+      </div>` : ''}
+    </td>`;
   }
+
+  // Grand totals column
+  const gpL = pctVal(grandLtrs, grandTgtLtrs);
+  const gpK = pctVal(grandAmt, grandTgtKsh);
+  const gcL = pctColor(gpL), gcK = pctColor(gpK);
+  const gbL = gpL !== null ? Math.min(gpL,100) : 0;
+  const gbK = gpK !== null ? Math.min(gpK,100) : 0;
+
+  bodyHtml += `<td style="padding:9px 10px;text-align:right;background:#1b4f72;border-right:none;">
+    <div style="font-size:13px;font-weight:800;color:#f6ad2b;">${fmtN(grandLtrs)}</div>
+    ${grandTgtLtrs ? `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:1px;">tgt: ${fmtN(grandTgtLtrs)}</div>` : ''}
+    ${gpL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
+      <div style="width:40px;height:4px;background:rgba(255,255,255,0.2);border-radius:99px;overflow:hidden;">
+        <div style="height:4px;width:${gbL}%;background:${gcL};border-radius:99px;"></div>
+      </div>
+      <span style="font-size:11px;font-weight:800;color:${gcL};">${gpL}%</span>
+    </div>` : ''}
+  </td>`;
+
+  bodyHtml += `<td style="padding:9px 10px;text-align:right;background:#1b4f72;">
+    <div style="font-size:13px;font-weight:800;color:#f6ad2b;">${fmtA(grandAmt)}</div>
+    ${grandTgtKsh ? `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:1px;">tgt: ${fmtA(grandTgtKsh)}</div>` : ''}
+    ${gpK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
+      <div style="width:40px;height:4px;background:rgba(255,255,255,0.2);border-radius:99px;overflow:hidden;">
+        <div style="height:4px;width:${gbK}%;background:${gcK};border-radius:99px;"></div>
+      </div>
+      <span style="font-size:11px;font-weight:800;color:${gcK};">${gpK}%</span>
+    </div>` : ''}
+  </td>`;
+
+  bodyHtml += '</tr>';
 
   document.getElementById('locSalesTbody').innerHTML = bodyHtml;
 }
