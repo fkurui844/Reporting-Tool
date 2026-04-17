@@ -1383,6 +1383,42 @@
       </div>
     </div>
 
+    <!-- ── Report Key ── -->
+    <div id="locSalesKey" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;">
+      <div style="flex:0 0 auto;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:5px;">Report Key</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text-head);">How to read each cell</div>
+      </div>
+      <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;"></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="background:#1a3c5e;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:0.04em;white-space:nowrap;">V (Ltrs/Kgs)</span>
+          <span style="font-size:12px;color:var(--text-muted);">Volume sold in Litres / Kilograms</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="background:#1a3c5e;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:0.04em;white-space:nowrap;">R (KSH)</span>
+          <span style="font-size:12px;color:var(--text-muted);">Revenue in Kenyan Shillings</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="font-size:11px;color:var(--text-muted);font-weight:600;white-space:nowrap;">tgt: <em>n</em></span>
+          <span style="font-size:12px;color:var(--text-muted);">Period target</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="font-size:11px;font-weight:800;color:#888;white-space:nowrap;">nn%</span>
+          <span style="font-size:12px;color:var(--text-muted);">Actual as % of target</span>
+        </div>
+      </div>
+      <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;"></div>
+      <div style="flex:0 0 auto;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:7px;">% Achievement Colour Guide</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;align-items:center;gap:8px;"><div style="width:26px;height:5px;border-radius:99px;background:#1db87a;"></div><span style="font-size:12px;color:var(--text-muted);">&#8805; 100% — On / Above Target</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><div style="width:26px;height:5px;border-radius:99px;background:#f6ad2b;"></div><span style="font-size:12px;color:var(--text-muted);">70 – 99% — Close to Target</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><div style="width:26px;height:5px;border-radius:99px;background:#E1245A;"></div><span style="font-size:12px;color:var(--text-muted);">&lt; 70% — Below Target</span></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Table container -->
     <div class="locsales-table-outer" id="locSalesTableOuter">
       <div class="locsales-empty" id="locSalesEmpty">
@@ -2983,7 +3019,7 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
       return `<td style="padding:8px 10px;text-align:center;${cellBg}border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);"><span style="color:var(--text-muted);font-size:12px;">—</span></td>`;
     }
     return `<td style="padding:7px 9px;vertical-align:top;${cellBg}border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);min-width:110px;">
-      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:0.05em;margin-bottom:1px;">📦 VOL</div>
+      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:0.05em;margin-bottom:1px;">V (Ltrs/Kgs)</div>
       <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmt(ltrs)}</div>
       ${tgtL ? `<div style="font-size:10px;color:var(--text-muted);text-align:right;">tgt: ${fmt(tgtL)}</div>` : ''}
       ${pL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;">
@@ -2993,7 +3029,7 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
         <span style="font-size:10px;font-weight:800;color:${cL};">${pL}%</span>
       </div>` : ''}
       <div style="border-top:1px dashed rgba(255,255,255,0.1);margin:4px 0 3px;"></div>
-      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:0.05em;margin-bottom:1px;">💰 REV</div>
+      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:0.05em;margin-bottom:1px;">R (KSH)</div>
       <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmt(amount)}</div>
       ${tgtK ? `<div style="font-size:10px;color:var(--text-muted);text-align:right;">tgt: ${fmt(tgtK)}</div>` : ''}
       ${pK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;">
@@ -3351,11 +3387,11 @@ function exportLocSalesPDF() {
     const pL = pctVal(ltrs, tgtL), pK = pctVal(amount, tgtK);
     const cL = pctCol(pL), cK = pctCol(pK);
     return `<td style="padding:6px 8px;vertical-align:top;border:1px solid #e2e8f0;min-width:120px;">
-      <div style="font-size:11px;color:#4a5568;font-weight:600;margin-bottom:1px;">📦 Vol</div>
+      <div style="font-size:11px;color:#4a5568;font-weight:600;margin-bottom:1px;">V (Vol Ltrs/Kgs)</div>
       <div style="font-size:12px;font-weight:700;color:#1a202c;">${fmtN(ltrs)}</div>
       ${tgtL ? `<div style="font-size:10px;color:#718096;">tgt: ${fmtN(tgtL)}</div>` : ''}
       ${pL !== null ? `<div style="font-size:11px;font-weight:800;color:${cL};">${pL}%</div>${bar(pL,cL)}` : ''}
-      <div style="font-size:11px;color:#4a5568;font-weight:600;margin-top:6px;margin-bottom:1px;">💰 Rev</div>
+      <div style="font-size:11px;color:#4a5568;font-weight:600;margin-top:6px;margin-bottom:1px;">R (Rev KSH)</div>
       <div style="font-size:12px;font-weight:700;color:#1a202c;">${fmtN(amount)}</div>
       ${tgtK ? `<div style="font-size:10px;color:#718096;">tgt: ${fmtN(tgtK)}</div>` : ''}
       ${pK !== null ? `<div style="font-size:11px;font-weight:800;color:${cK};">${pK}%</div>${bar(pK,cK)}` : ''}
@@ -3402,10 +3438,10 @@ function exportLocSalesPDF() {
       cells += (!ltrs&&!amount&&!tgtL&&!tgtK)
         ? `<td style="text-align:center;border:1px solid #e2e8f0;background:${rBg};color:#cbd5e0;font-size:11px;">—</td>`
         : `<td style="padding:5px 7px;vertical-align:top;border:1px solid #e2e8f0;background:${rBg};">
-            <div style="font-size:10px;color:#718096;font-weight:600;">📦 ${fmtN(ltrs)}</div>
+            <div style="font-size:10px;color:#718096;font-weight:600;">V (Ltrs/Kgs) ${fmtN(ltrs)}</div>
             ${tgtL?`<div style="font-size:9px;color:#a0aec0;">/ ${fmtN(tgtL)}</div>`:''}
             ${pL!==null?`<div style="font-size:10px;font-weight:800;color:${cL};">${pL}%</div>${bar(pL,cL)}`:''}
-            <div style="font-size:10px;color:#718096;font-weight:600;margin-top:3px;">💰 ${fmtN(amount)}</div>
+            <div style="font-size:10px;color:#718096;font-weight:600;margin-top:3px;">R (KSH) ${fmtN(amount)}</div>
             ${tgtK?`<div style="font-size:9px;color:#a0aec0;">/ ${fmtN(tgtK)}</div>`:''}
             ${pK!==null?`<div style="font-size:10px;font-weight:800;color:${cK};">${pK}%</div>${bar(pK,cK)}`:''}
           </td>`;
@@ -3413,10 +3449,10 @@ function exportLocSalesPDF() {
     // Row total cell
     const pRL=pctVal(rLtrs,rt?.ltrs||0), pRK=pctVal(rAmt,rt?.ksh||0);
     cells += `<td style="padding:5px 7px;vertical-align:top;border:1px solid #c3dafe;background:#ebf4ff;">
-      <div style="font-size:10px;font-weight:700;color:#1a56db;">📦 ${fmtN(rLtrs)}</div>
+      <div style="font-size:10px;font-weight:700;color:#1a56db;">V (Ltrs/Kgs) ${fmtN(rLtrs)}</div>
       ${rt?.ltrs?`<div style="font-size:9px;color:#718096;">/ ${fmtN(rt.ltrs)}</div>`:''}
       ${pRL!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(pRL)};">${pRL}%</div>${bar(pRL,pctCol(pRL))}`:''}
-      <div style="font-size:10px;font-weight:700;color:#1a56db;margin-top:3px;">💰 ${fmtN(rAmt)}</div>
+      <div style="font-size:10px;font-weight:700;color:#1a56db;margin-top:3px;">R (KSH) ${fmtN(rAmt)}</div>
       ${rt?.ksh?`<div style="font-size:9px;color:#718096;">/ ${fmtN(rt.ksh)}</div>`:''}
       ${pRK!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(pRK)};">${pRK}%</div>${bar(pRK,pctCol(pRK))}`:''}
     </td>`;
@@ -3429,20 +3465,20 @@ function exportLocSalesPDF() {
     const {ltrs,amount,tgtL,tgtK}=pdfCatTot[c];
     const pL=pctVal(ltrs,tgtL),pK=pctVal(amount,tgtK);
     gtCells+=`<td style="padding:5px 7px;vertical-align:top;border:1px solid #1e3a5f;background:#0f2744;">
-      <div style="font-size:10px;font-weight:700;color:#f6ad2b;">📦 ${fmtN(ltrs)}</div>
+      <div style="font-size:10px;font-weight:700;color:#f6ad2b;">V (Ltrs/Kgs) ${fmtN(ltrs)}</div>
       ${tgtL?`<div style="font-size:9px;color:rgba(255,255,255,0.4);">/ ${fmtN(tgtL)}</div>`:''}
       ${pL!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(pL)};">${pL}%</div>${bar(pL,pctCol(pL))}`:''}
-      <div style="font-size:10px;font-weight:700;color:#f6ad2b;margin-top:3px;">💰 ${fmtN(amount)}</div>
+      <div style="font-size:10px;font-weight:700;color:#f6ad2b;margin-top:3px;">R (KSH) ${fmtN(amount)}</div>
       ${tgtK?`<div style="font-size:9px;color:rgba(255,255,255,0.4);">/ ${fmtN(tgtK)}</div>`:''}
       ${pK!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(pK)};">${pK}%</div>${bar(pK,pctCol(pK))}`:''}
     </td>`;
   }
   const gpL=pctVal(pdfGtL,pdfGtTL), gpK=pctVal(pdfGtA,pdfGtTK);
   gtCells+=`<td style="padding:5px 7px;vertical-align:top;border:1px solid #1e3a5f;background:#1b3a5c;">
-    <div style="font-size:11px;font-weight:800;color:#f6ad2b;">📦 ${fmtN(pdfGtL)}</div>
+    <div style="font-size:11px;font-weight:800;color:#f6ad2b;">V (Ltrs/Kgs) ${fmtN(pdfGtL)}</div>
     ${pdfGtTL?`<div style="font-size:9px;color:rgba(255,255,255,0.4);">/ ${fmtN(pdfGtTL)}</div>`:''}
     ${gpL!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(gpL)};">${gpL}%</div>${bar(gpL,pctCol(gpL))}`:''}
-    <div style="font-size:11px;font-weight:800;color:#f6ad2b;margin-top:3px;">💰 ${fmtN(pdfGtA)}</div>
+    <div style="font-size:11px;font-weight:800;color:#f6ad2b;margin-top:3px;">R (KSH) ${fmtN(pdfGtA)}</div>
     ${pdfGtTK?`<div style="font-size:9px;color:rgba(255,255,255,0.4);">/ ${fmtN(pdfGtTK)}</div>`:''}
     ${gpK!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(gpK)};">${gpK}%</div>${bar(gpK,pctCol(gpK))}`:''}
   </td>`;
@@ -3483,7 +3519,7 @@ function exportLocSalesPDF() {
       <div class="pill"><div class="pill-label">Total Volume</div><div class="pill-value">${document.getElementById('locStatVol')?.textContent||'—'}</div></div>
     </div>
     <div class="legend">
-      <strong style="font-size:11px;color:#4a5568;">Each cell shows: Actual → Target → % Achieved →</strong>
+      <strong style="font-size:11px;color:#1a3c5e;">Cell Key:</strong> <span style="background:#eef3fb;border-radius:4px;padding:2px 8px;font-weight:700;color:#1a3c5e;font-size:11px;">V (Ltrs/Kgs)</span> = Volume sold in Litres/Kgs &nbsp;&nbsp; <span style="background:#eef3fb;border-radius:4px;padding:2px 8px;font-weight:700;color:#1a3c5e;font-size:11px;">R (KSH)</span> = Revenue in Kenyan Shillings &nbsp;&nbsp; tgt = Period target &nbsp;&nbsp; nn% = Actual ÷ Target
       <span class="leg"><span class="leg-dot" style="background:#1db87a;"></span>≥100% (On/Above target)</span>
       <span class="leg"><span class="leg-dot" style="background:#f6ad2b;"></span>70–99% (Close)</span>
       <span class="leg"><span class="leg-dot" style="background:#E1245A;"></span>&lt;70% (Below target)</span>
