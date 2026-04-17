@@ -3027,15 +3027,15 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
     const normC = normalizeCat(c);
     const anyLocHasTarget = showPerCatTargets && visRegions.some(r => getLocCatTarget(r, c) !== null);
 
-    // Determine row count: 2 always (Ltrs + KSH), +2 if targets present (Target KSH + % Ach)
-    const rowSpan = anyLocHasTarget ? 4 : 2;
+    // Determine row count: 2 always (Actual Ltrs + Actual KSH), +4 if targets present (Tgt Ltrs, Vol%, Tgt KSH, Rev%)
+    const rowSpan = anyLocHasTarget ? 6 : 2;
     const rowBorder = 'border-top:2px solid var(--border2);';
 
-    // Row 1: Ltrs/Kgs actual
+    // Row 1: Actual Ltrs/Kgs
     let cLtrsTotal = 0;
     bodyHtml += `<tr style="${rowBorder}">`;
     bodyHtml += `<td rowspan="${rowSpan}" style="font-weight:700;color:var(--text-head);font-size:13px;vertical-align:middle;border-right:1px solid var(--border);background:var(--surface);">${esc(c)}</td>`;
-    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;padding-right:6px;">Ltrs/Kgs</td>`;
+    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;padding-right:6px;">Actual Ltrs/Kgs</td>`;
     for (const r of visRegions) {
       const v = pivot[r]?.[c]?.ltrs || 0;
       cLtrsTotal += v;
@@ -3044,10 +3044,10 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
     bodyHtml += `<td class="num" style="background:#1b4f72;color:#f6ad2b;font-weight:700;">${fmtN(cLtrsTotal)}</td>`;
     bodyHtml += '</tr>';
 
-    // Row 2: Amt KSH actual
+    // Row 2: Actual Amt KSH
     let cAmtTotal = 0;
     bodyHtml += '<tr>';
-    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;padding-right:6px;">Amt KSH</td>`;
+    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;padding-right:6px;">Actual KSH</td>`;
     for (const r of visRegions) {
       const v = pivot[r]?.[c]?.amount || 0;
       cAmtTotal += v;
@@ -3059,32 +3059,58 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
     bodyHtml += '</tr>';
 
     if (anyLocHasTarget) {
-      // Row 3: Target KSH
-      let cTgtTotal = 0;
+      // Row 3: Target Ltrs/Kgs
+      let cTgtLtrsTotal = 0;
+      bodyHtml += '<tr style="background:var(--row-tgt);">';
+      bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;padding-right:6px;">Target Ltrs/Kgs</td>`;
+      for (const r of visRegions) {
+        const tgt = getLocCatTarget(r, c);
+        const v = tgt?.ltrs || 0;
+        cTgtLtrsTotal += v;
+        bodyHtml += `<td class="num" style="color:var(--text-muted);font-size:12px;">${v ? fmtN(v) : '—'}</td>`;
+      }
+      bodyHtml += `<td class="num" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;">${cTgtLtrsTotal ? fmtN(cTgtLtrsTotal) : '—'}</td>`;
+      bodyHtml += '</tr>';
+
+      // Row 4: % Achieved Vol
+      bodyHtml += '<tr style="background:var(--row-pct);">';
+      bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;border-bottom:1px solid var(--border2);padding-right:6px;">Vol % Achieved</td>`;
+      let grandCatTgtLtrs = 0;
+      for (const r of visRegions) {
+        const tgt = getLocCatTarget(r, c);
+        const actualL = pivot[r]?.[c]?.ltrs || 0;
+        const targetL = tgt?.ltrs || 0;
+        grandCatTgtLtrs += targetL;
+        bodyHtml += `<td style="padding:6px 8px;border-bottom:1px solid var(--border2);">${pctBadge(actualL, targetL)}</td>`;
+      }
+      bodyHtml += `<td style="background:#1b4f72;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.12);">${pctBadge(cLtrsTotal, grandCatTgtLtrs)}</td>`;
+      bodyHtml += '</tr>';
+
+      // Row 5: Target KSH
+      let cTgtKshTotal = 0;
       bodyHtml += '<tr style="background:var(--row-tgt);">';
       bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;padding-right:6px;">Target KSH</td>`;
       for (const r of visRegions) {
         const tgt = getLocCatTarget(r, c);
         const v = tgt?.ksh || 0;
-        cTgtTotal += v;
+        cTgtKshTotal += v;
         bodyHtml += `<td class="num-ksh" style="color:var(--text-muted);font-size:12px;">${v ? fmtA(v) : '—'}</td>`;
       }
-      bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;">${cTgtTotal ? fmtA(cTgtTotal) : '—'}</td>`;
+      bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;">${cTgtKshTotal ? fmtA(cTgtKshTotal) : '—'}</td>`;
       bodyHtml += '</tr>';
 
-      // Row 4: % Achieved
+      // Row 6: % Achieved Rev
       bodyHtml += '<tr style="background:var(--row-pct);">';
-      bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;border-bottom:2px solid var(--border);padding-right:6px;">% Achieved</td>`;
-      let grandCatTgt = 0;
+      bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;border-bottom:2px solid var(--border);padding-right:6px;">Rev % Achieved</td>`;
+      let grandCatTgtKsh = 0;
       for (const r of visRegions) {
         const tgt = getLocCatTarget(r, c);
         const actual = pivot[r]?.[c]?.amount || 0;
         const target = tgt?.ksh || 0;
-        grandCatTgt += target;
+        grandCatTgtKsh += target;
         bodyHtml += `<td style="padding:6px 8px;border-bottom:2px solid var(--border);">${pctBadge(actual, target)}</td>`;
       }
-      // Total % for this category across all visible regions
-      bodyHtml += `<td style="background:#1b4f72;padding:6px 8px;border-bottom:2px solid rgba(255,255,255,0.18);">${pctBadge(cAmtTotal, grandCatTgt)}</td>`;
+      bodyHtml += `<td style="background:#1b4f72;padding:6px 8px;border-bottom:2px solid rgba(255,255,255,0.18);">${pctBadge(cAmtTotal, grandCatTgtKsh)}</td>`;
       bodyHtml += '</tr>';
     }
   }
@@ -3116,33 +3142,47 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
   if (anyRegTarget) {
     let grandTgtKsh = 0, grandTgtLtrs = 0;
 
+    // Pre-collect targets so we can use them in both rows
+    const rTgtMap = {};
+    for (const r of visRegions) { rTgtMap[r] = getRegionTarget(r); }
+    for (const r of visRegions) { grandTgtLtrs += rTgtMap[r]?.ltrs || 0; grandTgtKsh += rTgtMap[r]?.ksh || 0; }
+
     bodyHtml += '<tr style="background:var(--row-tgt);">';
-    bodyHtml += `<td rowspan="3" style="vertical-align:middle;font-weight:700;font-size:12px;color:var(--text-muted);letter-spacing:0.03em;border-right:1px solid var(--border);">TARGET</td>`;
-    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Ltrs/Kgs</td>`;
+    bodyHtml += `<td rowspan="4" style="vertical-align:middle;font-weight:700;font-size:12px;color:var(--text-muted);letter-spacing:0.03em;border-right:1px solid var(--border);">TARGET</td>`;
+    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Target Ltrs/Kgs</td>`;
     for (const r of visRegions) {
-      const tgt = getRegionTarget(r);
-      const v = tgt?.ltrs || 0; grandTgtLtrs += v;
+      const v = rTgtMap[r]?.ltrs || 0;
       bodyHtml += `<td class="num" style="color:var(--text-muted);font-size:12px;">${v ? fmtN(v) : '—'}</td>`;
     }
     bodyHtml += `<td class="num" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;">${grandTgtLtrs ? fmtN(grandTgtLtrs) : '—'}</td>`;
     bodyHtml += '</tr>';
 
-    bodyHtml += '<tr style="background:var(--row-tgt);">';
-    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Amt KSH</td>`;
+    // Vol % Achieved
+    bodyHtml += '<tr style="background:var(--row-pct);">';
+    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;border-bottom:1px solid var(--border2);">Vol % Achieved</td>`;
     for (const r of visRegions) {
-      const tgt = getRegionTarget(r);
-      const v = tgt?.ksh || 0; grandTgtKsh += v;
+      const actualL = rLtrsArr[r] || 0;
+      const targetL = rTgtMap[r]?.ltrs || 0;
+      bodyHtml += `<td style="padding:6px 8px;border-bottom:1px solid var(--border2);">${pctBadge(actualL, targetL)}</td>`;
+    }
+    bodyHtml += `<td style="background:#1b4f72;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.12);">${pctBadge(grandLtrs, grandTgtLtrs)}</td>`;
+    bodyHtml += '</tr>';
+
+    bodyHtml += '<tr style="background:var(--row-tgt);">';
+    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">Target KSH</td>`;
+    for (const r of visRegions) {
+      const v = rTgtMap[r]?.ksh || 0;
       bodyHtml += `<td class="num-ksh" style="color:var(--text-muted);font-size:12px;border-bottom:1px solid var(--border);">${v ? fmtA(v) : '—'}</td>`;
     }
     bodyHtml += `<td class="num-ksh" style="background:#1b4f72;color:rgba(255,255,255,0.55);font-size:12px;border-bottom:1px solid rgba(255,255,255,0.12);">${grandTgtKsh ? fmtA(grandTgtKsh) : '—'}</td>`;
     bodyHtml += '</tr>';
 
+    // Rev % Achieved
     bodyHtml += '<tr style="background:var(--row-pct);">';
-    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;">% Achieved</td>`;
+    bodyHtml += `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-weight:700;">Rev % Achieved</td>`;
     for (const r of visRegions) {
-      const tgt = getRegionTarget(r);
       const actual = rAmtArr[r] || 0;
-      const target = tgt?.ksh || 0;
+      const target = rTgtMap[r]?.ksh || 0;
       const p = pctVal(actual, target);
       const col = pctColor(p);
       const label = pctLabel(actual, target);
