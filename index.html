@@ -1517,7 +1517,7 @@ const SHEET_ID = '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8';
 
 async function loadSheetData() {
   setSheetDot('loading', 'Loading reference data from Google Sheet…');
-  const sheets = ['Customers', 'Product', 'Targets', 'Target'];
+  const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets'];
   const results = {};
 
   for (const s of sheets) {
@@ -1537,7 +1537,8 @@ async function loadSheetData() {
   refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {} };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
-  if (results['Targets']||results['Target']) parseTargetSheet(results['Targets']||results['Target']);
+  if (results['Targets'] || results['Target'] || results['Regional Targets'])
+    parseTargetSheet(results['Targets'] || results['Target'] || results['Regional Targets']);
 
   const cc  = refData.customerTotal || Object.keys(refData.customers).length;
   const pc  = Object.keys(refData.products).length;
