@@ -1350,6 +1350,7 @@
           <div id="exportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;min-width:160px;overflow:hidden;">
             <button onclick="exportLocSalesCSV();toggleExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📊 Download CSV</button>
             <button onclick="exportLocSalesPDF();toggleExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;border-top:1px solid var(--border2);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📄 Download PDF</button>
+            <button onclick="exportLocSalesHTML();toggleExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;border-top:1px solid var(--border2);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">🌐 Download HTML</button>
           </div>
         </div>
       </div>
@@ -3533,6 +3534,207 @@ function exportLocSalesPDF() {
   showToast('PDF preview opened ✓', 'ok');
 }
 
+
+// ── Export Location Sales as standalone HTML file ──────────────────────────
+function exportLocSalesHTML() {
+  if (!_locSalesData) { showToast('No data to export — upload a SAP file first.', 'err'); return; }
+
+  const { regions, categories, pivot } = _locSalesData;
+  const q     = (document.getElementById('locSearch').value || '').toLowerCase().trim();
+  const cat   = document.getElementById('locCatFilter').value;
+  const visR  = q   ? regions.filter(r => r.toLowerCase().includes(q)) : regions;
+  const visC  = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
+  const period = document.getElementById('locSalesPeriod').textContent || '';
+
+  const locCatTgts  = refData.locationCategoryTargets || {};
+  const regionTgts  = refData.targets || {};
+  const hasCatTgts  = Object.keys(locCatTgts).length > 0;
+
+  function getRegTgt(r) {
+    const rU = r.toUpperCase();
+    if (regionTgts[rU]) return regionTgts[rU];
+    for (const k of Object.keys(regionTgts))
+      if (rU.includes(k) || k.includes(rU)) return regionTgts[k];
+    return null;
+  }
+  function getLocCatTgt(r, c) {
+    const rU = r.toUpperCase(), cU = normalizeCat(c);
+    if (locCatTgts[rU]) return locCatTgts[rU][cU] || locCatTgts[rU][c.toUpperCase()] || null;
+    for (const k of Object.keys(locCatTgts))
+      if (rU.includes(k) || k.includes(rU)) return locCatTgts[k][cU] || locCatTgts[k][c.toUpperCase()] || null;
+    return null;
+  }
+  function fmtN(v) { return Math.round(v).toLocaleString(); }
+  function pctVal(a, t) { return (!t || t === 0) ? null : Math.round((a / t) * 100); }
+  function pctCol(p) { return p === null ? '#888' : p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A'; }
+  function miniBar(p, col) {
+    if (p === null) return '';
+    const w = Math.min(p, 100);
+    return `<div style="height:3px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-top:2px;max-width:50px;">
+              <div style="height:3px;width:${w}%;background:${col};border-radius:3px;"></div>
+            </div>`;
+  }
+
+  // Pre-compute cat totals
+  const catTot = {};
+  for (const c of visC) catTot[c] = { ltrs: 0, amount: 0, tgtL: 0, tgtK: 0 };
+  let gtL = 0, gtA = 0, gtTL = 0, gtTK = 0;
+  for (const r of visR) {
+    for (const c of visC) {
+      catTot[c].ltrs   += pivot[r]?.[c]?.ltrs   || 0;
+      catTot[c].amount += pivot[r]?.[c]?.amount || 0;
+      if (hasCatTgts) { const t = getLocCatTgt(r, c); catTot[c].tgtL += t?.ltrs || 0; catTot[c].tgtK += t?.ksh || 0; }
+    }
+    const rt = getRegTgt(r); gtTL += rt?.ltrs || 0; gtTK += rt?.ksh || 0;
+  }
+  for (const c of visC) { gtL += catTot[c].ltrs; gtA += catTot[c].amount; }
+
+  function dataCell(ltrs, amount, tgtL, tgtK, isDark) {
+    const pL = pctVal(ltrs, tgtL), pK = pctVal(amount, tgtK);
+    const cL = pctCol(pL), cK = pctCol(pK);
+    const numCol  = isDark ? '#f6ad2b' : '#0f2744';
+    const lblCol  = isDark ? 'rgba(255,255,255,0.55)' : '#718096';
+    const cellBg  = isDark ? '#0f2744' : '#fff';
+    const border  = isDark ? '1px solid #1e3a5f' : '1px solid #e2e8f0';
+    if (!ltrs && !amount && !tgtL && !tgtK)
+      return `<td style="text-align:center;border:${border};background:${cellBg};color:#cbd5e0;font-size:11px;padding:6px 8px;">—</td>`;
+    return `<td style="padding:7px 9px;vertical-align:top;background:${cellBg};border:${border};min-width:110px;">
+      <div style="font-size:10px;font-weight:700;color:${lblCol};letter-spacing:0.04em;margin-bottom:1px;">V (Ltrs/Kgs)</div>
+      <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmtN(ltrs)}</div>
+      ${tgtL ? `<div style="font-size:10px;color:#718096;text-align:right;">tgt: ${fmtN(tgtL)}</div>` : ''}
+      ${pL !== null ? `<div style="font-size:10px;font-weight:800;color:${cL};text-align:right;">${pL}%</div>${miniBar(pL, cL)}` : ''}
+      <div style="border-top:1px dashed #e2e8f0;margin:4px 0 3px;"></div>
+      <div style="font-size:10px;font-weight:700;color:${lblCol};letter-spacing:0.04em;margin-bottom:1px;">R (KSH)</div>
+      <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmtN(amount)}</div>
+      ${tgtK ? `<div style="font-size:10px;color:#718096;text-align:right;">tgt: ${fmtN(tgtK)}</div>` : ''}
+      ${pK !== null ? `<div style="font-size:10px;font-weight:800;color:${cK};text-align:right;">${pK}%</div>${miniBar(pK, cK)}` : ''}
+    </td>`;
+  }
+
+  // Header row
+  let hdr = `<tr style="background:#0f2744;">
+    <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.12);white-space:nowrap;position:sticky;left:0;z-index:2;">LOCATION</th>`;
+  for (const c of visC)
+    hdr += `<th style="padding:9px 10px;text-align:center;font-size:10px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.04em;border:1px solid rgba(255,255,255,0.12);min-width:110px;">${c}</th>`;
+  hdr += `<th style="padding:9px 10px;text-align:center;font-size:11px;font-weight:700;color:#f6ad2b;letter-spacing:0.04em;border:1px solid rgba(255,255,255,0.12);background:#1b4f72;">TOTAL</th></tr>`;
+
+  // Data rows
+  let rows = '';
+  for (let ri = 0; ri < visR.length; ri++) {
+    const r   = visR[ri];
+    const rt  = getRegTgt(r);
+    const bg  = ri % 2 === 1 ? '#f8fafc' : '#fff';
+    let rL = 0, rA = 0, cells = '';
+    for (const c of visC) {
+      const ltrs   = pivot[r]?.[c]?.ltrs   || 0;
+      const amount = pivot[r]?.[c]?.amount || 0;
+      const tgt    = hasCatTgts ? getLocCatTgt(r, c) : null;
+      rL += ltrs; rA += amount;
+      cells += dataCell(ltrs, amount, tgt?.ltrs || 0, tgt?.ksh || 0, false);
+    }
+    cells += dataCell(rL, rA, rt?.ltrs || 0, rt?.ksh || 0, false);
+    rows += `<tr>
+      <td style="padding:9px 12px;font-weight:800;font-size:13px;color:#0f2744;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;background:${bg};position:sticky;left:0;">${r}</td>
+      ${cells}
+    </tr>`;
+  }
+
+  // Grand total row
+  let gtCells = '';
+  for (const c of visC) {
+    const { ltrs, amount, tgtL, tgtK } = catTot[c];
+    gtCells += dataCell(ltrs, amount, tgtL, tgtK, true);
+  }
+  gtCells += dataCell(gtL, gtA, gtTL, gtTK, true);
+  rows += `<tr>
+    <td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f2744;border:1px solid #0f2744;vertical-align:middle;white-space:nowrap;letter-spacing:0.05em;position:sticky;left:0;">GRAND TOTAL</td>
+    ${gtCells}
+  </tr>`;
+
+  const locCount  = document.getElementById('locStatLocs')?.textContent  || '—';
+  const catCount  = document.getElementById('locStatCats')?.textContent  || '—';
+  const revTotal  = document.getElementById('locStatRev')?.textContent   || '—';
+  const volTotal  = document.getElementById('locStatVol')?.textContent   || '—';
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Location Sales — ${period}</title>
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Segoe UI',Arial,sans-serif; background:#f0f2f5; color:#1a202c; padding:28px; }
+    h1   { font-size:22px; font-weight:800; color:#0f2744; margin-bottom:3px; }
+    .sub { font-size:13px; color:#718096; margin-bottom:20px; }
+    .pills { display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+    .pill  { background:#fff; border:1px solid #dde3ec; border-radius:10px; padding:12px 18px; min-width:130px; }
+    .pill-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#718096; margin-bottom:3px; }
+    .pill-value { font-size:20px; font-weight:800; color:#0f2744; }
+    .key-box { background:#fff; border:1px solid #dde3ec; border-radius:10px; padding:14px 20px; margin-bottom:20px; display:flex; align-items:flex-start; gap:24px; flex-wrap:wrap; }
+    .key-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#718096; margin-bottom:5px; }
+    .key-sub   { font-size:12px; font-weight:600; color:#0f2744; }
+    .key-item  { display:flex; align-items:center; gap:8px; }
+    .key-badge { background:#1a3c5e; border-radius:5px; padding:3px 9px; font-size:11px; font-weight:700; color:rgba(255,255,255,0.75); white-space:nowrap; }
+    .key-desc  { font-size:12px; color:#718096; }
+    .key-div   { width:1px; background:#dde3ec; align-self:stretch; flex-shrink:0; }
+    .col-guide { display:flex; flex-direction:column; gap:5px; }
+    .col-row   { display:flex; align-items:center; gap:8px; }
+    .col-bar   { width:26px; height:5px; border-radius:99px; }
+    .col-lbl   { font-size:12px; color:#718096; }
+    .tbl-wrap  { overflow-x:auto; background:#fff; border-radius:12px; border:1px solid #dde3ec; box-shadow:0 2px 10px rgba(0,0,0,0.06); }
+    table      { border-collapse:collapse; width:100%; font-size:12px; }
+  </style>
+</head>
+<body>
+  <h1>📍 Location Sales Report</h1>
+  <div class="sub">${period} &nbsp;·&nbsp; Generated ${new Date().toLocaleString()}</div>
+
+  <div class="pills">
+    <div class="pill"><div class="pill-label">Locations</div><div class="pill-value">${locCount}</div></div>
+    <div class="pill"><div class="pill-label">Categories</div><div class="pill-value">${catCount}</div></div>
+    <div class="pill"><div class="pill-label">Total Revenue</div><div class="pill-value">${revTotal}</div></div>
+    <div class="pill"><div class="pill-label">Total Volume</div><div class="pill-value">${volTotal}</div></div>
+  </div>
+
+  <div class="key-box">
+    <div>
+      <div class="key-title">Report Key</div>
+      <div class="key-sub">How to read each cell</div>
+    </div>
+    <div class="key-div"></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+      <div class="key-item"><span class="key-badge">V (Ltrs/Kgs)</span><span class="key-desc">Volume sold in Litres / Kilograms</span></div>
+      <div class="key-item"><span class="key-badge">R (KSH)</span><span class="key-desc">Revenue in Kenyan Shillings</span></div>
+      <div class="key-item"><span style="font-size:11px;color:#718096;font-weight:600;">tgt: <em>n</em></span><span class="key-desc">Period target</span></div>
+      <div class="key-item"><span style="font-size:11px;font-weight:800;color:#888;">nn%</span><span class="key-desc">Actual as % of target</span></div>
+    </div>
+    <div class="key-div"></div>
+    <div>
+      <div class="key-title" style="margin-bottom:7px;">% Achievement Colour Guide</div>
+      <div class="col-guide">
+        <div class="col-row"><div class="col-bar" style="background:#1db87a;"></div><span class="col-lbl">&#8805; 100% — On / Above Target</span></div>
+        <div class="col-row"><div class="col-bar" style="background:#f6ad2b;"></div><span class="col-lbl">70 – 99% — Close to Target</span></div>
+        <div class="col-row"><div class="col-bar" style="background:#E1245A;"></div><span class="col-lbl">&lt; 70% — Below Target</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table><thead>${hdr}</thead><tbody>${rows}</tbody></table>
+  </div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `Location_Sales_${period.replace(/\s|–|\/|\./g, '_')}.html`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  showToast('HTML file downloaded ✓', 'ok');
+}
 
 // Init — only load sheet reference data, NOT customers yet
 loadSheetData();
