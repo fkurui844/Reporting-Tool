@@ -3012,14 +3012,17 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
     const cL = pctColor(pL), cK = pctColor(pK);
     const bL = pL !== null ? Math.min(pL, 100) : 0;
     const bK = pK !== null ? Math.min(pK, 100) : 0;
-    const numCol = (isTotRow || isTotCol) ? '#f6ad2b' : 'var(--text-head)';
-    const barBg  = (isTotRow || isTotCol) ? 'rgba(255,255,255,0.18)' : 'var(--border)';
-    const cellBg = isTotCol ? 'background:rgba(27,79,114,0.35);' : '';
+    const isDark  = (isTotRow || isTotCol);
+    const numCol  = isDark ? '#f6ad2b' : 'var(--text-head)';
+    const barBg   = isDark ? 'rgba(255,255,255,0.18)' : 'var(--border)';
+    const cellBg  = isTotCol ? 'background:rgba(27,79,114,0.35);' : '';
+    const lblCol  = isDark ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)';
+    const divCol  = isDark ? 'rgba(255,255,255,0.12)' : 'var(--border2)';
     if (!ltrs && !amount && !tgtL && !tgtK) {
       return `<td style="padding:8px 10px;text-align:center;${cellBg}border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);"><span style="color:var(--text-muted);font-size:12px;">—</span></td>`;
     }
     return `<td style="padding:7px 9px;vertical-align:top;${cellBg}border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);min-width:110px;">
-      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:0.05em;margin-bottom:1px;">V (Ltrs/Kgs)</div>
+      <div style="font-size:10px;font-weight:700;color:${lblCol};letter-spacing:0.05em;margin-bottom:1px;">V (Ltrs/Kgs)</div>
       <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmt(ltrs)}</div>
       ${tgtL ? `<div style="font-size:10px;color:var(--text-muted);text-align:right;">tgt: ${fmt(tgtL)}</div>` : ''}
       ${pL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;">
@@ -3028,8 +3031,8 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
         </div>
         <span style="font-size:10px;font-weight:800;color:${cL};">${pL}%</span>
       </div>` : ''}
-      <div style="border-top:1px dashed rgba(255,255,255,0.1);margin:4px 0 3px;"></div>
-      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:0.05em;margin-bottom:1px;">R (KSH)</div>
+      <div style="border-top:1px dashed ${divCol};margin:4px 0 3px;"></div>
+      <div style="font-size:10px;font-weight:700;color:${lblCol};letter-spacing:0.05em;margin-bottom:1px;">R (KSH)</div>
       <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmt(amount)}</div>
       ${tgtK ? `<div style="font-size:10px;color:var(--text-muted);text-align:right;">tgt: ${fmt(tgtK)}</div>` : ''}
       ${pK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;">
