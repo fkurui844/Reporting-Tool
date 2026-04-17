@@ -3082,6 +3082,16 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
     grandTotals.ltrs   += catTotals[c].ltrs;
     grandTotals.amount += catTotals[c].amount;
   }
+  // When location-category targets exist, derive grand total targets by summing
+  // all category targets — gives correct TOTAL column % in the Grand Total row.
+  if (hasCatTgts) {
+    grandTotals.tgtL = 0;
+    grandTotals.tgtK = 0;
+    for (const c of visCats) {
+      grandTotals.tgtL += catTotals[c].tgtL;
+      grandTotals.tgtK += catTotals[c].tgtK;
+    }
+  }
 
   // ── BODY: one row per LOCATION ───────────────────────────
   let bodyHtml = '';
