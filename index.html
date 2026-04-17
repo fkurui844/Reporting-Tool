@@ -3353,6 +3353,8 @@ function exportLocSalesCSV() {
     gtRow += `,${Math.round(ltrs)},${tgtL ? Math.round(tgtL) : ''},${pct(ltrs, tgtL)},${Math.round(amount)},${tgtK ? Math.round(tgtK) : ''},${pct(amount, tgtK)}`;
   }
   gtRow += `,${Math.round(gtLtrs)},${gtTgtL ? Math.round(gtTgtL) : ''},${pct(gtLtrs, gtTgtL)},${Math.round(gtAmt)},${gtTgtK ? Math.round(gtTgtK) : ''},${pct(gtAmt, gtTgtK)}`;
+  // Fix: when category targets exist, sum them instead of using region-level targets
+  if (hasCatTgts) { gtTgtL=0; gtTgtK=0; for (const c of visC) { let cTgtL=0,cTgtK=0; for (const r of visR) { const t=getLocCatTgt(r,c); cTgtL+=t?.ltrs||0; cTgtK+=t?.ksh||0; } gtTgtL+=cTgtL; gtTgtK+=cTgtK; } }
   csv += gtRow + '\n';
 
   const blob = new Blob([csv], { type: 'text/csv' });
@@ -3426,6 +3428,8 @@ function exportLocSalesPDF() {
     const rt=getRegTgt(r); pdfGtTL+=rt?.ltrs||0; pdfGtTK+=rt?.ksh||0;
   }
   for (const c of visC) { pdfGtL+=pdfCatTot[c].ltrs; pdfGtA+=pdfCatTot[c].amount; }
+  // Fix: when category targets exist, derive grand total targets from cat totals
+  if (hasCatTgts) { pdfGtTL=0; pdfGtTK=0; for (const c of visC) { pdfGtTL+=pdfCatTot[c].tgtL; pdfGtTK+=pdfCatTot[c].tgtK; } }
 
   // Header: Location | Cat1 | Cat2 … | TOTAL
   let hdr = `<tr style="background:#0f2744;">
@@ -3598,6 +3602,8 @@ function exportLocSalesHTML() {
     const rt = getRegTgt(r); gtTL += rt?.ltrs || 0; gtTK += rt?.ksh || 0;
   }
   for (const c of visC) { gtL += catTot[c].ltrs; gtA += catTot[c].amount; }
+  // Fix: when category targets exist, derive grand total targets from cat totals
+  if (hasCatTgts) { gtTL=0; gtTK=0; for (const c of visC) { gtTL+=catTot[c].tgtL; gtTK+=catTot[c].tgtK; } }
 
   function dataCell(ltrs, amount, tgtL, tgtK, isDark) {
     const pL = pctVal(ltrs, tgtL), pK = pctVal(amount, tgtK);
