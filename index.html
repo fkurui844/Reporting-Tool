@@ -2942,283 +2942,146 @@ function buildLocSalesData(transactions) {
   return { regions, categories, pivot, regionTotals, catTotals, grandTotal };
 }
 
+
 function renderLocSalesTable(data, filterRegion, filterCat) {
   const { regions, categories, pivot } = data;
-  const fmtN = v => Math.round(v).toLocaleString();
-  const fmtA = v => Math.round(v).toLocaleString();
+  const fmt    = v => Math.round(v).toLocaleString();
   const regionTargets = refData.targets || {};
   const locCatTgts    = refData.locationCategoryTargets || {};
   const hasCatTgts    = Object.keys(locCatTgts).length > 0;
 
-  function getRegionTarget(region) {
-    const rU = region.toUpperCase();
+  function getRegionTarget(r) {
+    const rU = r.toUpperCase();
     if (regionTargets[rU]) return regionTargets[rU];
     for (const k of Object.keys(regionTargets))
       if (rU.includes(k) || k.includes(rU)) return regionTargets[k];
     return null;
   }
-  function getLocCatTarget(region, category) {
-    const rU = region.toUpperCase(), cU = normalizeCat(category);
-    if (locCatTgts[rU]) return locCatTgts[rU][cU] || locCatTgts[rU][category.toUpperCase()] || null;
+  function getLocCatTarget(r, c) {
+    const rU = r.toUpperCase(), cU = normalizeCat(c);
+    if (locCatTgts[rU]) return locCatTgts[rU][cU] || locCatTgts[rU][c.toUpperCase()] || null;
     for (const k of Object.keys(locCatTgts))
-      if (rU.includes(k) || k.includes(rU)) return locCatTgts[k][cU] || locCatTgts[k][category.toUpperCase()] || null;
+      if (rU.includes(k) || k.includes(rU)) return locCatTgts[k][cU] || locCatTgts[k][c.toUpperCase()] || null;
     return null;
   }
   function pctColor(p) {
-    if (p === null) return '#718096';
+    if (p === null) return 'var(--text-muted)';
     return p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
   }
-  function pctVal(a, t) { return (!t || t === 0) ? null : Math.round((a / t) * 100); }
+  function pV(a, t) { return (!t || t === 0) ? null : Math.round((a / t) * 100); }
 
-  // Renders a compact "Actual / Target / % bar" cell
-  function metricCell(actual, target, isTotalsCol) {
-    const p   = pctVal(actual, target);
-    const col = pctColor(p);
-    const barW = p !== null ? Math.min(p, 100) : 0;
-    const pctHtml = p !== null
-      ? `<span style="font-size:11px;font-weight:800;color:${col};white-space:nowrap;">${p}%</span>`
-      : `<span style="font-size:11px;color:var(--text-muted);">—</span>`;
-    const tgtHtml = target
-      ? `<span style="font-size:10px;color:var(--text-muted);white-space:nowrap;">/ ${fmtN(target)}</span>`
-      : '';
-    const barHtml = p !== null
-      ? `<div style="height:3px;background:var(--border${isTotalsCol?'2':''});border-radius:99px;overflow:hidden;margin-top:3px;">
-           <div style="height:3px;width:${barW}%;background:${col};border-radius:99px;transition:width 0.6s;"></div>
-         </div>`
-      : '';
-    const bgAlpha = isTotalsCol ? 'rgba(27,79,114,0.0)' : 'transparent';
-    return `<td style="padding:8px 10px;vertical-align:top;background:${bgAlpha};">
-      <div style="font-size:12px;font-weight:700;color:var(--text-head);text-align:right;white-space:nowrap;">${fmtN(actual)}</div>
-      <div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-top:2px;">${tgtHtml}${pctHtml}</div>
-      ${barHtml}
-    </td>`;
-  }
-
-  // Same but for KSH (larger number formatting, slightly different label)
-  function metricCellKsh(actual, target, isTotalsCol) {
-    const p   = pctVal(actual, target);
-    const col = pctColor(p);
-    const barW = p !== null ? Math.min(p, 100) : 0;
-    const pctHtml = p !== null
-      ? `<span style="font-size:11px;font-weight:800;color:${col};white-space:nowrap;">${p}%</span>`
-      : `<span style="font-size:11px;color:var(--text-muted);">—</span>`;
-    const tgtHtml = target
-      ? `<span style="font-size:10px;color:var(--text-muted);white-space:nowrap;">/ ${fmtA(target)}</span>`
-      : '';
-    const barHtml = p !== null
-      ? `<div style="height:3px;background:var(--border${isTotalsCol?'2':''});border-radius:99px;overflow:hidden;margin-top:3px;">
-           <div style="height:3px;width:${barW}%;background:${col};border-radius:99px;transition:width 0.6s;"></div>
-         </div>`
-      : '';
-    return `<td style="padding:8px 10px;vertical-align:top;border-bottom:3px solid var(--border);">
-      <div style="font-size:12px;font-weight:700;color:var(--text-head);text-align:right;white-space:nowrap;">${fmtA(actual)}</div>
-      <div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-top:2px;">${tgtHtml}${pctHtml}</div>
-      ${barHtml}
+  // Compact cell: Vol on top, Rev below — each with target + % + mini bar
+  function dataCell(ltrs, amount, tgtL, tgtK, isTotRow, isTotCol) {
+    const pL = pV(ltrs, tgtL), pK = pV(amount, tgtK);
+    const cL = pctColor(pL), cK = pctColor(pK);
+    const bL = pL !== null ? Math.min(pL, 100) : 0;
+    const bK = pK !== null ? Math.min(pK, 100) : 0;
+    const numCol = (isTotRow || isTotCol) ? '#f6ad2b' : 'var(--text-head)';
+    const barBg  = (isTotRow || isTotCol) ? 'rgba(255,255,255,0.18)' : 'var(--border)';
+    const cellBg = isTotCol ? 'background:rgba(27,79,114,0.35);' : '';
+    if (!ltrs && !amount && !tgtL && !tgtK) {
+      return `<td style="padding:8px 10px;text-align:center;${cellBg}border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);"><span style="color:var(--text-muted);font-size:12px;">—</span></td>`;
+    }
+    return `<td style="padding:7px 9px;vertical-align:top;${cellBg}border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);min-width:110px;">
+      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:0.05em;margin-bottom:1px;">📦 VOL</div>
+      <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmt(ltrs)}</div>
+      ${tgtL ? `<div style="font-size:10px;color:var(--text-muted);text-align:right;">tgt: ${fmt(tgtL)}</div>` : ''}
+      ${pL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;">
+        <div style="flex:1;max-width:34px;height:3px;background:${barBg};border-radius:99px;overflow:hidden;">
+          <div style="height:3px;width:${bL}%;background:${cL};border-radius:99px;"></div>
+        </div>
+        <span style="font-size:10px;font-weight:800;color:${cL};">${pL}%</span>
+      </div>` : ''}
+      <div style="border-top:1px dashed rgba(255,255,255,0.1);margin:4px 0 3px;"></div>
+      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:0.05em;margin-bottom:1px;">💰 REV</div>
+      <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmt(amount)}</div>
+      ${tgtK ? `<div style="font-size:10px;color:var(--text-muted);text-align:right;">tgt: ${fmt(tgtK)}</div>` : ''}
+      ${pK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;">
+        <div style="flex:1;max-width:34px;height:3px;background:${barBg};border-radius:99px;overflow:hidden;">
+          <div style="height:3px;width:${bK}%;background:${cK};border-radius:99px;"></div>
+        </div>
+        <span style="font-size:10px;font-weight:800;color:${cK};">${pK}%</span>
+      </div>` : ''}
     </td>`;
   }
 
   const visRegions = filterRegion ? regions.filter(r => r.toLowerCase().includes(filterRegion)) : regions;
   const visCats    = filterCat    ? categories.filter(c => c === filterCat.toUpperCase()) : categories;
-  const allCols    = [...visRegions, '__TOTALS__'];
 
-  // ── Header: two rows — location names + sub-labels ──────
-  // Row 1: Category | 📦 VOLUME (spanning 2 sub-cols per region) | 💰 REVENUE (spanning 2 sub-cols)
-  // Simpler approach: single header row, each location spans both metrics in the cell body
+  // ── HEADER: Location | Cat1 | Cat2 | … | TOTAL ──────────
   let headHtml = '<tr>';
-  headHtml += `<th style="vertical-align:bottom;min-width:130px;text-align:left;border-right:2px solid rgba(255,255,255,0.15);padding-bottom:10px;">CATEGORY</th>`;
-  for (const r of visRegions) {
-    headHtml += `<th class="cat-head" colspan="2" style="min-width:260px;text-align:center;border-right:1px solid rgba(255,255,255,0.1);">${esc(r)}</th>`;
+  headHtml += `<th style="vertical-align:middle;min-width:150px;text-align:left;border-right:2px solid rgba(255,255,255,0.2);padding:10px 14px;position:sticky;left:0;z-index:20;background:#0f2744;font-size:11px;letter-spacing:0.08em;">LOCATION</th>`;
+  for (const c of visCats) {
+    headHtml += `<th class="cat-head" style="min-width:110px;text-align:center;padding:10px 8px;border-right:1px solid rgba(255,255,255,0.08);font-size:11px;letter-spacing:0.04em;">${esc(c)}</th>`;
   }
-  headHtml += `<th class="cat-head" colspan="2" style="background:#1b4f72;min-width:260px;text-align:center;">TOTALS</th>`;
+  headHtml += `<th style="background:#1b4f72;min-width:110px;text-align:center;padding:10px 8px;border-left:2px solid rgba(255,255,255,0.2);font-size:11px;letter-spacing:0.06em;color:#f6ad2b;font-weight:700;">TOTAL</th>`;
   headHtml += '</tr>';
-
-  // Row 2: sub-labels — 📦 Vol & 💰 Rev per location
-  headHtml += '<tr style="background:#0d2138;">';
-  headHtml += `<th style="background:#0d2138;border-right:2px solid rgba(255,255,255,0.15);"></th>`;
-  for (const r of visRegions) {
-    headHtml += `<th style="background:#0d2138;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.07em;color:rgba(255,255,255,0.5);padding:5px 10px;border-right:none;">📦 VOLUME (Ltrs/Kgs)</th>`;
-    headHtml += `<th style="background:#0d2138;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.07em;color:rgba(255,255,255,0.5);padding:5px 10px;border-right:1px solid rgba(255,255,255,0.1);">💰 REVENUE (KSH)</th>`;
-  }
-  headHtml += `<th style="background:#163a52;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.07em;color:rgba(255,255,255,0.5);padding:5px 10px;border-right:none;">📦 VOLUME</th>`;
-  headHtml += `<th style="background:#163a52;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.07em;color:rgba(255,255,255,0.5);padding:5px 10px;">💰 REVENUE</th>`;
-  headHtml += '</tr>';
-
   document.getElementById('locSalesHead').innerHTML = headHtml;
 
-  // ── Body ────────────────────────────────────────────────
-  let bodyHtml = '';
+  // ── Pre-compute cat-level and grand totals ───────────────
+  const catTotals   = {};
+  for (const c of visCats) catTotals[c] = { ltrs: 0, amount: 0, tgtL: 0, tgtK: 0 };
+  const grandTotals = { ltrs: 0, amount: 0, tgtL: 0, tgtK: 0 };
 
-  for (const c of visCats) {
-    const anyLocHasTarget = hasCatTgts && visRegions.some(r => getLocCatTarget(r, c) !== null);
-
-    // Totals for this category
-    let cLtrsTotal = 0, cAmtTotal = 0, cTgtLtrsTotal = 0, cTgtKshTotal = 0;
-    for (const r of visRegions) {
-      cLtrsTotal += pivot[r]?.[c]?.ltrs   || 0;
-      cAmtTotal  += pivot[r]?.[c]?.amount || 0;
-      if (anyLocHasTarget) {
+  // First pass: accumulate cat totals (needed for grand total row)
+  for (const r of visRegions) {
+    for (const c of visCats) {
+      catTotals[c].ltrs   += pivot[r]?.[c]?.ltrs   || 0;
+      catTotals[c].amount += pivot[r]?.[c]?.amount || 0;
+      if (hasCatTgts) {
         const tgt = getLocCatTarget(r, c);
-        cTgtLtrsTotal += tgt?.ltrs || 0;
-        cTgtKshTotal  += tgt?.ksh  || 0;
+        catTotals[c].tgtL += tgt?.ltrs || 0;
+        catTotals[c].tgtK += tgt?.ksh  || 0;
       }
     }
+    const regTgt = getRegionTarget(r);
+    grandTotals.tgtL += regTgt?.ltrs || 0;
+    grandTotals.tgtK += regTgt?.ksh  || 0;
+  }
+  for (const c of visCats) {
+    grandTotals.ltrs   += catTotals[c].ltrs;
+    grandTotals.amount += catTotals[c].amount;
+  }
 
-    bodyHtml += `<tr style="border-top:2px solid var(--border);">`;
-    // Category name cell — rowspan=1 (single data row per category now)
-    bodyHtml += `<td style="font-weight:800;color:var(--text-head);font-size:13px;vertical-align:middle;border-right:2px solid var(--border);padding:10px 14px;letter-spacing:0.02em;">${esc(c)}</td>`;
+  // ── BODY: one row per LOCATION ───────────────────────────
+  let bodyHtml = '';
+  for (let ri = 0; ri < visRegions.length; ri++) {
+    const r = visRegions[ri];
+    const regTgt  = getRegionTarget(r);
+    const rowBg   = ri % 2 === 1 ? 'background:rgba(255,255,255,0.02);' : '';
 
-    // Per-region: Vol cell + Rev cell
-    for (const r of visRegions) {
-      const ltrs   = pivot[r]?.[c]?.ltrs   || 0;
-      const amount = pivot[r]?.[c]?.amount || 0;
-      const tgt    = anyLocHasTarget ? getLocCatTarget(r, c) : null;
-      const tgtL   = tgt?.ltrs || 0;
-      const tgtK   = tgt?.ksh  || 0;
-
-      const pL = pctVal(ltrs, tgtL);
-      const pK = pctVal(amount, tgtK);
-      const colL = pctColor(pL), colK = pctColor(pK);
-      const barWL = pL !== null ? Math.min(pL, 100) : 0;
-      const barWK = pK !== null ? Math.min(pK, 100) : 0;
-
-      // Volume cell
-      bodyHtml += `<td style="padding:9px 10px;vertical-align:middle;border-right:none;text-align:right;">
-        <div style="font-size:13px;font-weight:600;color:${ltrs===0?'var(--text-muted)':'var(--text-head)'};">${ltrs===0?'—':fmtN(ltrs)}</div>
-        ${tgtL ? `<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">tgt: ${fmtN(tgtL)}</div>` : ''}
-        ${pL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
-          <div style="width:40px;height:4px;background:var(--border);border-radius:99px;overflow:hidden;">
-            <div style="height:4px;width:${barWL}%;background:${colL};border-radius:99px;"></div>
-          </div>
-          <span style="font-size:11px;font-weight:800;color:${colL};">${pL}%</span>
-        </div>` : ''}
-      </td>`;
-
-      // Revenue cell
-      bodyHtml += `<td style="padding:9px 10px;vertical-align:middle;border-right:1px solid var(--border2);text-align:right;">
-        <div style="font-size:13px;font-weight:600;color:${amount===0?'var(--text-muted)':'var(--text-head)'};">${amount===0?'—':fmtA(amount)}</div>
-        ${tgtK ? `<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">tgt: ${fmtA(tgtK)}</div>` : ''}
-        ${pK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
-          <div style="width:40px;height:4px;background:var(--border);border-radius:99px;overflow:hidden;">
-            <div style="height:4px;width:${barWK}%;background:${colK};border-radius:99px;"></div>
-          </div>
-          <span style="font-size:11px;font-weight:800;color:${colK};">${pK}%</span>
-        </div>` : ''}
-      </td>`;
+    // Row total
+    let rLtrs = 0, rAmt = 0;
+    for (const c of visCats) {
+      rLtrs += pivot[r]?.[c]?.ltrs   || 0;
+      rAmt  += pivot[r]?.[c]?.amount || 0;
     }
 
-    // Totals cells
-    const pTL = pctVal(cLtrsTotal, cTgtLtrsTotal);
-    const pTK = pctVal(cAmtTotal,  cTgtKshTotal);
-    const colTL = pctColor(pTL), colTK = pctColor(pTK);
-    const bTL = pTL !== null ? Math.min(pTL, 100) : 0;
-    const bTK = pTK !== null ? Math.min(pTK, 100) : 0;
+    bodyHtml += `<tr>`;
+    // Sticky location name
+    bodyHtml += `<td style="padding:9px 14px;font-weight:700;font-size:13px;color:var(--text-head);border-right:2px solid var(--border);border-bottom:1px solid var(--border2);vertical-align:middle;position:sticky;left:0;z-index:5;background:var(--surface);${rowBg}white-space:nowrap;">${esc(r)}</td>`;
 
-    bodyHtml += `<td style="padding:9px 10px;vertical-align:middle;background:rgba(27,79,114,0.18);text-align:right;border-right:none;">
-      <div style="font-size:13px;font-weight:700;color:#f6ad2b;">${fmtN(cLtrsTotal)}</div>
-      ${cTgtLtrsTotal ? `<div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:1px;">tgt: ${fmtN(cTgtLtrsTotal)}</div>` : ''}
-      ${pTL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
-        <div style="width:40px;height:4px;background:rgba(255,255,255,0.15);border-radius:99px;overflow:hidden;">
-          <div style="height:4px;width:${bTL}%;background:${colTL};border-radius:99px;"></div>
-        </div>
-        <span style="font-size:11px;font-weight:800;color:${colTL};">${pTL}%</span>
-      </div>` : ''}
-    </td>`;
+    // Per-category data cell
+    for (const c of visCats) {
+      const ltrs   = pivot[r]?.[c]?.ltrs   || 0;
+      const amount = pivot[r]?.[c]?.amount || 0;
+      const tgt    = hasCatTgts ? getLocCatTarget(r, c) : null;
+      bodyHtml += dataCell(ltrs, amount, tgt?.ltrs || 0, tgt?.ksh || 0, false, false);
+    }
 
-    bodyHtml += `<td style="padding:9px 10px;vertical-align:middle;background:rgba(27,79,114,0.18);text-align:right;">
-      <div style="font-size:13px;font-weight:700;color:#f6ad2b;">${fmtA(cAmtTotal)}</div>
-      ${cTgtKshTotal ? `<div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:1px;">tgt: ${fmtA(cTgtKshTotal)}</div>` : ''}
-      ${pTK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
-        <div style="width:40px;height:4px;background:rgba(255,255,255,0.15);border-radius:99px;overflow:hidden;">
-          <div style="height:4px;width:${bTK}%;background:${colTK};border-radius:99px;"></div>
-        </div>
-        <span style="font-size:11px;font-weight:800;color:${colTK};">${pTK}%</span>
-      </div>` : ''}
-    </td>`;
-
+    // Row total cell
+    bodyHtml += dataCell(rLtrs, rAmt, regTgt?.ltrs || 0, regTgt?.ksh || 0, false, true);
     bodyHtml += '</tr>';
   }
 
-  // ── Grand Total row ──────────────────────────────────
-  let grandLtrs = 0, grandAmt = 0;
-  const rLtrsArr = {}, rAmtArr = {};
-  for (const r of visRegions) {
-    rLtrsArr[r] = visCats.reduce((s,c)=>s+(pivot[r]?.[c]?.ltrs||0),0);
-    rAmtArr[r]  = visCats.reduce((s,c)=>s+(pivot[r]?.[c]?.amount||0),0);
-    grandLtrs  += rLtrsArr[r];
-    grandAmt   += rAmtArr[r];
-  }
-
-  const rTgtMap = {};
-  for (const r of visRegions) rTgtMap[r] = getRegionTarget(r);
-  const grandTgtLtrs = visRegions.reduce((s,r)=>s+(rTgtMap[r]?.ltrs||0),0);
-  const grandTgtKsh  = visRegions.reduce((s,r)=>s+(rTgtMap[r]?.ksh||0),0);
-
+  // ── GRAND TOTAL row ──────────────────────────────────────
   bodyHtml += `<tr class="loc-total-row" style="border-top:3px solid rgba(255,255,255,0.25);">`;
-  bodyHtml += `<td style="font-size:12px;font-weight:800;letter-spacing:0.05em;vertical-align:middle;border-right:2px solid rgba(255,255,255,0.15);padding:10px 14px;">GRAND TOTAL</td>`;
-
-  for (const r of visRegions) {
-    const ltrs   = rLtrsArr[r];
-    const amount = rAmtArr[r];
-    const tgtL   = rTgtMap[r]?.ltrs || 0;
-    const tgtK   = rTgtMap[r]?.ksh  || 0;
-    const pL = pctVal(ltrs, tgtL);
-    const pK = pctVal(amount, tgtK);
-    const colL = pctColor(pL), colK = pctColor(pK);
-    const bL = pL !== null ? Math.min(pL,100) : 0;
-    const bK = pK !== null ? Math.min(pK,100) : 0;
-
-    bodyHtml += `<td style="padding:9px 10px;text-align:right;border-right:none;">
-      <div style="font-size:13px;font-weight:700;color:#f6ad2b;">${fmtN(ltrs)}</div>
-      ${tgtL ? `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:1px;">tgt: ${fmtN(tgtL)}</div>` : ''}
-      ${pL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
-        <div style="width:40px;height:4px;background:rgba(255,255,255,0.2);border-radius:99px;overflow:hidden;">
-          <div style="height:4px;width:${bL}%;background:${colL};border-radius:99px;"></div>
-        </div>
-        <span style="font-size:11px;font-weight:800;color:${colL};">${pL}%</span>
-      </div>` : ''}
-    </td>`;
-
-    bodyHtml += `<td style="padding:9px 10px;text-align:right;border-right:1px solid rgba(255,255,255,0.1);">
-      <div style="font-size:13px;font-weight:700;color:#f6ad2b;">${fmtA(amount)}</div>
-      ${tgtK ? `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:1px;">tgt: ${fmtA(tgtK)}</div>` : ''}
-      ${pK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
-        <div style="width:40px;height:4px;background:rgba(255,255,255,0.2);border-radius:99px;overflow:hidden;">
-          <div style="height:4px;width:${bK}%;background:${colK};border-radius:99px;"></div>
-        </div>
-        <span style="font-size:11px;font-weight:800;color:${colK};">${pK}%</span>
-      </div>` : ''}
-    </td>`;
+  bodyHtml += `<td style="padding:10px 14px;font-size:12px;font-weight:800;letter-spacing:0.06em;border-right:2px solid rgba(255,255,255,0.2);vertical-align:middle;position:sticky;left:0;z-index:5;background:#0f2744;white-space:nowrap;">GRAND TOTAL</td>`;
+  for (const c of visCats) {
+    const { ltrs, amount, tgtL, tgtK } = catTotals[c];
+    bodyHtml += dataCell(ltrs, amount, tgtL, tgtK, true, false);
   }
-
-  // Grand totals column
-  const gpL = pctVal(grandLtrs, grandTgtLtrs);
-  const gpK = pctVal(grandAmt, grandTgtKsh);
-  const gcL = pctColor(gpL), gcK = pctColor(gpK);
-  const gbL = gpL !== null ? Math.min(gpL,100) : 0;
-  const gbK = gpK !== null ? Math.min(gpK,100) : 0;
-
-  bodyHtml += `<td style="padding:9px 10px;text-align:right;background:#1b4f72;border-right:none;">
-    <div style="font-size:13px;font-weight:800;color:#f6ad2b;">${fmtN(grandLtrs)}</div>
-    ${grandTgtLtrs ? `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:1px;">tgt: ${fmtN(grandTgtLtrs)}</div>` : ''}
-    ${gpL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
-      <div style="width:40px;height:4px;background:rgba(255,255,255,0.2);border-radius:99px;overflow:hidden;">
-        <div style="height:4px;width:${gbL}%;background:${gcL};border-radius:99px;"></div>
-      </div>
-      <span style="font-size:11px;font-weight:800;color:${gcL};">${gpL}%</span>
-    </div>` : ''}
-  </td>`;
-
-  bodyHtml += `<td style="padding:9px 10px;text-align:right;background:#1b4f72;">
-    <div style="font-size:13px;font-weight:800;color:#f6ad2b;">${fmtA(grandAmt)}</div>
-    ${grandTgtKsh ? `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:1px;">tgt: ${fmtA(grandTgtKsh)}</div>` : ''}
-    ${gpK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:3px;">
-      <div style="width:40px;height:4px;background:rgba(255,255,255,0.2);border-radius:99px;overflow:hidden;">
-        <div style="height:4px;width:${gbK}%;background:${gcK};border-radius:99px;"></div>
-      </div>
-      <span style="font-size:11px;font-weight:800;color:${gcK};">${gpK}%</span>
-    </div>` : ''}
-  </td>`;
-
+  bodyHtml += dataCell(grandTotals.ltrs, grandTotals.amount, grandTotals.tgtL, grandTotals.tgtK, true, true);
   bodyHtml += '</tr>';
 
   document.getElementById('locSalesTbody').innerHTML = bodyHtml;
@@ -3499,68 +3362,91 @@ function exportLocSalesPDF() {
     </td>`;
   }
 
-  // Build table rows
+  // ── PDF: LOCATION rows × CATEGORY columns (mirrors screen layout) ──
+  // Pre-compute category totals across all regions
+  const pdfCatTot = {};
+  for (const c of visC) pdfCatTot[c] = { ltrs:0, amount:0, tgtL:0, tgtK:0 };
+  let pdfGtL=0, pdfGtA=0, pdfGtTL=0, pdfGtTK=0;
+  for (const r of visR) {
+    for (const c of visC) {
+      pdfCatTot[c].ltrs   += pivot[r]?.[c]?.ltrs   || 0;
+      pdfCatTot[c].amount += pivot[r]?.[c]?.amount || 0;
+      if (hasCatTgts) { const t=getLocCatTgt(r,c); pdfCatTot[c].tgtL+=t?.ltrs||0; pdfCatTot[c].tgtK+=t?.ksh||0; }
+    }
+    const rt=getRegTgt(r); pdfGtTL+=rt?.ltrs||0; pdfGtTK+=rt?.ksh||0;
+  }
+  for (const c of visC) { pdfGtL+=pdfCatTot[c].ltrs; pdfGtA+=pdfCatTot[c].amount; }
+
+  // Header: Location | Cat1 | Cat2 … | TOTAL
+  let hdr = `<tr style="background:#0f2744;">
+    <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.12);white-space:nowrap;">LOCATION</th>`;
+  for (const c of visC) hdr += `<th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.04em;border:1px solid rgba(255,255,255,0.12);min-width:90px;">${esc(c)}</th>`;
+  hdr += `<th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#f6ad2b;letter-spacing:0.04em;border:1px solid rgba(255,255,255,0.12);background:#1b4f72;">TOTAL</th></tr>`;
+
+  // Data rows — one per location
   let rows = '';
-  for (const c of visC) {
-    let totL = 0, totA = 0, totTL = 0, totTK = 0;
-    let cells = '';
-    for (const r of visR) {
+  for (let ri=0; ri<visR.length; ri++) {
+    const r   = visR[ri];
+    const rBg = ri%2===1 ? '#f8fafc' : '#fff';
+    const rt  = getRegTgt(r);
+    let rLtrs=0, rAmt=0;
+    let cells='';
+    for (const c of visC) {
       const ltrs   = pivot[r]?.[c]?.ltrs   || 0;
       const amount = pivot[r]?.[c]?.amount || 0;
-      const tgt    = hasCatTgts ? getLocCatTgt(r, c) : null;
-      const tgtL   = tgt?.ltrs || 0, tgtK = tgt?.ksh || 0;
-      totL += ltrs; totA += amount; totTL += tgtL; totTK += tgtK;
-      cells += cell(ltrs, amount, tgtL, tgtK);
+      const tgt    = hasCatTgts ? getLocCatTgt(r,c) : null;
+      const tgtL   = tgt?.ltrs||0, tgtK=tgt?.ksh||0;
+      rLtrs+=ltrs; rAmt+=amount;
+      const pL=pctVal(ltrs,tgtL), pK=pctVal(amount,tgtK);
+      const cL=pctCol(pL), cK=pctCol(pK);
+      cells += (!ltrs&&!amount&&!tgtL&&!tgtK)
+        ? `<td style="text-align:center;border:1px solid #e2e8f0;background:${rBg};color:#cbd5e0;font-size:11px;">—</td>`
+        : `<td style="padding:5px 7px;vertical-align:top;border:1px solid #e2e8f0;background:${rBg};">
+            <div style="font-size:10px;color:#718096;font-weight:600;">📦 ${fmtN(ltrs)}</div>
+            ${tgtL?`<div style="font-size:9px;color:#a0aec0;">/ ${fmtN(tgtL)}</div>`:''}
+            ${pL!==null?`<div style="font-size:10px;font-weight:800;color:${cL};">${pL}%</div>${bar(pL,cL)}`:''}
+            <div style="font-size:10px;color:#718096;font-weight:600;margin-top:3px;">💰 ${fmtN(amount)}</div>
+            ${tgtK?`<div style="font-size:9px;color:#a0aec0;">/ ${fmtN(tgtK)}</div>`:''}
+            ${pK!==null?`<div style="font-size:10px;font-weight:800;color:${cK};">${pK}%</div>${bar(pK,cK)}`:''}
+          </td>`;
     }
-    cells += `<td style="padding:6px 8px;vertical-align:top;border:1px solid #e2e8f0;background:#f0f5ff;min-width:120px;">
-      <div style="font-size:11px;color:#4a5568;font-weight:600;margin-bottom:1px;">📦 Vol</div>
-      <div style="font-size:12px;font-weight:700;color:#0f2744;">${fmtN(totL)}</div>
-      ${totTL ? `<div style="font-size:10px;color:#718096;">tgt: ${fmtN(totTL)}</div>` : ''}
-      ${pctVal(totL,totTL) !== null ? `<div style="font-size:11px;font-weight:800;color:${pctCol(pctVal(totL,totTL))};">${pctVal(totL,totTL)}%</div>${bar(pctVal(totL,totTL),pctCol(pctVal(totL,totTL)))}` : ''}
-      <div style="font-size:11px;color:#4a5568;font-weight:600;margin-top:6px;margin-bottom:1px;">💰 Rev</div>
-      <div style="font-size:12px;font-weight:700;color:#0f2744;">${fmtN(totA)}</div>
-      ${totTK ? `<div style="font-size:10px;color:#718096;">tgt: ${fmtN(totTK)}</div>` : ''}
-      ${pctVal(totA,totTK) !== null ? `<div style="font-size:11px;font-weight:800;color:${pctCol(pctVal(totA,totTK))};">${pctVal(totA,totTK)}%</div>${bar(pctVal(totA,totTK),pctCol(pctVal(totA,totTK)))}` : ''}
+    // Row total cell
+    const pRL=pctVal(rLtrs,rt?.ltrs||0), pRK=pctVal(rAmt,rt?.ksh||0);
+    cells += `<td style="padding:5px 7px;vertical-align:top;border:1px solid #c3dafe;background:#ebf4ff;">
+      <div style="font-size:10px;font-weight:700;color:#1a56db;">📦 ${fmtN(rLtrs)}</div>
+      ${rt?.ltrs?`<div style="font-size:9px;color:#718096;">/ ${fmtN(rt.ltrs)}</div>`:''}
+      ${pRL!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(pRL)};">${pRL}%</div>${bar(pRL,pctCol(pRL))}`:''}
+      <div style="font-size:10px;font-weight:700;color:#1a56db;margin-top:3px;">💰 ${fmtN(rAmt)}</div>
+      ${rt?.ksh?`<div style="font-size:9px;color:#718096;">/ ${fmtN(rt.ksh)}</div>`:''}
+      ${pRK!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(pRK)};">${pRK}%</div>${bar(pRK,pctCol(pRK))}`:''}
     </td>`;
-    rows += `<tr><td style="padding:8px 10px;font-weight:800;font-size:12px;color:#0f2744;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;background:#f8fafc;">${esc(c)}</td>${cells}</tr>`;
+    rows += `<tr><td style="padding:8px 10px;font-weight:800;font-size:12px;color:#0f2744;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;background:${rBg};">${esc(r)}</td>${cells}</tr>`;
   }
 
   // Grand total row
-  let gtCells = '';
-  let gtL = 0, gtA = 0, gtTL = 0, gtTK = 0;
-  for (const r of visR) {
-    const ltrs   = visC.reduce((s,c)=>s+(pivot[r]?.[c]?.ltrs||0),0);
-    const amount = visC.reduce((s,c)=>s+(pivot[r]?.[c]?.amount||0),0);
-    const tgt    = getRegTgt(r);
-    const tgtL   = tgt?.ltrs || 0, tgtK = tgt?.ksh || 0;
-    gtL += ltrs; gtA += amount; gtTL += tgtL; gtTK += tgtK;
-    const pL = pctVal(ltrs, tgtL), pK = pctVal(amount, tgtK);
-    const cL = pctCol(pL), cK = pctCol(pK);
-    gtCells += `<td style="padding:6px 8px;vertical-align:top;border:1px solid #c3dafe;background:#ebf4ff;">
-      <div style="font-size:11px;font-weight:700;color:#1a56db;">${fmtN(ltrs)}</div>
-      ${tgtL ? `<div style="font-size:10px;color:#718096;">tgt: ${fmtN(tgtL)}</div>` : ''}
-      ${pL !== null ? `<div style="font-size:11px;font-weight:800;color:${cL};">${pL}%</div>${bar(pL,cL)}` : ''}
-      <div style="font-size:11px;font-weight:700;color:#1a56db;margin-top:4px;">${fmtN(amount)}</div>
-      ${tgtK ? `<div style="font-size:10px;color:#718096;">tgt: ${fmtN(tgtK)}</div>` : ''}
-      ${pK !== null ? `<div style="font-size:11px;font-weight:800;color:${cK};">${pK}%</div>${bar(pK,cK)}` : ''}
+  let gtCells='';
+  for (const c of visC) {
+    const {ltrs,amount,tgtL,tgtK}=pdfCatTot[c];
+    const pL=pctVal(ltrs,tgtL),pK=pctVal(amount,tgtK);
+    gtCells+=`<td style="padding:5px 7px;vertical-align:top;border:1px solid #1e3a5f;background:#0f2744;">
+      <div style="font-size:10px;font-weight:700;color:#f6ad2b;">📦 ${fmtN(ltrs)}</div>
+      ${tgtL?`<div style="font-size:9px;color:rgba(255,255,255,0.4);">/ ${fmtN(tgtL)}</div>`:''}
+      ${pL!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(pL)};">${pL}%</div>${bar(pL,pctCol(pL))}`:''}
+      <div style="font-size:10px;font-weight:700;color:#f6ad2b;margin-top:3px;">💰 ${fmtN(amount)}</div>
+      ${tgtK?`<div style="font-size:9px;color:rgba(255,255,255,0.4);">/ ${fmtN(tgtK)}</div>`:''}
+      ${pK!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(pK)};">${pK}%</div>${bar(pK,pctCol(pK))}`:''}
     </td>`;
   }
-  const gpL = pctVal(gtL,gtTL), gpK = pctVal(gtA,gtTK);
-  gtCells += `<td style="padding:6px 8px;vertical-align:top;border:1px solid #c3dafe;background:#dbeafe;">
-    <div style="font-size:12px;font-weight:800;color:#0f2744;">${fmtN(gtL)}</div>
-    ${gtTL ? `<div style="font-size:10px;color:#718096;">tgt: ${fmtN(gtTL)}</div>` : ''}
-    ${gpL !== null ? `<div style="font-size:11px;font-weight:800;color:${pctCol(gpL)};">${gpL}%</div>${bar(gpL,pctCol(gpL))}` : ''}
-    <div style="font-size:12px;font-weight:800;color:#0f2744;margin-top:4px;">${fmtN(gtA)}</div>
-    ${gtTK ? `<div style="font-size:10px;color:#718096;">tgt: ${fmtN(gtTK)}</div>` : ''}
-    ${gpK !== null ? `<div style="font-size:11px;font-weight:800;color:${pctCol(gpK)};">${gpK}%</div>${bar(gpK,pctCol(gpK))}` : ''}
+  const gpL=pctVal(pdfGtL,pdfGtTL), gpK=pctVal(pdfGtA,pdfGtTK);
+  gtCells+=`<td style="padding:5px 7px;vertical-align:top;border:1px solid #1e3a5f;background:#1b3a5c;">
+    <div style="font-size:11px;font-weight:800;color:#f6ad2b;">📦 ${fmtN(pdfGtL)}</div>
+    ${pdfGtTL?`<div style="font-size:9px;color:rgba(255,255,255,0.4);">/ ${fmtN(pdfGtTL)}</div>`:''}
+    ${gpL!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(gpL)};">${gpL}%</div>${bar(gpL,pctCol(gpL))}`:''}
+    <div style="font-size:11px;font-weight:800;color:#f6ad2b;margin-top:3px;">💰 ${fmtN(pdfGtA)}</div>
+    ${pdfGtTK?`<div style="font-size:9px;color:rgba(255,255,255,0.4);">/ ${fmtN(pdfGtTK)}</div>`:''}
+    ${gpK!==null?`<div style="font-size:10px;font-weight:800;color:${pctCol(gpK)};">${gpK}%</div>${bar(gpK,pctCol(gpK))}`:''}
   </td>`;
   rows += `<tr><td style="padding:8px 10px;font-weight:800;font-size:12px;color:#fff;background:#0f2744;border:1px solid #0f2744;vertical-align:middle;white-space:nowrap;">GRAND TOTAL</td>${gtCells}</tr>`;
-
-  // Header row
-  let hdr = `<tr style="background:#0f2744;">
-    <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.12);white-space:nowrap;">CATEGORY</th>`;
-  for (const r of visR) hdr += `<th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.04em;border:1px solid rgba(255,255,255,0.12);min-width:120px;">${esc(r)}</th>`;
-  hdr += `<th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#f6ad2b;letter-spacing:0.04em;border:1px solid rgba(255,255,255,0.12);">TOTALS</th></tr>`;
 
   const printWin = window.open('', '_blank', 'width=1200,height=900');
   printWin.document.write(`<!DOCTYPE html><html><head>
