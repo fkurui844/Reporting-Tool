@@ -1374,11 +1374,6 @@
       </div>
     </div>
 
-    <!-- BY CATEGORY performance section -->
-    <div id="locCatSummaryWrap" style="display:none; padding: 0 0 8px 0;">
-      <div id="locCatSummaryContent"></div>
-    </div>
-
     <!-- Table container -->
     <div class="locsales-table-outer" id="locSalesTableOuter">
       <div class="locsales-empty" id="locSalesEmpty">
@@ -1564,13 +1559,6 @@ async function loadSheetData() {
 
   // Re-render Location Sales BY CATEGORY and target rows if data is already loaded
   if (_lastSalesData) {
-    // Refresh BY CATEGORY table
-    const catSummaryEl = document.getElementById('locCatSummaryContent');
-    const catSummaryWrap = document.getElementById('locCatSummaryWrap');
-    if (catSummaryEl && catSummaryWrap) {
-      catSummaryEl.innerHTML = buildLocCatSummaryHtml(_lastSalesData.transactions);
-      catSummaryWrap.style.display = '';
-    }
     // Refresh Location pivot table (target rows)
     if (_locSalesData) renderLocSalesTable(_locSalesData, '', '');
     // Refresh target & % achieved pills
@@ -3346,15 +3334,6 @@ function populateLocSalesPage(data) {
   const catSel = document.getElementById('locCatFilter');
   catSel.innerHTML = '<option value="">All Categories</option>' +
     d.categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-
-  // BY CATEGORY performance summary
-  const catSummaryHtml = buildLocCatSummaryHtml(data.transactions);
-  const catSummaryEl = document.getElementById('locCatSummaryContent');
-  const catSummaryWrap = document.getElementById('locCatSummaryWrap');
-  if (catSummaryEl && catSummaryWrap) {
-    catSummaryEl.innerHTML = catSummaryHtml;
-    catSummaryWrap.style.display = '';
-  }
 
   // Show table
   document.getElementById('locSalesEmpty').style.display = 'none';
