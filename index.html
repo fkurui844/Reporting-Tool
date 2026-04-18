@@ -3986,7 +3986,7 @@ function buildTypeSalesData(transactions) {
 
   for (const t of transactions) {
     const typ = normaliseType(t.type);
-    if (!typ) continue;                          // skip UNKNOWN / unrecognised
+    if (!typ) continue;
     const cat = (t.category || 'UNKNOWN').toUpperCase();
     typeSet.add(typ); catSet.add(cat);
     if (!pivot[typ]) pivot[typ] = {};
@@ -3997,8 +3997,24 @@ function buildTypeSalesData(transactions) {
     grand.amount += t.amount;
   }
 
-  // Use canonical order, only include types that actually have data
-  const channels   = TYPE_CANONICAL.filter(t => typeSet.has(t));
+  // Also include types/categories that have TARGETS but zero sales
+  // so they appear with 0 actuals vs their target (e.g. EXPORTS with no transactions yet)
+  const typeTgts = refData.typeCategoryTargets || {};
+  for (const rawKey of Object.keys(typeTgts)) {
+    const canon = normaliseType(rawKey) || rawKey.toUpperCase();
+    typeSet.add(canon);
+    if (!pivot[canon]) pivot[canon] = {};
+    for (const cat of Object.keys(typeTgts[rawKey])) {
+      catSet.add(cat);
+      if (!pivot[canon][cat]) pivot[canon][cat] = { ltrs: 0, amount: 0 };
+    }
+  }
+
+  // Canonical order for known types; any extras appended alphabetically
+  const knownInOrder = TYPE_CANONICAL.filter(t => typeSet.has(t));
+  const extras = [...typeSet].filter(t => !TYPE_CANONICAL.includes(t)).sort();
+  const channels = [...knownInOrder, ...extras];
+
   const categories = [...catSet].sort((a, b) => {
     const tA = channels.reduce((s, ch) => s + (pivot[ch]?.[a]?.amount || 0), 0);
     const tB = channels.reduce((s, ch) => s + (pivot[ch]?.[b]?.amount || 0), 0);
