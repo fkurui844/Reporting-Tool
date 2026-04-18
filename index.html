@@ -1003,6 +1003,45 @@
     }
     .locsales-export-btn:hover { background: #1a3c5e; }
 
+    /* Target toggle button */
+    .tgt-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: 1.5px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.65);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: all 0.18s;
+      white-space: nowrap;
+    }
+    .tgt-toggle-btn:hover {
+      background: rgba(255,255,255,0.14);
+      color: #fff;
+      border-color: rgba(255,255,255,0.45);
+    }
+    .tgt-toggle-btn.active {
+      background: #1db87a;
+      border-color: #1db87a;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(29,184,122,0.35);
+    }
+    .tgt-toggle-btn.active:hover {
+      background: #17a06a;
+      border-color: #17a06a;
+    }
+    .tgt-toggle-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
     /* Summary pills */
     .locsales-summary {
       display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px;
@@ -1378,6 +1417,10 @@
         <div class="locsales-subtitle" id="locSalesPeriod">Upload a SAP file to see data</div>
       </div>
       <div class="locsales-controls">
+        <button class="tgt-toggle-btn" id="locTgtToggleBtn" onclick="toggleLocTargets()" title="Show/hide targets in table">
+          <span class="tgt-toggle-dot"></span>
+          <span id="locTgtToggleLabel">Show Targets</span>
+        </button>
         <div class="locsales-search-wrap">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input class="locsales-search" id="locSearch" type="text" placeholder="Search location…" oninput="filterLocSales()">
@@ -1762,22 +1805,11 @@ async function loadSheetData() {
   // refresh customer table if on that page
   if (allCustomers.length) buildCustomerTable(allCustomers);
 
-  // Re-render Location Sales BY CATEGORY and target rows if data is already loaded
+  // Re-render Location Sales and target rows if data is already loaded
   if (_lastSalesData) {
-    // Refresh Location pivot table (target rows)
-    if (_locSalesData) renderLocSalesTable(_locSalesData, '', '');
-    // Refresh target & % achieved pills
-    const targets2 = refData.targets || {};
-    const totalTgtKsh2 = Object.values(targets2).reduce((s, t) => s + (t.ksh || 0), 0);
-    if (totalTgtKsh2 > 0) {
-      const fmtBig = v => Math.round(v).toLocaleString();
-      const achPct2 = Math.round((_lastSalesData.transactions.reduce((s,t)=>s+t.amount,0) / totalTgtKsh2) * 100);
-      const achColor2 = achPct2 >= 100 ? '#1db87a' : achPct2 >= 70 ? '#b45309' : '#E1245A';
-      document.getElementById('locStatTarget').textContent = 'KSH ' + fmtBig(totalTgtKsh2);
-      document.getElementById('locStatAch').textContent = achPct2 + '%';
-      document.getElementById('locStatAch').style.color = achColor2;
-      document.getElementById('locStatTargetPill').style.display = '';
-      document.getElementById('locStatAchPill').style.display = '';
+    if (_locSalesData) {
+      renderLocSalesTable(_locSalesData, '', '');
+      updateLocTargetPills(_locSalesData);
     }
     // Refresh Type Sales target pills and table target rows
     if (_typeSalesData) {
@@ -3143,6 +3175,7 @@ function toggleTheme(isDark) {
 // LOCATION SALES PAGE
 // ═══════════════════════════════════════════════════════
 let _locSalesData = null;        // { regions, categories, pivot, totals }
+let _locShowTargets = false;     // whether target overlay is active in Location Sales
 let _lastSalesData = null;       // full data object from last parseSAP — used to re-render on target reload
 
 function buildLocSalesData(transactions) {
@@ -3204,9 +3237,9 @@ function buildLocSalesData(transactions) {
 function renderLocSalesTable(data, filterRegion, filterCat) {
   const { regions, categories, pivot } = data;
   const fmt    = v => Math.round(v).toLocaleString();
-  const regionTargets = refData.targets || {};
-  const locCatTgts    = refData.locationCategoryTargets || {};
-  const hasCatTgts    = Object.keys(locCatTgts).length > 0;
+  const regionTargets = _locShowTargets ? (refData.targets || {}) : {};
+  const locCatTgts    = _locShowTargets ? (refData.locationCategoryTargets || {}) : {};
+  const hasCatTgts    = _locShowTargets && Object.keys(locCatTgts).length > 0;
 
   function getRegionTarget(r) {
     const rU = r.toUpperCase();
@@ -3358,6 +3391,20 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
   document.getElementById('locSalesTbody').innerHTML = bodyHtml;
 }
 
+function toggleLocTargets() {
+  _locShowTargets = !_locShowTargets;
+  const btn   = document.getElementById('locTgtToggleBtn');
+  const label = document.getElementById('locTgtToggleLabel');
+  if (_locShowTargets) {
+    btn.classList.add('active');
+    label.textContent = 'Targets On';
+  } else {
+    btn.classList.remove('active');
+    label.textContent = 'Show Targets';
+  }
+  filterLocSales();
+}
+
 function filterLocSales() {
   if (!_locSalesData) return;
   const q   = (document.getElementById('locSearch').value || '').toLowerCase().trim();
@@ -3453,6 +3500,25 @@ function buildLocCatSummaryHtml(transactions) {
   </div>`;
 }
 
+function updateLocTargetPills(d) {
+  const salesData = d || _locSalesData;
+  const targets = refData.targets || {};
+  const totalTgtKsh = Object.values(targets).reduce((s, t) => s + (t.ksh || 0), 0);
+  const fmtBig = v => Math.round(v).toLocaleString();
+  if (_locShowTargets && totalTgtKsh > 0 && salesData) {
+    const achPct   = Math.round((salesData.grandTotal.amount / totalTgtKsh) * 100);
+    const achColor = achPct >= 100 ? '#1db87a' : achPct >= 70 ? '#b45309' : '#E1245A';
+    document.getElementById('locStatTarget').textContent = 'KSH ' + fmtBig(totalTgtKsh);
+    document.getElementById('locStatAch').textContent    = achPct + '%';
+    document.getElementById('locStatAch').style.color    = achColor;
+    document.getElementById('locStatTargetPill').style.display = '';
+    document.getElementById('locStatAchPill').style.display    = '';
+  } else {
+    document.getElementById('locStatTargetPill').style.display = 'none';
+    document.getElementById('locStatAchPill').style.display    = 'none';
+  }
+}
+
 function populateLocSalesPage(data) {
   _lastSalesData = data;  // cache so targets reload can refresh
   const d = buildLocSalesData(data.transactions);
@@ -3470,21 +3536,8 @@ function populateLocSalesPage(data) {
   document.getElementById('locStatVol').textContent  = fmtBig(d.grandTotal.ltrs) + ' L/Kg';
   document.getElementById('locSalesSummary').style.display = 'flex';
 
-  // Target & % achieved pills
-  const targets = refData.targets || {};
-  const totalTgtKsh = Object.values(targets).reduce((s, t) => s + (t.ksh || 0), 0);
-  if (totalTgtKsh > 0) {
-    const achPct = Math.round((d.grandTotal.amount / totalTgtKsh) * 100);
-    const achColor = achPct >= 100 ? '#1db87a' : achPct >= 70 ? '#b45309' : '#E1245A';
-    document.getElementById('locStatTarget').textContent = 'KSH ' + fmtBig(totalTgtKsh);
-    document.getElementById('locStatAch').textContent    = achPct + '%';
-    document.getElementById('locStatAch').style.color    = achColor;
-    document.getElementById('locStatTargetPill').style.display = '';
-    document.getElementById('locStatAchPill').style.display    = '';
-  } else {
-    document.getElementById('locStatTargetPill').style.display = 'none';
-    document.getElementById('locStatAchPill').style.display    = 'none';
-  }
+  // Target & % achieved pills — only show when toggle is active
+  updateLocTargetPills(d);
 
   // Populate category filter dropdown
   const catSel = document.getElementById('locCatFilter');
