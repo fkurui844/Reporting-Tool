@@ -1529,6 +1529,14 @@
         <span class="loc-stat-label">Total Volume</span>
         <span class="loc-stat-value" id="typeStatVol">—</span>
       </div>
+      <div class="loc-stat-pill" id="typeStatTargetPill" style="display:none">
+        <span class="loc-stat-label">Target (KSH)</span>
+        <span class="loc-stat-value" id="typeStatTarget">—</span>
+      </div>
+      <div class="loc-stat-pill" id="typeStatAchPill" style="display:none">
+        <span class="loc-stat-label">% Achieved</span>
+        <span class="loc-stat-value" id="typeStatAch" style="font-size:22px;">—</span>
+      </div>
     </div>
 
     <!-- Report Key -->
@@ -1770,6 +1778,11 @@ async function loadSheetData() {
       document.getElementById('locStatAch').style.color = achColor2;
       document.getElementById('locStatTargetPill').style.display = '';
       document.getElementById('locStatAchPill').style.display = '';
+    }
+    // Refresh Type Sales target pills and table target rows
+    if (_typeSalesData) {
+      renderTypeSalesTable(_typeSalesData, '', '');
+      updateTypeTargetPills(_typeSalesData);
     }
   }
 }
@@ -4158,6 +4171,9 @@ function populateTypeSalesPage(data) {
   document.getElementById('typeStatVol').textContent   = fmtBig(d.grand.ltrs) + ' L/Kg';
   document.getElementById('typeSalesSummary').style.display = 'flex';
 
+  // Compute grand target from Type Targets sheet and show achievement pills
+  updateTypeTargetPills(d);
+
   const catSel = document.getElementById('typeCatFilter');
   catSel.innerHTML = '<option value="">All Categories</option>' +
     d.categories.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -4165,6 +4181,34 @@ function populateTypeSalesPage(data) {
   document.getElementById('typeSalesEmpty').style.display    = 'none';
   document.getElementById('typeSalesTableWrap').style.display = 'block';
   renderTypeSalesTable(d, '', '');
+}
+
+function updateTypeTargetPills(d) {
+  const fmtBig = v => Math.round(v).toLocaleString();
+  const typeTgts = refData.typeCategoryTargets || {};
+  if (Object.keys(typeTgts).length === 0) {
+    document.getElementById('typeStatTargetPill').style.display = 'none';
+    document.getElementById('typeStatAchPill').style.display    = 'none';
+    return;
+  }
+  // Sum all targets across all types and categories
+  let totalTgtKsh = 0;
+  for (const typeKey of Object.keys(typeTgts)) {
+    for (const catKey of Object.keys(typeTgts[typeKey])) {
+      totalTgtKsh += typeTgts[typeKey][catKey].ksh || 0;
+    }
+  }
+  if (totalTgtKsh > 0) {
+    const salesData = d || _typeSalesData;
+    const totalActual = salesData ? salesData.grand.amount : 0;
+    const achPct  = Math.round((totalActual / totalTgtKsh) * 100);
+    const achColor = achPct >= 100 ? '#1db87a' : achPct >= 70 ? '#b45309' : '#E1245A';
+    document.getElementById('typeStatTarget').textContent = 'KSH ' + fmtBig(totalTgtKsh);
+    document.getElementById('typeStatAch').textContent    = achPct + '%';
+    document.getElementById('typeStatAch').style.color    = achColor;
+    document.getElementById('typeStatTargetPill').style.display = '';
+    document.getElementById('typeStatAchPill').style.display    = '';
+  }
 }
 
 function toggleTypeExportMenu() {
@@ -4185,37 +4229,106 @@ function exportTypeSalesCSV() {
   const visCats  = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
   const fmt = v => Math.round(v);
 
-  let hdr1 = 'CHANNEL', hdr2 = '';
-  for (const c of visCats) { hdr1 += `,"${c}",`; hdr2 += `,Vol (Ltrs/Kgs),Rev (KSH)`; }
-  hdr1 += ',TOTAL,'; hdr2 += ',Total Vol,Total Rev';
+  const typeTgts    = refData.typeCategoryTargets || {};
+  const hasTypeTgts = Object.keys(typeTgts).length > 0;
+
+  function getTypeCatTgtCSV(ch, c) {
+    const chU = ch.toUpperCase(), cU = normalizeCat(c);
+    if (typeTgts[chU]) return typeTgts[chU][cU] || typeTgts[chU][c.toUpperCase()] || null;
+    for (const k of Object.keys(typeTgts)) {
+      const normK = normaliseType(k) || k;
+      if (normK === chU || k === chU || chU.includes(k) || k.includes(chU))
+        return typeTgts[k][cU] || typeTgts[k][c.toUpperCase()] || null;
+    }
+    return null;
+  }
+
+  let hdr1 = 'TYPE', hdr2 = '';
+  for (const c of visCats) {
+    if (hasTypeTgts) {
+      hdr1 += `,"${c}",,,,`;
+      hdr2 += `,Vol (Ltrs/Kgs),Vol Target,Vol %,Rev (KSH),Rev Target,Rev %`;
+    } else {
+      hdr1 += `,"${c}",`;
+      hdr2 += `,Vol (Ltrs/Kgs),Rev (KSH)`;
+    }
+  }
+  if (hasTypeTgts) {
+    hdr1 += ',TOTAL,,,,,';
+    hdr2 += ',Total Vol,Vol Target,Vol %,Total Rev,Rev Target,Rev %';
+  } else {
+    hdr1 += ',TOTAL,'; hdr2 += ',Total Vol,Total Rev';
+  }
   let csv = hdr1 + '\n' + hdr2 + '\n';
 
-  let gtL = 0, gtA = 0;
+  let gtL = 0, gtA = 0, gtTL = 0, gtTK = 0;
   for (const ch of visChans) {
-    let row = `"${ch}"`, chL = 0, chA = 0;
+    let row = `"${ch}"`, chL = 0, chA = 0, chTL = 0, chTK = 0;
     for (const c of visCats) {
-      const ltrs = pivot[ch]?.[c]?.ltrs || 0, amount = pivot[ch]?.[c]?.amount || 0;
+      const ltrs   = pivot[ch]?.[c]?.ltrs   || 0;
+      const amount = pivot[ch]?.[c]?.amount || 0;
       chL += ltrs; chA += amount;
-      row += `,${fmt(ltrs)},${fmt(amount)}`;
+      if (hasTypeTgts) {
+        const tgt = getTypeCatTgtCSV(ch, c);
+        const tL  = tgt?.ltrs || 0, tK = tgt?.ksh || 0;
+        chTL += tL; chTK += tK;
+        const pL = tL ? Math.round((ltrs / tL) * 100) + '%' : '—';
+        const pK = tK ? Math.round((amount / tK) * 100) + '%' : '—';
+        row += `,${fmt(ltrs)},${fmt(tL)},${pL},${fmt(amount)},${fmt(tK)},${pK}`;
+      } else {
+        row += `,${fmt(ltrs)},${fmt(amount)}`;
+      }
     }
-    row += `,${fmt(chL)},${fmt(chA)}`;
+    if (hasTypeTgts) {
+      const pL = chTL ? Math.round((chL / chTL) * 100) + '%' : '—';
+      const pK = chTK ? Math.round((chA / chTK) * 100) + '%' : '—';
+      row += `,${fmt(chL)},${fmt(chTL)},${pL},${fmt(chA)},${fmt(chTK)},${pK}`;
+      gtTL += chTL; gtTK += chTK;
+    } else {
+      row += `,${fmt(chL)},${fmt(chA)}`;
+    }
     gtL += chL; gtA += chA;
     csv += row + '\n';
   }
 
   // Grand total row
   let gtRow = 'GRAND TOTAL';
-  const catGtL = {}, catGtA = {};
-  for (const c of visCats) { catGtL[c]=0; catGtA[c]=0; for (const ch of visChans) { catGtL[c]+=pivot[ch]?.[c]?.ltrs||0; catGtA[c]+=pivot[ch]?.[c]?.amount||0; } }
-  for (const c of visCats) gtRow += `,${fmt(catGtL[c])},${fmt(catGtA[c])}`;
-  gtRow += `,${fmt(gtL)},${fmt(gtA)}`;
+  const catGtL = {}, catGtA = {}, catGtTL = {}, catGtTK = {};
+  for (const c of visCats) {
+    catGtL[c]=0; catGtA[c]=0; catGtTL[c]=0; catGtTK[c]=0;
+    for (const ch of visChans) {
+      catGtL[c] += pivot[ch]?.[c]?.ltrs   || 0;
+      catGtA[c] += pivot[ch]?.[c]?.amount || 0;
+      if (hasTypeTgts) {
+        const tgt = getTypeCatTgtCSV(ch, c);
+        catGtTL[c] += tgt?.ltrs || 0;
+        catGtTK[c] += tgt?.ksh  || 0;
+      }
+    }
+  }
+  for (const c of visCats) {
+    if (hasTypeTgts) {
+      const pL = catGtTL[c] ? Math.round((catGtL[c] / catGtTL[c]) * 100) + '%' : '—';
+      const pK = catGtTK[c] ? Math.round((catGtA[c] / catGtTK[c]) * 100) + '%' : '—';
+      gtRow += `,${fmt(catGtL[c])},${fmt(catGtTL[c])},${pL},${fmt(catGtA[c])},${fmt(catGtTK[c])},${pK}`;
+    } else {
+      gtRow += `,${fmt(catGtL[c])},${fmt(catGtA[c])}`;
+    }
+  }
+  if (hasTypeTgts) {
+    const pL = gtTL ? Math.round((gtL / gtTL) * 100) + '%' : '—';
+    const pK = gtTK ? Math.round((gtA / gtTK) * 100) + '%' : '—';
+    gtRow += `,${fmt(gtL)},${fmt(gtTL)},${pL},${fmt(gtA)},${fmt(gtTK)},${pK}`;
+  } else {
+    gtRow += `,${fmt(gtL)},${fmt(gtA)}`;
+  }
   csv += gtRow + '\n';
 
   const period = document.getElementById('typeSalesPeriod').textContent.replace('Period: ','');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = `Channel_Sales_${period.replace(/\s|–|\/|\./g,'_')}.csv`; a.click();
+  a.href = url; a.download = `Type_Sales_${period.replace(/\s|–|\/|\./g,'_')}.csv`; a.click();
   URL.revokeObjectURL(url);
   showToast('CSV exported ✓', 'ok');
 }
@@ -4230,55 +4343,102 @@ function exportTypeSalesHTML() {
   const period   = document.getElementById('typeSalesPeriod').textContent.replace('Period: ','');
   const fmt = v => Math.round(v).toLocaleString();
 
-  function cell(ltrs, amount, darkBg) {
+  const typeTgts    = refData.typeCategoryTargets || {};
+  const hasTypeTgts = Object.keys(typeTgts).length > 0;
+
+  function getTypeCatTgtH(ch, c) {
+    const chU = ch.toUpperCase(), cU = normalizeCat(c);
+    if (typeTgts[chU]) return typeTgts[chU][cU] || typeTgts[chU][c.toUpperCase()] || null;
+    for (const k of Object.keys(typeTgts)) {
+      const normK = normaliseType(k) || k;
+      if (normK === chU || k === chU || chU.includes(k) || k.includes(chU))
+        return typeTgts[k][cU] || typeTgts[k][c.toUpperCase()] || null;
+    }
+    return null;
+  }
+
+  function pctColor(p) { return p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A'; }
+
+  function cell(ltrs, amount, tgtL, tgtK, darkBg) {
     const bg  = darkBg ? '#0f5f5a' : '#fff';
     const nc  = darkBg ? '#f6ad2b' : '#0f2744';
     const lc  = darkBg ? 'rgba(255,255,255,0.55)' : '#718096';
     const bdr = darkBg ? '1px solid #0a3d3a' : '1px solid #e2e8f0';
-    if (!ltrs && !amount) return `<td style="text-align:center;background:${bg};border:${bdr};padding:6px 8px;color:#ccc;font-size:11px;">—</td>`;
-    return `<td style="padding:7px 9px;vertical-align:top;background:${bg};border:${bdr};min-width:110px;">
+    const muted = darkBg ? 'rgba(255,255,255,0.45)' : '#a0aec0';
+    if (!ltrs && !amount && !tgtL && !tgtK) return `<td style="text-align:center;background:${bg};border:${bdr};padding:6px 8px;color:#ccc;font-size:11px;">—</td>`;
+    const pL = tgtL ? Math.round((ltrs   / tgtL) * 100) : null;
+    const pK = tgtK ? Math.round((amount / tgtK) * 100) : null;
+    const cL = pL !== null ? pctColor(pL) : nc;
+    const cK = pK !== null ? pctColor(pK) : nc;
+    return `<td style="padding:7px 9px;vertical-align:top;background:${bg};border:${bdr};min-width:120px;">
       <div style="font-size:10px;font-weight:700;color:${lc};letter-spacing:0.04em;margin-bottom:1px;">V (Ltrs/Kgs)</div>
       <div style="font-size:12px;font-weight:700;color:${nc};text-align:right;">${fmt(ltrs)}</div>
+      ${tgtL ? `<div style="font-size:10px;color:${muted};text-align:right;">tgt: ${fmt(tgtL)}</div>` : ''}
+      ${pL !== null ? `<div style="font-size:10px;font-weight:800;color:${cL};text-align:right;">${pL}%</div>` : ''}
       <div style="border-top:1px dashed #e2e8f0;margin:4px 0 3px;"></div>
       <div style="font-size:10px;font-weight:700;color:${lc};letter-spacing:0.04em;margin-bottom:1px;">R (KSH)</div>
       <div style="font-size:12px;font-weight:700;color:${nc};text-align:right;">${fmt(amount)}</div>
+      ${tgtK ? `<div style="font-size:10px;color:${muted};text-align:right;">tgt: ${fmt(tgtK)}</div>` : ''}
+      ${pK !== null ? `<div style="font-size:10px;font-weight:800;color:${cK};text-align:right;">${pK}%</div>` : ''}
     </td>`;
   }
 
   let hdr = `<tr style="background:#0f5f5a;">
     <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.12);white-space:nowrap;">TYPE</th>`;
-  for (const c of visCats) hdr += `<th style="padding:9px 10px;text-align:center;font-size:10px;font-weight:700;color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.12);min-width:110px;">${c}</th>`;
+  for (const c of visCats) hdr += `<th style="padding:9px 10px;text-align:center;font-size:10px;font-weight:700;color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.12);min-width:120px;">${c}</th>`;
   hdr += `<th style="padding:9px 10px;text-align:center;font-size:11px;font-weight:700;color:#f6ad2b;border:1px solid rgba(255,255,255,0.12);background:#0a3d3a;">TOTAL</th></tr>`;
 
   let rows = '';
-  const catGtL = {}, catGtA = {};
-  for (const c of visCats) { catGtL[c]=0; catGtA[c]=0; }
-  let gtL = 0, gtA = 0;
+  const catGtL = {}, catGtA = {}, catGtTL = {}, catGtTK = {};
+  for (const c of visCats) { catGtL[c]=0; catGtA[c]=0; catGtTL[c]=0; catGtTK[c]=0; }
+  let gtL = 0, gtA = 0, gtTL = 0, gtTK = 0;
 
   for (let ri = 0; ri < visChans.length; ri++) {
     const ch = visChans[ri];
     const bg = ri % 2 === 1 ? '#f8fafc' : '#fff';
-    let chL = 0, chA = 0, cells = '';
+    let chL = 0, chA = 0, chTL = 0, chTK = 0, cells = '';
     for (const c of visCats) {
-      const ltrs = pivot[ch]?.[c]?.ltrs||0, amount = pivot[ch]?.[c]?.amount||0;
-      chL+=ltrs; chA+=amount; catGtL[c]+=ltrs; catGtA[c]+=amount;
-      cells += cell(ltrs, amount, false);
+      const ltrs   = pivot[ch]?.[c]?.ltrs   || 0;
+      const amount = pivot[ch]?.[c]?.amount || 0;
+      const tgt    = hasTypeTgts ? getTypeCatTgtH(ch, c) : null;
+      const tL = tgt?.ltrs || 0, tK = tgt?.ksh || 0;
+      chL+=ltrs; chA+=amount; chTL+=tL; chTK+=tK;
+      catGtL[c]+=ltrs; catGtA[c]+=amount; catGtTL[c]+=tL; catGtTK[c]+=tK;
+      cells += cell(ltrs, amount, tL, tK, false);
     }
-    gtL+=chL; gtA+=chA;
-    cells += cell(chL, chA, false);
+    gtL+=chL; gtA+=chA; gtTL+=chTL; gtTK+=chTK;
+    cells += cell(chL, chA, chTL, chTK, false);
     rows += `<tr><td style="padding:9px 12px;font-weight:800;font-size:13px;color:#0f5f5a;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;background:${bg};">${ch}</td>${cells}</tr>`;
   }
   let gtCells = '';
-  for (const c of visCats) gtCells += cell(catGtL[c], catGtA[c], true);
-  gtCells += cell(gtL, gtA, true);
+  for (const c of visCats) gtCells += cell(catGtL[c], catGtA[c], catGtTL[c], catGtTK[c], true);
+  gtCells += cell(gtL, gtA, gtTL, gtTK, true);
   rows += `<tr><td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f5f5a;border:1px solid #0f5f5a;vertical-align:middle;white-space:nowrap;letter-spacing:0.05em;">GRAND TOTAL</td>${gtCells}</tr>`;
+
+  // Grand target summary pill for exported HTML
+  let tgtPillHtml = '';
+  if (hasTypeTgts && gtTK > 0) {
+    const achPct  = Math.round((gtA / gtTK) * 100);
+    const achCol  = achPct >= 100 ? '#1db87a' : achPct >= 70 ? '#b45309' : '#E1245A';
+    tgtPillHtml = `
+    <div class="pill"><div class="pill-label">Target (KSH)</div><div class="pill-value">KSH ${Math.round(gtTK).toLocaleString()}</div></div>
+    <div class="pill"><div class="pill-label">% Achieved</div><div class="pill-value" style="color:${achCol};font-size:22px;">${achPct}%</div></div>`;
+  }
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Type Sales — ${period}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a202c;padding:28px;}
   h1{font-size:22px;font-weight:800;color:#0f5f5a;margin-bottom:3px;}.sub{font-size:13px;color:#718096;margin-bottom:20px;}
   .pills{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;}.pill{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:12px 18px;}
   .pill-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:3px;}
-  .pill-value{font-size:20px;font-weight:800;color:#0f5f5a;}.tbl-wrap{overflow-x:auto;background:#fff;border-radius:12px;border:1px solid #dde3ec;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
+  .pill-value{font-size:20px;font-weight:800;color:#0f5f5a;}
+  .key-box{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;}
+  .key-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#718096;margin-bottom:5px;}
+  .key-sub{font-size:12px;font-weight:600;color:#0f2744;}.key-item{display:flex;align-items:center;gap:8px;}
+  .key-badge{background:#1a3c5e;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.75);white-space:nowrap;}
+  .key-desc{font-size:12px;color:#718096;}.key-div{width:1px;background:#dde3ec;align-self:stretch;flex-shrink:0;}
+  .col-guide{display:flex;flex-direction:column;gap:5px;}.col-row{display:flex;align-items:center;gap:8px;}
+  .col-bar{width:26px;height:5px;border-radius:99px;}.col-lbl{font-size:12px;color:#718096;}
+  .tbl-wrap{overflow-x:auto;background:#fff;border-radius:12px;border:1px solid #dde3ec;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
   table{border-collapse:collapse;width:100%;font-size:12px;}</style></head><body>
   <h1>🏷 Type Sales Report</h1>
   <div class="sub">${period} &nbsp;·&nbsp; Generated ${new Date().toLocaleString()}</div>
@@ -4287,6 +4447,25 @@ function exportTypeSalesHTML() {
     <div class="pill"><div class="pill-label">Categories</div><div class="pill-value">${document.getElementById('typeStatCats').textContent}</div></div>
     <div class="pill"><div class="pill-label">Total Revenue</div><div class="pill-value">${document.getElementById('typeStatRev').textContent}</div></div>
     <div class="pill"><div class="pill-label">Total Volume</div><div class="pill-value">${document.getElementById('typeStatVol').textContent}</div></div>
+    ${tgtPillHtml}
+  </div>
+  <div class="key-box">
+    <div><div class="key-title">Report Key</div><div class="key-sub">How to read each cell</div></div>
+    <div class="key-div"></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+      <div class="key-item"><span class="key-badge">V (Ltrs/Kgs)</span><span class="key-desc">Volume sold</span></div>
+      <div class="key-item"><span class="key-badge">R (KSH)</span><span class="key-desc">Revenue in KSH</span></div>
+      <div class="key-item"><span style="font-size:11px;color:#718096;font-weight:600;">tgt: n</span><span class="key-desc">Period target</span></div>
+      <div class="key-item"><span style="font-size:11px;font-weight:800;color:#888;">nn%</span><span class="key-desc">Actual as % of target</span></div>
+    </div>
+    <div class="key-div"></div>
+    <div><div class="key-title" style="margin-bottom:7px;">% Achievement Colour Guide</div>
+      <div class="col-guide">
+        <div class="col-row"><div class="col-bar" style="background:#1db87a;"></div><span class="col-lbl">≥100% On/Above Target</span></div>
+        <div class="col-row"><div class="col-bar" style="background:#f6ad2b;"></div><span class="col-lbl">70–99% Close to Target</span></div>
+        <div class="col-row"><div class="col-bar" style="background:#E1245A;"></div><span class="col-lbl">&lt;70% Below Target</span></div>
+      </div>
+    </div>
   </div>
   <div class="tbl-wrap"><table><thead>${hdr}</thead><tbody>${rows}</tbody></table></div>
   </body></html>`;
@@ -4294,7 +4473,7 @@ function exportTypeSalesHTML() {
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = `Channel_Sales_${period.replace(/\s|–|\/|\./g,'_')}.html`; a.click();
+  a.href = url; a.download = `Type_Sales_${period.replace(/\s|–|\/|\./g,'_')}.html`; a.click();
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
   showToast('HTML file downloaded ✓', 'ok');
 }
