@@ -1108,9 +1108,9 @@
     body.dark #locSalesTable tbody tr:hover td:first-child { background: var(--row-hover); }
     body.dark #locSalesTable tbody td { border-bottom-color: var(--border2); }
 
-    /* ── Channel Sales table — mirrors locSalesTable with teal accent ── */
-    #chanSalesTable { width:100%; border-collapse:collapse; font-size:13px; }
-    #chanSalesTable thead th {
+    /* ── Type Sales table — mirrors locSalesTable with teal accent ── */
+    #typeSalesTable { width:100%; border-collapse:collapse; font-size:13px; }
+    #typeSalesTable thead th {
       background: #0f5f5a;
       color: rgba(255,255,255,0.85);
       padding: 10px 13px;
@@ -1122,33 +1122,33 @@
       position: sticky; top: 0; z-index: 10;
       border-right: 1px solid rgba(255,255,255,0.08);
     }
-    #chanSalesTable thead th:first-child { position:sticky;left:0;z-index:20;background:#0f5f5a;min-width:160px; }
-    #chanSalesTable thead th.chan-cat-head { background:#0d4d49;text-align:center; }
-    #chanSalesTable tbody tr { transition:background 0.1s; }
-    #chanSalesTable tbody tr:hover td { background:var(--row-hover); }
-    #chanSalesTable tbody td {
+    #typeSalesTable thead th:first-child { position:sticky;left:0;z-index:20;background:#0f5f5a;min-width:160px; }
+    #typeSalesTable thead th.type-cat-head { background:#0d4d49;text-align:center; }
+    #typeSalesTable tbody tr { transition:background 0.1s; }
+    #typeSalesTable tbody tr:hover td { background:var(--row-hover); }
+    #typeSalesTable tbody td {
       padding: 9px 13px;
       border-bottom: 1px solid var(--border2);
       color: var(--text);
       white-space: nowrap;
     }
-    #chanSalesTable tbody td:first-child {
+    #typeSalesTable tbody td:first-child {
       position:sticky;left:0;z-index:5;
       background:var(--surface);
       font-weight:700;color:var(--text-head);
       border-right:2px solid var(--border);
       min-width:160px;
     }
-    #chanSalesTable tbody tr:hover td:first-child { background:var(--row-hover); }
-    #chanSalesTable tbody tr.chan-total-row td {
+    #typeSalesTable tbody tr:hover td:first-child { background:var(--row-hover); }
+    #typeSalesTable tbody tr.type-total-row td {
       background:#0f5f5a !important;color:#fff !important;
       font-weight:700;border-top:2px solid var(--border);
       position:sticky;bottom:0;z-index:6;
     }
-    #chanSalesTable tbody tr.chan-total-row td:first-child { background:#0f5f5a !important;z-index:7; }
-    body.dark #chanSalesTable tbody td:first-child { background:var(--surface);border-right-color:var(--border); }
-    body.dark #chanSalesTable tbody tr:hover td:first-child { background:var(--row-hover); }
-    body.dark #chanSalesTable tbody td { border-bottom-color:var(--border2); }
+    #typeSalesTable tbody tr.type-total-row td:first-child { background:#0f5f5a !important;z-index:7; }
+    body.dark #typeSalesTable tbody td:first-child { background:var(--surface);border-right-color:var(--border); }
+    body.dark #typeSalesTable tbody tr:hover td:first-child { background:var(--row-hover); }
+    body.dark #typeSalesTable tbody td { border-bottom-color:var(--border2); }
 </style>
 </head>
 <body>
@@ -1164,7 +1164,7 @@
   <div class="header-nav">
     <button class="nav-btn active" id="navUpload" onclick="switchPage('upload')">📤 Upload Sales</button>
     <button class="nav-btn" id="navLocation" onclick="switchPage('location')">📍 Location Sales</button>
-    <button class="nav-btn" id="navChannel" onclick="switchPage('channel')">📶 Channel Sales</button>
+    <button class="nav-btn" id="navType" onclick="switchPage('type')">🏷 Type Sales</button>
     <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">📊 Charts</button>
     <div class="theme-toggle">
       <span class="theme-toggle-label" id="themeLabel">☀️</span>
@@ -1481,58 +1481,58 @@
 </div>
 
 <!-- ══════════════════ CHANNEL SALES PAGE ══════════════════ -->
-<div class="page" id="pageChannel">
+<div class="page" id="pageType">
   <div class="locsales-page">
 
     <!-- Top bar -->
     <div class="locsales-topbar">
       <div>
-        <h2 class="locsales-title">📶 Channel Sales</h2>
-        <div class="locsales-subtitle" id="chanSalesPeriod">Upload a SAP file to see data</div>
+        <h2 class="locsales-title">🏷 Type Sales</h2>
+        <div class="locsales-subtitle" id="typeSalesPeriod">Upload a SAP file to see data</div>
       </div>
       <div class="locsales-controls">
         <div class="locsales-search-wrap">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input class="locsales-search" id="chanSearch" type="text" placeholder="Search channel…" oninput="filterChanSales()">
+          <input class="locsales-search" id="typeSearch" type="text" placeholder="Search type…" oninput="filterTypeSales()">
         </div>
-        <select class="locsales-filter-select" id="chanCatFilter" onchange="filterChanSales()">
+        <select class="locsales-filter-select" id="typeCatFilter" onchange="filterTypeSales()">
           <option value="">All Categories</option>
         </select>
-        <div style="position:relative;display:inline-block;" id="chanExportDropWrap">
+        <div style="position:relative;display:inline-block;" id="typeExportDropWrap">
           <div style="display:flex;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.2);">
-            <button class="locsales-export-btn" style="border-radius:0;border-right:1px solid rgba(255,255,255,0.2);" onclick="exportChanSalesCSV()">⬇ Export CSV</button>
-            <button class="locsales-export-btn" style="border-radius:0;padding:8px 10px;" onclick="toggleChanExportMenu()" title="More export options">▾</button>
+            <button class="locsales-export-btn" style="border-radius:0;border-right:1px solid rgba(255,255,255,0.2);" onclick="exportTypeSalesCSV()">⬇ Export CSV</button>
+            <button class="locsales-export-btn" style="border-radius:0;padding:8px 10px;" onclick="toggleTypeExportMenu()" title="More export options">▾</button>
           </div>
-          <div id="chanExportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;min-width:160px;overflow:hidden;">
-            <button onclick="exportChanSalesCSV();toggleChanExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📊 Download CSV</button>
-            <button onclick="exportChanSalesHTML();toggleChanExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;border-top:1px solid var(--border2);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">🌐 Download HTML</button>
+          <div id="typeExportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;min-width:160px;overflow:hidden;">
+            <button onclick="exportTypeSalesCSV();toggleTypeExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📊 Download CSV</button>
+            <button onclick="exportTypeSalesHTML();toggleTypeExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;border-top:1px solid var(--border2);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">🌐 Download HTML</button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Summary stat pills -->
-    <div class="locsales-summary" id="chanSalesSummary" style="display:none">
+    <div class="locsales-summary" id="typeSalesSummary" style="display:none">
       <div class="loc-stat-pill">
-        <span class="loc-stat-label">Channels</span>
-        <span class="loc-stat-value" id="chanStatChans">—</span>
+        <span class="loc-stat-label">Types</span>
+        <span class="loc-stat-value" id="typeStatChans">—</span>
       </div>
       <div class="loc-stat-pill">
         <span class="loc-stat-label">Categories</span>
-        <span class="loc-stat-value" id="chanStatCats">—</span>
+        <span class="loc-stat-value" id="typeStatCats">—</span>
       </div>
       <div class="loc-stat-pill">
         <span class="loc-stat-label">Total Revenue</span>
-        <span class="loc-stat-value" id="chanStatRev">—</span>
+        <span class="loc-stat-value" id="typeStatRev">—</span>
       </div>
       <div class="loc-stat-pill">
         <span class="loc-stat-label">Total Volume</span>
-        <span class="loc-stat-value" id="chanStatVol">—</span>
+        <span class="loc-stat-value" id="typeStatVol">—</span>
       </div>
     </div>
 
     <!-- Report Key -->
-    <div id="chanSalesKey" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;">
+    <div id="typeSalesKey" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;">
       <div>
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:5px;">Report Key</div>
         <div style="font-size:12px;font-weight:600;color:var(--text-head);">How to read each cell</div>
@@ -1549,7 +1549,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:7px;">
           <span style="font-size:11px;color:var(--text-muted);font-weight:600;white-space:nowrap;">tgt: <em>n</em></span>
-          <span style="font-size:12px;color:var(--text-muted);">Period target (from Channel Targets sheet)</span>
+          <span style="font-size:12px;color:var(--text-muted);">Period target (from Type Targets sheet)</span>
         </div>
         <div style="display:flex;align-items:center;gap:7px;">
           <span style="font-size:11px;font-weight:800;color:#888;white-space:nowrap;">nn%</span>
@@ -1569,14 +1569,14 @@
 
     <!-- Table container -->
     <div class="locsales-table-outer">
-      <div class="locsales-empty" id="chanSalesEmpty">
+      <div class="locsales-empty" id="typeSalesEmpty">
         <div class="locsales-empty-icon">📂</div>
-        <div>Upload a SAP file on the <strong>Upload Sales</strong> tab to see Channel Sales here.</div>
+        <div>Upload a SAP file on the <strong>Upload Sales</strong> tab to see Type Sales here.</div>
       </div>
-      <div class="locsales-table-wrap" id="chanSalesTableWrap" style="display:none">
-        <table id="chanSalesTable">
-          <thead id="chanSalesHead"></thead>
-          <tbody id="chanSalesTbody"></tbody>
+      <div class="locsales-table-wrap" id="typeSalesTableWrap" style="display:none">
+        <table id="typeSalesTable">
+          <thead id="typeSalesHead"></thead>
+          <tbody id="typeSalesTbody"></tbody>
         </table>
       </div>
     </div>
@@ -1705,7 +1705,7 @@ const SHEET_ID = '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8';
 
 async function loadSheetData() {
   setSheetDot('loading', 'Loading reference data from Google Sheet…');
-  const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Channel Targets'];
+  const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Type Targets'];
   const results = {};
 
   for (const s of sheets) {
@@ -1722,29 +1722,29 @@ async function loadSheetData() {
     } catch { results[s] = null; }
   }
 
-  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, channelCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {} };
+  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {} };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'] || results['Target'] || results['Regional Targets'])
     parseTargetSheet(results['Targets'] || results['Target'] || results['Regional Targets']);
   const locTgtSheet = results['Location Targets'] || results['Loc Targets'] || results['Location Category Targets'];
   if (locTgtSheet) parseLocationCategoryTargetSheet(locTgtSheet);
-  if (results['Channel Targets']) parseChannelCategoryTargetSheet(results['Channel Targets']);
+  if (results['Type Targets']) parseTypeCategoryTargetSheet(results['Type Targets']);
 
   const cc  = refData.customerTotal || Object.keys(refData.customers).length;
   const pc  = Object.keys(refData.products).length;
   const tc  = Object.keys(refData.categoryTargets).length || Object.keys(refData.targets).length;
   const lcCount  = Object.keys(refData.locationCategoryTargets).length;
-  const chCount  = Object.keys(refData.channelCategoryTargets).length;
+  const chCount  = Object.keys(refData.typeCategoryTargets).length;
   const tgt = refData.grandTarget;
   console.log('[Targets] grandTarget:', tgt, '| categoryTargets:', Object.keys(refData.categoryTargets));
   console.log('[LocCatTargets] locations with per-cat targets:', lcCount);
-  console.log('[ChanCatTargets] channels with per-cat targets:', chCount);
+  console.log('[TypeCatTargets] types with per-cat targets:', chCount);
 
   if (cc || pc) {
     const tgtNote = lcCount > 0
       ? ` | ✓ Per-location/category targets: ${lcCount} locations` + (chCount > 0 ? `, ${chCount} channels` : '')
-      : chCount > 0 ? ` | ✓ Channel targets: ${chCount} channels`
+      : chCount > 0 ? ` | ✓ Type targets: ${chCount} channels`
       : tgt ? ` | MTD target: KSH ${Math.round(tgt.ksh).toLocaleString()}` : ' | ⚠ No target loaded';
     setSheetDot('ok', `Loaded — ${cc} customers, ${pc} products, ${tc} targets${tgtNote}.`);
   } else {
@@ -1928,18 +1928,18 @@ function parseLocationCategoryTargetSheet(csv) {
   console.log('[LocCatTargets] Loaded:', Object.keys(refData.locationCategoryTargets).length, 'locations');
 }
 
-// Populates refData.channelCategoryTargets[CHANNEL][CATEGORY] = { ksh, ltrs }
+// Populates refData.typeCategoryTargets[TYPE][CATEGORY] = { ksh, ltrs }
 // Expected sheet columns: Channel | Category | Target KSH | Target Vol (Ltrs/Kgs)
-function parseChannelCategoryTargetSheet(csv) {
+function parseTypeCategoryTargetSheet(csv) {
   const lines  = csv.trim().split('\n');
   const hdrs   = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   const chanIdx = findCol(hdrs, ['channel','chan','trade channel','sales channel','segment','type']);
   const catIdx  = findCol(hdrs, ['category','cat','product','sku']);
   const kIdx    = findCol(hdrs, ['in ksh','target in ksh','ksh','rev','revenue','amount','value','sales']);
   const lIdx    = findCol(hdrs, ['in vol','target in vol','ltrs kgs','vol','ltr','litre','volume','qty','quantity','kg']);
-  console.log('[ChanCatTargets] Headers:', hdrs, '| chanIdx:', chanIdx, 'catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
+  console.log('[TypeCatTargets] Headers:', hdrs, '| chanIdx:', chanIdx, 'catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
   if (chanIdx < 0 || catIdx < 0) {
-    console.warn('[ChanCatTargets] Cannot detect channel/category columns — skipping. Headers found:', hdrs);
+    console.warn('[TypeCatTargets] Cannot detect channel/category columns — skipping. Headers found:', hdrs);
     return;
   }
   for (let i = 1; i < lines.length; i++) {
@@ -1949,10 +1949,10 @@ function parseChannelCategoryTargetSheet(csv) {
     if (!chan || !cat) continue;
     const ksh  = kIdx >= 0 ? parseFloat((cols[kIdx]  || '').replace(/,/g,'')) || 0 : 0;
     const ltrs = lIdx >= 0 ? parseFloat((cols[lIdx]  || '').replace(/,/g,'')) || 0 : 0;
-    if (!refData.channelCategoryTargets[chan]) refData.channelCategoryTargets[chan] = {};
-    refData.channelCategoryTargets[chan][cat] = { ksh, ltrs };
+    if (!refData.typeCategoryTargets[chan]) refData.typeCategoryTargets[chan] = {};
+    refData.typeCategoryTargets[chan][cat] = { ksh, ltrs };
   }
-  console.log('[ChanCatTargets] Loaded:', Object.keys(refData.channelCategoryTargets).length, 'channels');
+  console.log('[TypeCatTargets] Loaded:', Object.keys(refData.typeCategoryTargets).length, 'channels');
 }
 // ═══════════════════════════════════════════════════════
 const dropZone  = document.getElementById('dropZone');
@@ -2515,7 +2515,7 @@ function renderReport(data){
   // Render charts on the Customers tab
   renderCharts(data);
   populateLocSalesPage(data);
-  populateChanSalesPage(data);
+  populateTypeSalesPage(data);
 }
 
 function renderNonTrading(list) {
@@ -3934,9 +3934,9 @@ function exportLocSalesHTML() {
 // ═══════════════════════════════════════════════════════
 // CHANNEL SALES PAGE
 // ═══════════════════════════════════════════════════════
-let _chanSalesData = null;
+let _typeSalesData = null;
 
-function buildChanSalesData(transactions) {
+function buildTypeSalesData(transactions) {
   const pivot    = {};
   const chanSet  = new Set();
   const catSet   = new Set();
@@ -3977,22 +3977,22 @@ function buildChanSalesData(transactions) {
   return { channels, categories, pivot, catTotals, grand };
 }
 
-function renderChanSalesTable(data, filterChan, filterCat) {
+function renderTypeSalesTable(data, filterChan, filterCat) {
   const { channels, categories, pivot } = data;
   const fmt = v => Math.round(v).toLocaleString();
 
-  const chanTgts    = refData.channelCategoryTargets || {};
-  const hasChanTgts = Object.keys(chanTgts).length > 0;
+  const typeTgts    = refData.typeCategoryTargets || {};
+  const hasTypeTgts = Object.keys(typeTgts).length > 0;
 
   const visChans = filterChan ? channels.filter(ch => ch.toLowerCase().includes(filterChan)) : channels;
   const visCats  = filterCat  ? categories.filter(c => c === filterCat.toUpperCase()) : categories;
 
   // Look up channel-category target (fuzzy match on channel name)
-  function getChanCatTgt(ch, c) {
+  function getTypeCatTgt(ch, c) {
     const chU = ch.toUpperCase(), cU = normalizeCat(c);
-    if (chanTgts[chU]) return chanTgts[chU][cU] || chanTgts[chU][c.toUpperCase()] || null;
-    for (const k of Object.keys(chanTgts))
-      if (chU.includes(k) || k.includes(chU)) return chanTgts[k][cU] || chanTgts[k][c.toUpperCase()] || null;
+    if (typeTgts[chU]) return typeTgts[chU][cU] || typeTgts[chU][c.toUpperCase()] || null;
+    for (const k of Object.keys(typeTgts))
+      if (chU.includes(k) || k.includes(chU)) return typeTgts[k][cU] || typeTgts[k][c.toUpperCase()] || null;
     return null;
   }
 
@@ -4040,12 +4040,12 @@ function renderChanSalesTable(data, filterChan, filterCat) {
 
   // Header
   let headHtml = '<tr>';
-  headHtml += `<th style="vertical-align:middle;min-width:160px;text-align:left;border-right:2px solid rgba(255,255,255,0.2);padding:10px 14px;position:sticky;left:0;z-index:20;background:#0f5f5a;font-size:11px;letter-spacing:0.08em;">CHANNEL</th>`;
+  headHtml += `<th style="vertical-align:middle;min-width:160px;text-align:left;border-right:2px solid rgba(255,255,255,0.2);padding:10px 14px;position:sticky;left:0;z-index:20;background:#0f5f5a;font-size:11px;letter-spacing:0.08em;">TYPE</th>`;
   for (const c of visCats)
-    headHtml += `<th class="chan-cat-head" style="min-width:115px;text-align:center;padding:10px 8px;border-right:1px solid rgba(255,255,255,0.08);font-size:11px;letter-spacing:0.04em;">${c}</th>`;
+    headHtml += `<th class="type-cat-head" style="min-width:115px;text-align:center;padding:10px 8px;border-right:1px solid rgba(255,255,255,0.08);font-size:11px;letter-spacing:0.04em;">${c}</th>`;
   headHtml += `<th style="background:#0a3d3a;min-width:115px;text-align:center;padding:10px 8px;border-left:2px solid rgba(255,255,255,0.2);font-size:11px;letter-spacing:0.06em;color:#f6ad2b;font-weight:700;">TOTAL</th>`;
   headHtml += '</tr>';
-  document.getElementById('chanSalesHead').innerHTML = headHtml;
+  document.getElementById('typeSalesHead').innerHTML = headHtml;
 
   // Pre-compute cat totals (actuals + targets)
   const catTotals = {};
@@ -4056,8 +4056,8 @@ function renderChanSalesTable(data, filterChan, filterCat) {
     for (const c of visCats) {
       catTotals[c].ltrs   += pivot[ch]?.[c]?.ltrs   || 0;
       catTotals[c].amount += pivot[ch]?.[c]?.amount || 0;
-      if (hasChanTgts) {
-        const t = getChanCatTgt(ch, c);
+      if (hasTypeTgts) {
+        const t = getTypeCatTgt(ch, c);
         catTotals[c].tgtL += t?.ltrs || 0;
         catTotals[c].tgtK += t?.ksh  || 0;
       }
@@ -4079,7 +4079,7 @@ function renderChanSalesTable(data, filterChan, filterCat) {
     for (const c of visCats) {
       chL  += pivot[ch]?.[c]?.ltrs   || 0;
       chA  += pivot[ch]?.[c]?.amount || 0;
-      if (hasChanTgts) { const t = getChanCatTgt(ch, c); chTL += t?.ltrs||0; chTK += t?.ksh||0; }
+      if (hasTypeTgts) { const t = getTypeCatTgt(ch, c); chTL += t?.ltrs||0; chTK += t?.ksh||0; }
     }
 
     bodyHtml += `<tr>`;
@@ -4087,7 +4087,7 @@ function renderChanSalesTable(data, filterChan, filterCat) {
     for (const c of visCats) {
       const ltrs   = pivot[ch]?.[c]?.ltrs   || 0;
       const amount = pivot[ch]?.[c]?.amount || 0;
-      const tgt    = hasChanTgts ? getChanCatTgt(ch, c) : null;
+      const tgt    = hasTypeTgts ? getTypeCatTgt(ch, c) : null;
       bodyHtml += dataCell(ltrs, amount, tgt?.ltrs||0, tgt?.ksh||0, false, false);
     }
     bodyHtml += dataCell(chL, chA, chTL, chTK, false, true);
@@ -4095,7 +4095,7 @@ function renderChanSalesTable(data, filterChan, filterCat) {
   }
 
   // Grand total row
-  bodyHtml += `<tr class="chan-total-row" style="border-top:3px solid rgba(255,255,255,0.25);">`;
+  bodyHtml += `<tr class="type-total-row" style="border-top:3px solid rgba(255,255,255,0.25);">`;
   bodyHtml += `<td style="padding:10px 14px;font-size:12px;font-weight:800;letter-spacing:0.06em;border-right:2px solid rgba(255,255,255,0.2);vertical-align:middle;position:sticky;left:0;z-index:5;background:#0f5f5a;white-space:nowrap;">GRAND TOTAL</td>`;
   for (const c of visCats) {
     const { ltrs, amount, tgtL, tgtK } = catTotals[c];
@@ -4104,51 +4104,51 @@ function renderChanSalesTable(data, filterChan, filterCat) {
   bodyHtml += dataCell(grandTotals.ltrs, grandTotals.amount, grandTotals.tgtL, grandTotals.tgtK, true, true);
   bodyHtml += `</tr>`;
 
-  document.getElementById('chanSalesTbody').innerHTML = bodyHtml;
+  document.getElementById('typeSalesTbody').innerHTML = bodyHtml;
 }
 
-function filterChanSales() {
-  if (!_chanSalesData) return;
-  const q   = (document.getElementById('chanSearch').value || '').toLowerCase().trim();
-  const cat = document.getElementById('chanCatFilter').value;
-  renderChanSalesTable(_chanSalesData, q, cat);
+function filterTypeSales() {
+  if (!_typeSalesData) return;
+  const q   = (document.getElementById('typeSearch').value || '').toLowerCase().trim();
+  const cat = document.getElementById('typeCatFilter').value;
+  renderTypeSalesTable(_typeSalesData, q, cat);
 }
 
-function populateChanSalesPage(data) {
-  const d = buildChanSalesData(data.transactions);
-  _chanSalesData = d;
+function populateTypeSalesPage(data) {
+  const d = buildTypeSalesData(data.transactions);
+  _typeSalesData = d;
   const fmtBig = v => Math.round(v).toLocaleString();
 
-  document.getElementById('chanSalesPeriod').textContent = data.period ? 'Period: ' + data.period : '';
-  document.getElementById('chanStatChans').textContent = d.channels.length;
-  document.getElementById('chanStatCats').textContent  = d.categories.length;
-  document.getElementById('chanStatRev').textContent   = 'KSH ' + fmtBig(d.grand.amount);
-  document.getElementById('chanStatVol').textContent   = fmtBig(d.grand.ltrs) + ' L/Kg';
-  document.getElementById('chanSalesSummary').style.display = 'flex';
+  document.getElementById('typeSalesPeriod').textContent = data.period ? 'Period: ' + data.period : '';
+  document.getElementById('typeStatChans').textContent = d.channels.length;
+  document.getElementById('typeStatCats').textContent  = d.categories.length;
+  document.getElementById('typeStatRev').textContent   = 'KSH ' + fmtBig(d.grand.amount);
+  document.getElementById('typeStatVol').textContent   = fmtBig(d.grand.ltrs) + ' L/Kg';
+  document.getElementById('typeSalesSummary').style.display = 'flex';
 
-  const catSel = document.getElementById('chanCatFilter');
+  const catSel = document.getElementById('typeCatFilter');
   catSel.innerHTML = '<option value="">All Categories</option>' +
     d.categories.map(c => `<option value="${c}">${c}</option>`).join('');
 
-  document.getElementById('chanSalesEmpty').style.display    = 'none';
-  document.getElementById('chanSalesTableWrap').style.display = 'block';
-  renderChanSalesTable(d, '', '');
+  document.getElementById('typeSalesEmpty').style.display    = 'none';
+  document.getElementById('typeSalesTableWrap').style.display = 'block';
+  renderTypeSalesTable(d, '', '');
 }
 
-function toggleChanExportMenu() {
-  const m = document.getElementById('chanExportMenu');
+function toggleTypeExportMenu() {
+  const m = document.getElementById('typeExportMenu');
   m.style.display = m.style.display === 'none' ? 'block' : 'none';
 }
 document.addEventListener('click', function(e) {
-  if (!document.getElementById('chanExportDropWrap')?.contains(e.target))
-    document.getElementById('chanExportMenu').style.display = 'none';
+  if (!document.getElementById('typeExportDropWrap')?.contains(e.target))
+    document.getElementById('typeExportMenu').style.display = 'none';
 });
 
-function exportChanSalesCSV() {
-  if (!_chanSalesData) { showToast('No data — upload a SAP file first.', 'err'); return; }
-  const { channels, categories, pivot } = _chanSalesData;
-  const q   = (document.getElementById('chanSearch').value || '').toLowerCase().trim();
-  const cat = document.getElementById('chanCatFilter').value;
+function exportTypeSalesCSV() {
+  if (!_typeSalesData) { showToast('No data — upload a SAP file first.', 'err'); return; }
+  const { channels, categories, pivot } = _typeSalesData;
+  const q   = (document.getElementById('typeSearch').value || '').toLowerCase().trim();
+  const cat = document.getElementById('typeCatFilter').value;
   const visChans = q   ? channels.filter(ch => ch.toLowerCase().includes(q)) : channels;
   const visCats  = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
   const fmt = v => Math.round(v);
@@ -4179,7 +4179,7 @@ function exportChanSalesCSV() {
   gtRow += `,${fmt(gtL)},${fmt(gtA)}`;
   csv += gtRow + '\n';
 
-  const period = document.getElementById('chanSalesPeriod').textContent.replace('Period: ','');
+  const period = document.getElementById('typeSalesPeriod').textContent.replace('Period: ','');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -4188,14 +4188,14 @@ function exportChanSalesCSV() {
   showToast('CSV exported ✓', 'ok');
 }
 
-function exportChanSalesHTML() {
-  if (!_chanSalesData) { showToast('No data — upload a SAP file first.', 'err'); return; }
-  const { channels, categories, pivot } = _chanSalesData;
-  const q   = (document.getElementById('chanSearch').value || '').toLowerCase().trim();
-  const cat = document.getElementById('chanCatFilter').value;
+function exportTypeSalesHTML() {
+  if (!_typeSalesData) { showToast('No data — upload a SAP file first.', 'err'); return; }
+  const { channels, categories, pivot } = _typeSalesData;
+  const q   = (document.getElementById('typeSearch').value || '').toLowerCase().trim();
+  const cat = document.getElementById('typeCatFilter').value;
   const visChans = q   ? channels.filter(ch => ch.toLowerCase().includes(q)) : channels;
   const visCats  = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
-  const period   = document.getElementById('chanSalesPeriod').textContent.replace('Period: ','');
+  const period   = document.getElementById('typeSalesPeriod').textContent.replace('Period: ','');
   const fmt = v => Math.round(v).toLocaleString();
 
   function cell(ltrs, amount, darkBg) {
@@ -4214,7 +4214,7 @@ function exportChanSalesHTML() {
   }
 
   let hdr = `<tr style="background:#0f5f5a;">
-    <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.12);white-space:nowrap;">CHANNEL</th>`;
+    <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.12);white-space:nowrap;">TYPE</th>`;
   for (const c of visCats) hdr += `<th style="padding:9px 10px;text-align:center;font-size:10px;font-weight:700;color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.12);min-width:110px;">${c}</th>`;
   hdr += `<th style="padding:9px 10px;text-align:center;font-size:11px;font-weight:700;color:#f6ad2b;border:1px solid rgba(255,255,255,0.12);background:#0a3d3a;">TOTAL</th></tr>`;
 
@@ -4241,20 +4241,20 @@ function exportChanSalesHTML() {
   gtCells += cell(gtL, gtA, true);
   rows += `<tr><td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f5f5a;border:1px solid #0f5f5a;vertical-align:middle;white-space:nowrap;letter-spacing:0.05em;">GRAND TOTAL</td>${gtCells}</tr>`;
 
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Channel Sales — ${period}</title>
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Type Sales — ${period}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a202c;padding:28px;}
   h1{font-size:22px;font-weight:800;color:#0f5f5a;margin-bottom:3px;}.sub{font-size:13px;color:#718096;margin-bottom:20px;}
   .pills{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;}.pill{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:12px 18px;}
   .pill-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:3px;}
   .pill-value{font-size:20px;font-weight:800;color:#0f5f5a;}.tbl-wrap{overflow-x:auto;background:#fff;border-radius:12px;border:1px solid #dde3ec;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
   table{border-collapse:collapse;width:100%;font-size:12px;}</style></head><body>
-  <h1>📶 Channel Sales Report</h1>
+  <h1>🏷 Type Sales Report</h1>
   <div class="sub">${period} &nbsp;·&nbsp; Generated ${new Date().toLocaleString()}</div>
   <div class="pills">
-    <div class="pill"><div class="pill-label">Channels</div><div class="pill-value">${document.getElementById('chanStatChans').textContent}</div></div>
-    <div class="pill"><div class="pill-label">Categories</div><div class="pill-value">${document.getElementById('chanStatCats').textContent}</div></div>
-    <div class="pill"><div class="pill-label">Total Revenue</div><div class="pill-value">${document.getElementById('chanStatRev').textContent}</div></div>
-    <div class="pill"><div class="pill-label">Total Volume</div><div class="pill-value">${document.getElementById('chanStatVol').textContent}</div></div>
+    <div class="pill"><div class="pill-label">Types</div><div class="pill-value">${document.getElementById('typeStatChans').textContent}</div></div>
+    <div class="pill"><div class="pill-label">Categories</div><div class="pill-value">${document.getElementById('typeStatCats').textContent}</div></div>
+    <div class="pill"><div class="pill-label">Total Revenue</div><div class="pill-value">${document.getElementById('typeStatRev').textContent}</div></div>
+    <div class="pill"><div class="pill-label">Total Volume</div><div class="pill-value">${document.getElementById('typeStatVol').textContent}</div></div>
   </div>
   <div class="tbl-wrap"><table><thead>${hdr}</thead><tbody>${rows}</tbody></table></div>
   </body></html>`;
