@@ -1929,30 +1929,59 @@ function parseLocationCategoryTargetSheet(csv) {
 }
 
 // Populates refData.typeCategoryTargets[TYPE][CATEGORY] = { ksh, ltrs }
-// Expected sheet columns: Channel | Category | Target KSH | Target Vol (Ltrs/Kgs)
+// Expected sheet columns: Type | Category | Target KSH | Target Vol (Ltrs/Kgs)
+
+// Canonical type list — defines display order in the table
+const TYPE_CANONICAL = [
+  'DISTRIBUTOR',
+  'WHOLESALER',
+  'SALESMAN',
+  'MT TIER I/II',
+  'INSTITUTION',
+  'EXPORTS'
+];
+
+// Normalise raw type strings from SAP/sheet to canonical names
+function normaliseType(raw) {
+  const s = (raw || '').toUpperCase().trim();
+  if (!s || s === 'UNKNOWN') return null;
+  if (/MT\s*TIER/i.test(s))  return 'MT TIER I/II';
+  if (/^INST/i.test(s))       return 'INSTITUTION';
+  if (/^EXPORT/i.test(s))     return 'EXPORTS';
+  for (const canon of TYPE_CANONICAL) {
+    if (s === canon || s.startsWith(canon) || canon.startsWith(s)) return canon;
+  }
+  return null;
+}
+
 function parseTypeCategoryTargetSheet(csv) {
-  const lines  = csv.trim().split('\n');
-  const hdrs   = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
-  const chanIdx = findCol(hdrs, ['channel','chan','trade channel','sales channel','segment','type']);
+  const lines   = csv.trim().split('\n');
+  const hdrs    = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
+  const typeIdx = findCol(hdrs, ['type','channel','chan','trade channel','sales channel','segment']);
   const catIdx  = findCol(hdrs, ['category','cat','product','sku']);
   const kIdx    = findCol(hdrs, ['in ksh','target in ksh','ksh','rev','revenue','amount','value','sales']);
   const lIdx    = findCol(hdrs, ['in vol','target in vol','ltrs kgs','vol','ltr','litre','volume','qty','quantity','kg']);
-  console.log('[TypeCatTargets] Headers:', hdrs, '| chanIdx:', chanIdx, 'catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
-  if (chanIdx < 0 || catIdx < 0) {
-    console.warn('[TypeCatTargets] Cannot detect channel/category columns — skipping. Headers found:', hdrs);
+  console.log('[TypeCatTargets] Headers:', hdrs, '| typeIdx:', typeIdx, 'catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
+  if (typeIdx < 0 || catIdx < 0) {
+    console.warn('[TypeCatTargets] Cannot detect type/category columns — skipping. Headers found:', hdrs);
     return;
   }
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i]);
-    const chan = (cols[chanIdx] || '').trim().toUpperCase();
-    const cat  = normalizeCat((cols[catIdx] || '').trim());
-    if (!chan || !cat) continue;
+    const rawTyp = (cols[typeIdx] || '').trim();
+    const canon  = normaliseType(rawTyp) || rawTyp.toUpperCase(); // fall back to raw if unrecognised
+    const cat    = normalizeCat((cols[catIdx] || '').trim());
+    if (!canon || !cat) continue;
     const ksh  = kIdx >= 0 ? parseFloat((cols[kIdx]  || '').replace(/,/g,'')) || 0 : 0;
     const ltrs = lIdx >= 0 ? parseFloat((cols[lIdx]  || '').replace(/,/g,'')) || 0 : 0;
-    if (!refData.typeCategoryTargets[chan]) refData.typeCategoryTargets[chan] = {};
-    refData.typeCategoryTargets[chan][cat] = { ksh, ltrs };
+    if (!refData.typeCategoryTargets[canon]) refData.typeCategoryTargets[canon] = {};
+    // Accumulate in case multiple rows share the same canonical type
+    refData.typeCategoryTargets[canon][cat] = {
+      ksh:  (refData.typeCategoryTargets[canon][cat]?.ksh  || 0) + ksh,
+      ltrs: (refData.typeCategoryTargets[canon][cat]?.ltrs || 0) + ltrs
+    };
   }
-  console.log('[TypeCatTargets] Loaded:', Object.keys(refData.typeCategoryTargets).length, 'channels');
+  console.log('[TypeCatTargets] Loaded:', Object.keys(refData.typeCategoryTargets).length, 'types:', Object.keys(refData.typeCategoryTargets));
 }
 // ═══════════════════════════════════════════════════════
 const dropZone  = document.getElementById('dropZone');
@@ -3937,31 +3966,29 @@ function exportLocSalesHTML() {
 let _typeSalesData = null;
 
 function buildTypeSalesData(transactions) {
-  const pivot    = {};
-  const chanSet  = new Set();
-  const catSet   = new Set();
-  const grand    = { ltrs: 0, amount: 0 };
+  const pivot   = {};
+  const typeSet = new Set();
+  const catSet  = new Set();
+  const grand   = { ltrs: 0, amount: 0 };
 
   for (const t of transactions) {
-    const chan = (t.channel || 'UNKNOWN').toUpperCase();
-    const cat  = (t.category || 'UNKNOWN').toUpperCase();
-    chanSet.add(chan); catSet.add(cat);
-    if (!pivot[chan]) pivot[chan] = {};
-    if (!pivot[chan][cat]) pivot[chan][cat] = { ltrs: 0, amount: 0 };
-    pivot[chan][cat].ltrs   += t.ltrs;
-    pivot[chan][cat].amount += t.amount;
+    const typ = normaliseType(t.type);
+    if (!typ) continue;                          // skip UNKNOWN / unrecognised
+    const cat = (t.category || 'UNKNOWN').toUpperCase();
+    typeSet.add(typ); catSet.add(cat);
+    if (!pivot[typ]) pivot[typ] = {};
+    if (!pivot[typ][cat]) pivot[typ][cat] = { ltrs: 0, amount: 0 };
+    pivot[typ][cat].ltrs   += t.ltrs;
+    pivot[typ][cat].amount += t.amount;
     grand.ltrs   += t.ltrs;
     grand.amount += t.amount;
   }
 
-  const channels   = [...chanSet].sort((a, b) => {
-    const tA = Object.values(pivot[a]||{}).reduce((s,d)=>s+d.amount,0);
-    const tB = Object.values(pivot[b]||{}).reduce((s,d)=>s+d.amount,0);
-    return tB - tA;
-  });
+  // Use canonical order, only include types that actually have data
+  const channels   = TYPE_CANONICAL.filter(t => typeSet.has(t));
   const categories = [...catSet].sort((a, b) => {
-    const tA = channels.reduce((s,ch)=>s+(pivot[ch]?.[a]?.amount||0),0);
-    const tB = channels.reduce((s,ch)=>s+(pivot[ch]?.[b]?.amount||0),0);
+    const tA = channels.reduce((s, ch) => s + (pivot[ch]?.[a]?.amount || 0), 0);
+    const tB = channels.reduce((s, ch) => s + (pivot[ch]?.[b]?.amount || 0), 0);
     return tB - tA;
   });
 
@@ -3987,12 +4014,17 @@ function renderTypeSalesTable(data, filterChan, filterCat) {
   const visChans = filterChan ? channels.filter(ch => ch.toLowerCase().includes(filterChan)) : channels;
   const visCats  = filterCat  ? categories.filter(c => c === filterCat.toUpperCase()) : categories;
 
-  // Look up channel-category target (fuzzy match on channel name)
+  // Look up type-category target using canonical type name
   function getTypeCatTgt(ch, c) {
     const chU = ch.toUpperCase(), cU = normalizeCat(c);
+    // Direct match on canonical name first
     if (typeTgts[chU]) return typeTgts[chU][cU] || typeTgts[chU][c.toUpperCase()] || null;
-    for (const k of Object.keys(typeTgts))
-      if (chU.includes(k) || k.includes(chU)) return typeTgts[k][cU] || typeTgts[k][c.toUpperCase()] || null;
+    // Fuzzy: try normalising the key as well
+    for (const k of Object.keys(typeTgts)) {
+      const normK = normaliseType(k) || k;
+      if (normK === chU || chU === normK || k === chU || chU.includes(k) || k.includes(chU))
+        return typeTgts[k][cU] || typeTgts[k][c.toUpperCase()] || null;
+    }
     return null;
   }
 
