@@ -1107,6 +1107,48 @@
     body.dark #locSalesTable tbody td:first-child { background: var(--surface); border-right-color: var(--border); }
     body.dark #locSalesTable tbody tr:hover td:first-child { background: var(--row-hover); }
     body.dark #locSalesTable tbody td { border-bottom-color: var(--border2); }
+
+    /* ── Channel Sales table — mirrors locSalesTable with teal accent ── */
+    #chanSalesTable { width:100%; border-collapse:collapse; font-size:13px; }
+    #chanSalesTable thead th {
+      background: #0f5f5a;
+      color: rgba(255,255,255,0.85);
+      padding: 10px 13px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      position: sticky; top: 0; z-index: 10;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    #chanSalesTable thead th:first-child { position:sticky;left:0;z-index:20;background:#0f5f5a;min-width:160px; }
+    #chanSalesTable thead th.chan-cat-head { background:#0d4d49;text-align:center; }
+    #chanSalesTable tbody tr { transition:background 0.1s; }
+    #chanSalesTable tbody tr:hover td { background:var(--row-hover); }
+    #chanSalesTable tbody td {
+      padding: 9px 13px;
+      border-bottom: 1px solid var(--border2);
+      color: var(--text);
+      white-space: nowrap;
+    }
+    #chanSalesTable tbody td:first-child {
+      position:sticky;left:0;z-index:5;
+      background:var(--surface);
+      font-weight:700;color:var(--text-head);
+      border-right:2px solid var(--border);
+      min-width:160px;
+    }
+    #chanSalesTable tbody tr:hover td:first-child { background:var(--row-hover); }
+    #chanSalesTable tbody tr.chan-total-row td {
+      background:#0f5f5a !important;color:#fff !important;
+      font-weight:700;border-top:2px solid var(--border);
+      position:sticky;bottom:0;z-index:6;
+    }
+    #chanSalesTable tbody tr.chan-total-row td:first-child { background:#0f5f5a !important;z-index:7; }
+    body.dark #chanSalesTable tbody td:first-child { background:var(--surface);border-right-color:var(--border); }
+    body.dark #chanSalesTable tbody tr:hover td:first-child { background:var(--row-hover); }
+    body.dark #chanSalesTable tbody td { border-bottom-color:var(--border2); }
 </style>
 </head>
 <body>
@@ -1122,6 +1164,7 @@
   <div class="header-nav">
     <button class="nav-btn active" id="navUpload" onclick="switchPage('upload')">📤 Upload Sales</button>
     <button class="nav-btn" id="navLocation" onclick="switchPage('location')">📍 Location Sales</button>
+    <button class="nav-btn" id="navChannel" onclick="switchPage('channel')">📶 Channel Sales</button>
     <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">📊 Charts</button>
     <div class="theme-toggle">
       <span class="theme-toggle-label" id="themeLabel">☀️</span>
@@ -1437,6 +1480,110 @@
   </div>
 </div>
 
+<!-- ══════════════════ CHANNEL SALES PAGE ══════════════════ -->
+<div class="page" id="pageChannel">
+  <div class="locsales-page">
+
+    <!-- Top bar -->
+    <div class="locsales-topbar">
+      <div>
+        <h2 class="locsales-title">📶 Channel Sales</h2>
+        <div class="locsales-subtitle" id="chanSalesPeriod">Upload a SAP file to see data</div>
+      </div>
+      <div class="locsales-controls">
+        <div class="locsales-search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="locsales-search" id="chanSearch" type="text" placeholder="Search channel…" oninput="filterChanSales()">
+        </div>
+        <select class="locsales-filter-select" id="chanCatFilter" onchange="filterChanSales()">
+          <option value="">All Categories</option>
+        </select>
+        <div style="position:relative;display:inline-block;" id="chanExportDropWrap">
+          <div style="display:flex;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.2);">
+            <button class="locsales-export-btn" style="border-radius:0;border-right:1px solid rgba(255,255,255,0.2);" onclick="exportChanSalesCSV()">⬇ Export CSV</button>
+            <button class="locsales-export-btn" style="border-radius:0;padding:8px 10px;" onclick="toggleChanExportMenu()" title="More export options">▾</button>
+          </div>
+          <div id="chanExportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;min-width:160px;overflow:hidden;">
+            <button onclick="exportChanSalesCSV();toggleChanExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📊 Download CSV</button>
+            <button onclick="exportChanSalesHTML();toggleChanExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;border-top:1px solid var(--border2);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">🌐 Download HTML</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary stat pills -->
+    <div class="locsales-summary" id="chanSalesSummary" style="display:none">
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Channels</span>
+        <span class="loc-stat-value" id="chanStatChans">—</span>
+      </div>
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Categories</span>
+        <span class="loc-stat-value" id="chanStatCats">—</span>
+      </div>
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Total Revenue</span>
+        <span class="loc-stat-value" id="chanStatRev">—</span>
+      </div>
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Total Volume</span>
+        <span class="loc-stat-value" id="chanStatVol">—</span>
+      </div>
+    </div>
+
+    <!-- Report Key -->
+    <div id="chanSalesKey" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:5px;">Report Key</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text-head);">How to read each cell</div>
+      </div>
+      <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;"></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="background:#1a3c5e;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:0.04em;white-space:nowrap;">V (Ltrs/Kgs)</span>
+          <span style="font-size:12px;color:var(--text-muted);">Volume sold in Litres / Kilograms</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="background:#1a3c5e;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:0.04em;white-space:nowrap;">R (KSH)</span>
+          <span style="font-size:12px;color:var(--text-muted);">Revenue in Kenyan Shillings</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="font-size:11px;color:var(--text-muted);font-weight:600;white-space:nowrap;">tgt: <em>n</em></span>
+          <span style="font-size:12px;color:var(--text-muted);">Period target (from Channel Targets sheet)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="font-size:11px;font-weight:800;color:#888;white-space:nowrap;">nn%</span>
+          <span style="font-size:12px;color:var(--text-muted);">Actual as % of target</span>
+        </div>
+      </div>
+      <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;"></div>
+      <div style="flex:0 0 auto;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:7px;">Colour Guide</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;align-items:center;gap:8px;"><div style="width:26px;height:5px;border-radius:99px;background:#1db87a;"></div><span style="font-size:12px;color:var(--text-muted);">&#8805;100% On / Above Target</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><div style="width:26px;height:5px;border-radius:99px;background:#f6ad2b;"></div><span style="font-size:12px;color:var(--text-muted);">70–99% Close to Target</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><div style="width:26px;height:5px;border-radius:99px;background:#E1245A;"></div><span style="font-size:12px;color:var(--text-muted);">&lt;70% Below Target</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table container -->
+    <div class="locsales-table-outer">
+      <div class="locsales-empty" id="chanSalesEmpty">
+        <div class="locsales-empty-icon">📂</div>
+        <div>Upload a SAP file on the <strong>Upload Sales</strong> tab to see Channel Sales here.</div>
+      </div>
+      <div class="locsales-table-wrap" id="chanSalesTableWrap" style="display:none">
+        <table id="chanSalesTable">
+          <thead id="chanSalesHead"></thead>
+          <tbody id="chanSalesTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- ══════════════════ CHARTS PAGE ══════════════════ -->
 <div class="page" id="pageCustomers">
   <div class="customers-page">
@@ -1558,7 +1705,7 @@ const SHEET_ID = '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8';
 
 async function loadSheetData() {
   setSheetDot('loading', 'Loading reference data from Google Sheet…');
-  const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets'];
+  const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Channel Targets'];
   const results = {};
 
   for (const s of sheets) {
@@ -1575,25 +1722,29 @@ async function loadSheetData() {
     } catch { results[s] = null; }
   }
 
-  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {} };
+  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, channelCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {} };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'] || results['Target'] || results['Regional Targets'])
     parseTargetSheet(results['Targets'] || results['Target'] || results['Regional Targets']);
   const locTgtSheet = results['Location Targets'] || results['Loc Targets'] || results['Location Category Targets'];
   if (locTgtSheet) parseLocationCategoryTargetSheet(locTgtSheet);
+  if (results['Channel Targets']) parseChannelCategoryTargetSheet(results['Channel Targets']);
 
   const cc  = refData.customerTotal || Object.keys(refData.customers).length;
   const pc  = Object.keys(refData.products).length;
   const tc  = Object.keys(refData.categoryTargets).length || Object.keys(refData.targets).length;
-  const lcCount = Object.keys(refData.locationCategoryTargets).length;
+  const lcCount  = Object.keys(refData.locationCategoryTargets).length;
+  const chCount  = Object.keys(refData.channelCategoryTargets).length;
   const tgt = refData.grandTarget;
   console.log('[Targets] grandTarget:', tgt, '| categoryTargets:', Object.keys(refData.categoryTargets));
   console.log('[LocCatTargets] locations with per-cat targets:', lcCount);
+  console.log('[ChanCatTargets] channels with per-cat targets:', chCount);
 
   if (cc || pc) {
     const tgtNote = lcCount > 0
-      ? ` | ✓ Per-location/category targets: ${lcCount} locations`
+      ? ` | ✓ Per-location/category targets: ${lcCount} locations` + (chCount > 0 ? `, ${chCount} channels` : '')
+      : chCount > 0 ? ` | ✓ Channel targets: ${chCount} channels`
       : tgt ? ` | MTD target: KSH ${Math.round(tgt.ksh).toLocaleString()}` : ' | ⚠ No target loaded';
     setSheetDot('ok', `Loaded — ${cc} customers, ${pc} products, ${tc} targets${tgtNote}.`);
   } else {
@@ -1775,6 +1926,33 @@ function parseLocationCategoryTargetSheet(csv) {
     refData.locationCategoryTargets[loc][cat] = { ksh, ltrs };
   }
   console.log('[LocCatTargets] Loaded:', Object.keys(refData.locationCategoryTargets).length, 'locations');
+}
+
+// Populates refData.channelCategoryTargets[CHANNEL][CATEGORY] = { ksh, ltrs }
+// Expected sheet columns: Channel | Category | Target KSH | Target Vol (Ltrs/Kgs)
+function parseChannelCategoryTargetSheet(csv) {
+  const lines  = csv.trim().split('\n');
+  const hdrs   = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
+  const chanIdx = findCol(hdrs, ['channel','chan','trade channel','sales channel','segment','type']);
+  const catIdx  = findCol(hdrs, ['category','cat','product','sku']);
+  const kIdx    = findCol(hdrs, ['in ksh','target in ksh','ksh','rev','revenue','amount','value','sales']);
+  const lIdx    = findCol(hdrs, ['in vol','target in vol','ltrs kgs','vol','ltr','litre','volume','qty','quantity','kg']);
+  console.log('[ChanCatTargets] Headers:', hdrs, '| chanIdx:', chanIdx, 'catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
+  if (chanIdx < 0 || catIdx < 0) {
+    console.warn('[ChanCatTargets] Cannot detect channel/category columns — skipping. Headers found:', hdrs);
+    return;
+  }
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    const chan = (cols[chanIdx] || '').trim().toUpperCase();
+    const cat  = normalizeCat((cols[catIdx] || '').trim());
+    if (!chan || !cat) continue;
+    const ksh  = kIdx >= 0 ? parseFloat((cols[kIdx]  || '').replace(/,/g,'')) || 0 : 0;
+    const ltrs = lIdx >= 0 ? parseFloat((cols[lIdx]  || '').replace(/,/g,'')) || 0 : 0;
+    if (!refData.channelCategoryTargets[chan]) refData.channelCategoryTargets[chan] = {};
+    refData.channelCategoryTargets[chan][cat] = { ksh, ltrs };
+  }
+  console.log('[ChanCatTargets] Loaded:', Object.keys(refData.channelCategoryTargets).length, 'channels');
 }
 // ═══════════════════════════════════════════════════════
 const dropZone  = document.getElementById('dropZone');
@@ -2337,6 +2515,7 @@ function renderReport(data){
   // Render charts on the Customers tab
   renderCharts(data);
   populateLocSalesPage(data);
+  populateChanSalesPage(data);
 }
 
 function renderNonTrading(list) {
@@ -3749,6 +3928,342 @@ function exportLocSalesHTML() {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  showToast('HTML file downloaded ✓', 'ok');
+}
+
+// ═══════════════════════════════════════════════════════
+// CHANNEL SALES PAGE
+// ═══════════════════════════════════════════════════════
+let _chanSalesData = null;
+
+function buildChanSalesData(transactions) {
+  const pivot    = {};
+  const chanSet  = new Set();
+  const catSet   = new Set();
+  const grand    = { ltrs: 0, amount: 0 };
+
+  for (const t of transactions) {
+    const chan = (t.channel || 'UNKNOWN').toUpperCase();
+    const cat  = (t.category || 'UNKNOWN').toUpperCase();
+    chanSet.add(chan); catSet.add(cat);
+    if (!pivot[chan]) pivot[chan] = {};
+    if (!pivot[chan][cat]) pivot[chan][cat] = { ltrs: 0, amount: 0 };
+    pivot[chan][cat].ltrs   += t.ltrs;
+    pivot[chan][cat].amount += t.amount;
+    grand.ltrs   += t.ltrs;
+    grand.amount += t.amount;
+  }
+
+  const channels   = [...chanSet].sort((a, b) => {
+    const tA = Object.values(pivot[a]||{}).reduce((s,d)=>s+d.amount,0);
+    const tB = Object.values(pivot[b]||{}).reduce((s,d)=>s+d.amount,0);
+    return tB - tA;
+  });
+  const categories = [...catSet].sort((a, b) => {
+    const tA = channels.reduce((s,ch)=>s+(pivot[ch]?.[a]?.amount||0),0);
+    const tB = channels.reduce((s,ch)=>s+(pivot[ch]?.[b]?.amount||0),0);
+    return tB - tA;
+  });
+
+  const catTotals = {};
+  for (const c of categories) {
+    catTotals[c] = { ltrs: 0, amount: 0 };
+    for (const ch of channels) {
+      catTotals[c].ltrs   += pivot[ch]?.[c]?.ltrs   || 0;
+      catTotals[c].amount += pivot[ch]?.[c]?.amount || 0;
+    }
+  }
+
+  return { channels, categories, pivot, catTotals, grand };
+}
+
+function renderChanSalesTable(data, filterChan, filterCat) {
+  const { channels, categories, pivot } = data;
+  const fmt = v => Math.round(v).toLocaleString();
+
+  const chanTgts    = refData.channelCategoryTargets || {};
+  const hasChanTgts = Object.keys(chanTgts).length > 0;
+
+  const visChans = filterChan ? channels.filter(ch => ch.toLowerCase().includes(filterChan)) : channels;
+  const visCats  = filterCat  ? categories.filter(c => c === filterCat.toUpperCase()) : categories;
+
+  // Look up channel-category target (fuzzy match on channel name)
+  function getChanCatTgt(ch, c) {
+    const chU = ch.toUpperCase(), cU = normalizeCat(c);
+    if (chanTgts[chU]) return chanTgts[chU][cU] || chanTgts[chU][c.toUpperCase()] || null;
+    for (const k of Object.keys(chanTgts))
+      if (chU.includes(k) || k.includes(chU)) return chanTgts[k][cU] || chanTgts[k][c.toUpperCase()] || null;
+    return null;
+  }
+
+  function pV(a, t) { return (!t || t === 0) ? null : Math.round((a / t) * 100); }
+  function pctColor(p) {
+    if (p === null) return 'var(--text-muted)';
+    return p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
+  }
+
+  function dataCell(ltrs, amount, tgtL, tgtK, isDark, isTotCol) {
+    const pL = pV(ltrs, tgtL), pK = pV(amount, tgtK);
+    const cL = pctColor(pL), cK = pctColor(pK);
+    const bL = pL !== null ? Math.min(pL, 100) : 0;
+    const bK = pK !== null ? Math.min(pK, 100) : 0;
+    const numCol = (isDark || isTotCol) ? '#f6ad2b' : 'var(--text-head)';
+    const lblCol = (isDark || isTotCol) ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)';
+    const cellBg = isTotCol ? 'background:rgba(15,95,90,0.25);' : '';
+    const barBg  = (isDark || isTotCol) ? 'rgba(255,255,255,0.18)' : 'var(--border)';
+    const divCol = (isDark || isTotCol) ? 'rgba(255,255,255,0.12)' : 'var(--border2)';
+    if (!ltrs && !amount && !tgtL && !tgtK) {
+      return `<td style="padding:8px 10px;text-align:center;${cellBg}border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);"><span style="color:var(--text-muted);font-size:12px;">—</span></td>`;
+    }
+    return `<td style="padding:7px 9px;vertical-align:top;${cellBg}border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);min-width:115px;">
+      <div style="font-size:10px;font-weight:700;color:${lblCol};letter-spacing:0.05em;margin-bottom:1px;">V (Ltrs/Kgs)</div>
+      <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmt(ltrs)}</div>
+      ${tgtL ? `<div style="font-size:10px;color:var(--text-muted);text-align:right;">tgt: ${fmt(tgtL)}</div>` : ''}
+      ${pL !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;">
+        <div style="flex:1;max-width:34px;height:3px;background:${barBg};border-radius:99px;overflow:hidden;">
+          <div style="height:3px;width:${bL}%;background:${cL};border-radius:99px;"></div>
+        </div>
+        <span style="font-size:10px;font-weight:800;color:${cL};">${pL}%</span>
+      </div>` : ''}
+      <div style="border-top:1px dashed ${divCol};margin:4px 0 3px;"></div>
+      <div style="font-size:10px;font-weight:700;color:${lblCol};letter-spacing:0.05em;margin-bottom:1px;">R (KSH)</div>
+      <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmt(amount)}</div>
+      ${tgtK ? `<div style="font-size:10px;color:var(--text-muted);text-align:right;">tgt: ${fmt(tgtK)}</div>` : ''}
+      ${pK !== null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;">
+        <div style="flex:1;max-width:34px;height:3px;background:${barBg};border-radius:99px;overflow:hidden;">
+          <div style="height:3px;width:${bK}%;background:${cK};border-radius:99px;"></div>
+        </div>
+        <span style="font-size:10px;font-weight:800;color:${cK};">${pK}%</span>
+      </div>` : ''}
+    </td>`;
+  }
+
+  // Header
+  let headHtml = '<tr>';
+  headHtml += `<th style="vertical-align:middle;min-width:160px;text-align:left;border-right:2px solid rgba(255,255,255,0.2);padding:10px 14px;position:sticky;left:0;z-index:20;background:#0f5f5a;font-size:11px;letter-spacing:0.08em;">CHANNEL</th>`;
+  for (const c of visCats)
+    headHtml += `<th class="chan-cat-head" style="min-width:115px;text-align:center;padding:10px 8px;border-right:1px solid rgba(255,255,255,0.08);font-size:11px;letter-spacing:0.04em;">${c}</th>`;
+  headHtml += `<th style="background:#0a3d3a;min-width:115px;text-align:center;padding:10px 8px;border-left:2px solid rgba(255,255,255,0.2);font-size:11px;letter-spacing:0.06em;color:#f6ad2b;font-weight:700;">TOTAL</th>`;
+  headHtml += '</tr>';
+  document.getElementById('chanSalesHead').innerHTML = headHtml;
+
+  // Pre-compute cat totals (actuals + targets)
+  const catTotals = {};
+  for (const c of visCats) catTotals[c] = { ltrs: 0, amount: 0, tgtL: 0, tgtK: 0 };
+  const grandTotals = { ltrs: 0, amount: 0, tgtL: 0, tgtK: 0 };
+
+  for (const ch of visChans) {
+    for (const c of visCats) {
+      catTotals[c].ltrs   += pivot[ch]?.[c]?.ltrs   || 0;
+      catTotals[c].amount += pivot[ch]?.[c]?.amount || 0;
+      if (hasChanTgts) {
+        const t = getChanCatTgt(ch, c);
+        catTotals[c].tgtL += t?.ltrs || 0;
+        catTotals[c].tgtK += t?.ksh  || 0;
+      }
+    }
+  }
+  for (const c of visCats) {
+    grandTotals.ltrs   += catTotals[c].ltrs;
+    grandTotals.amount += catTotals[c].amount;
+    grandTotals.tgtL   += catTotals[c].tgtL;
+    grandTotals.tgtK   += catTotals[c].tgtK;
+  }
+
+  // Body rows
+  let bodyHtml = '';
+  for (let ri = 0; ri < visChans.length; ri++) {
+    const ch    = visChans[ri];
+    const rowBg = ri % 2 === 1 ? 'background:rgba(255,255,255,0.02);' : '';
+    let chL = 0, chA = 0, chTL = 0, chTK = 0;
+    for (const c of visCats) {
+      chL  += pivot[ch]?.[c]?.ltrs   || 0;
+      chA  += pivot[ch]?.[c]?.amount || 0;
+      if (hasChanTgts) { const t = getChanCatTgt(ch, c); chTL += t?.ltrs||0; chTK += t?.ksh||0; }
+    }
+
+    bodyHtml += `<tr>`;
+    bodyHtml += `<td style="padding:9px 14px;font-weight:700;font-size:13px;color:var(--text-head);border-right:2px solid var(--border);border-bottom:1px solid var(--border2);vertical-align:middle;position:sticky;left:0;z-index:5;background:var(--surface);${rowBg}white-space:nowrap;">${ch}</td>`;
+    for (const c of visCats) {
+      const ltrs   = pivot[ch]?.[c]?.ltrs   || 0;
+      const amount = pivot[ch]?.[c]?.amount || 0;
+      const tgt    = hasChanTgts ? getChanCatTgt(ch, c) : null;
+      bodyHtml += dataCell(ltrs, amount, tgt?.ltrs||0, tgt?.ksh||0, false, false);
+    }
+    bodyHtml += dataCell(chL, chA, chTL, chTK, false, true);
+    bodyHtml += `</tr>`;
+  }
+
+  // Grand total row
+  bodyHtml += `<tr class="chan-total-row" style="border-top:3px solid rgba(255,255,255,0.25);">`;
+  bodyHtml += `<td style="padding:10px 14px;font-size:12px;font-weight:800;letter-spacing:0.06em;border-right:2px solid rgba(255,255,255,0.2);vertical-align:middle;position:sticky;left:0;z-index:5;background:#0f5f5a;white-space:nowrap;">GRAND TOTAL</td>`;
+  for (const c of visCats) {
+    const { ltrs, amount, tgtL, tgtK } = catTotals[c];
+    bodyHtml += dataCell(ltrs, amount, tgtL, tgtK, true, false);
+  }
+  bodyHtml += dataCell(grandTotals.ltrs, grandTotals.amount, grandTotals.tgtL, grandTotals.tgtK, true, true);
+  bodyHtml += `</tr>`;
+
+  document.getElementById('chanSalesTbody').innerHTML = bodyHtml;
+}
+
+function filterChanSales() {
+  if (!_chanSalesData) return;
+  const q   = (document.getElementById('chanSearch').value || '').toLowerCase().trim();
+  const cat = document.getElementById('chanCatFilter').value;
+  renderChanSalesTable(_chanSalesData, q, cat);
+}
+
+function populateChanSalesPage(data) {
+  const d = buildChanSalesData(data.transactions);
+  _chanSalesData = d;
+  const fmtBig = v => Math.round(v).toLocaleString();
+
+  document.getElementById('chanSalesPeriod').textContent = data.period ? 'Period: ' + data.period : '';
+  document.getElementById('chanStatChans').textContent = d.channels.length;
+  document.getElementById('chanStatCats').textContent  = d.categories.length;
+  document.getElementById('chanStatRev').textContent   = 'KSH ' + fmtBig(d.grand.amount);
+  document.getElementById('chanStatVol').textContent   = fmtBig(d.grand.ltrs) + ' L/Kg';
+  document.getElementById('chanSalesSummary').style.display = 'flex';
+
+  const catSel = document.getElementById('chanCatFilter');
+  catSel.innerHTML = '<option value="">All Categories</option>' +
+    d.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  document.getElementById('chanSalesEmpty').style.display    = 'none';
+  document.getElementById('chanSalesTableWrap').style.display = 'block';
+  renderChanSalesTable(d, '', '');
+}
+
+function toggleChanExportMenu() {
+  const m = document.getElementById('chanExportMenu');
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', function(e) {
+  if (!document.getElementById('chanExportDropWrap')?.contains(e.target))
+    document.getElementById('chanExportMenu').style.display = 'none';
+});
+
+function exportChanSalesCSV() {
+  if (!_chanSalesData) { showToast('No data — upload a SAP file first.', 'err'); return; }
+  const { channels, categories, pivot } = _chanSalesData;
+  const q   = (document.getElementById('chanSearch').value || '').toLowerCase().trim();
+  const cat = document.getElementById('chanCatFilter').value;
+  const visChans = q   ? channels.filter(ch => ch.toLowerCase().includes(q)) : channels;
+  const visCats  = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
+  const fmt = v => Math.round(v);
+
+  let hdr1 = 'CHANNEL', hdr2 = '';
+  for (const c of visCats) { hdr1 += `,"${c}",`; hdr2 += `,Vol (Ltrs/Kgs),Rev (KSH)`; }
+  hdr1 += ',TOTAL,'; hdr2 += ',Total Vol,Total Rev';
+  let csv = hdr1 + '\n' + hdr2 + '\n';
+
+  let gtL = 0, gtA = 0;
+  for (const ch of visChans) {
+    let row = `"${ch}"`, chL = 0, chA = 0;
+    for (const c of visCats) {
+      const ltrs = pivot[ch]?.[c]?.ltrs || 0, amount = pivot[ch]?.[c]?.amount || 0;
+      chL += ltrs; chA += amount;
+      row += `,${fmt(ltrs)},${fmt(amount)}`;
+    }
+    row += `,${fmt(chL)},${fmt(chA)}`;
+    gtL += chL; gtA += chA;
+    csv += row + '\n';
+  }
+
+  // Grand total row
+  let gtRow = 'GRAND TOTAL';
+  const catGtL = {}, catGtA = {};
+  for (const c of visCats) { catGtL[c]=0; catGtA[c]=0; for (const ch of visChans) { catGtL[c]+=pivot[ch]?.[c]?.ltrs||0; catGtA[c]+=pivot[ch]?.[c]?.amount||0; } }
+  for (const c of visCats) gtRow += `,${fmt(catGtL[c])},${fmt(catGtA[c])}`;
+  gtRow += `,${fmt(gtL)},${fmt(gtA)}`;
+  csv += gtRow + '\n';
+
+  const period = document.getElementById('chanSalesPeriod').textContent.replace('Period: ','');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `Channel_Sales_${period.replace(/\s|–|\/|\./g,'_')}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exported ✓', 'ok');
+}
+
+function exportChanSalesHTML() {
+  if (!_chanSalesData) { showToast('No data — upload a SAP file first.', 'err'); return; }
+  const { channels, categories, pivot } = _chanSalesData;
+  const q   = (document.getElementById('chanSearch').value || '').toLowerCase().trim();
+  const cat = document.getElementById('chanCatFilter').value;
+  const visChans = q   ? channels.filter(ch => ch.toLowerCase().includes(q)) : channels;
+  const visCats  = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
+  const period   = document.getElementById('chanSalesPeriod').textContent.replace('Period: ','');
+  const fmt = v => Math.round(v).toLocaleString();
+
+  function cell(ltrs, amount, darkBg) {
+    const bg  = darkBg ? '#0f5f5a' : '#fff';
+    const nc  = darkBg ? '#f6ad2b' : '#0f2744';
+    const lc  = darkBg ? 'rgba(255,255,255,0.55)' : '#718096';
+    const bdr = darkBg ? '1px solid #0a3d3a' : '1px solid #e2e8f0';
+    if (!ltrs && !amount) return `<td style="text-align:center;background:${bg};border:${bdr};padding:6px 8px;color:#ccc;font-size:11px;">—</td>`;
+    return `<td style="padding:7px 9px;vertical-align:top;background:${bg};border:${bdr};min-width:110px;">
+      <div style="font-size:10px;font-weight:700;color:${lc};letter-spacing:0.04em;margin-bottom:1px;">V (Ltrs/Kgs)</div>
+      <div style="font-size:12px;font-weight:700;color:${nc};text-align:right;">${fmt(ltrs)}</div>
+      <div style="border-top:1px dashed #e2e8f0;margin:4px 0 3px;"></div>
+      <div style="font-size:10px;font-weight:700;color:${lc};letter-spacing:0.04em;margin-bottom:1px;">R (KSH)</div>
+      <div style="font-size:12px;font-weight:700;color:${nc};text-align:right;">${fmt(amount)}</div>
+    </td>`;
+  }
+
+  let hdr = `<tr style="background:#0f5f5a;">
+    <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.12);white-space:nowrap;">CHANNEL</th>`;
+  for (const c of visCats) hdr += `<th style="padding:9px 10px;text-align:center;font-size:10px;font-weight:700;color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.12);min-width:110px;">${c}</th>`;
+  hdr += `<th style="padding:9px 10px;text-align:center;font-size:11px;font-weight:700;color:#f6ad2b;border:1px solid rgba(255,255,255,0.12);background:#0a3d3a;">TOTAL</th></tr>`;
+
+  let rows = '';
+  const catGtL = {}, catGtA = {};
+  for (const c of visCats) { catGtL[c]=0; catGtA[c]=0; }
+  let gtL = 0, gtA = 0;
+
+  for (let ri = 0; ri < visChans.length; ri++) {
+    const ch = visChans[ri];
+    const bg = ri % 2 === 1 ? '#f8fafc' : '#fff';
+    let chL = 0, chA = 0, cells = '';
+    for (const c of visCats) {
+      const ltrs = pivot[ch]?.[c]?.ltrs||0, amount = pivot[ch]?.[c]?.amount||0;
+      chL+=ltrs; chA+=amount; catGtL[c]+=ltrs; catGtA[c]+=amount;
+      cells += cell(ltrs, amount, false);
+    }
+    gtL+=chL; gtA+=chA;
+    cells += cell(chL, chA, false);
+    rows += `<tr><td style="padding:9px 12px;font-weight:800;font-size:13px;color:#0f5f5a;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;background:${bg};">${ch}</td>${cells}</tr>`;
+  }
+  let gtCells = '';
+  for (const c of visCats) gtCells += cell(catGtL[c], catGtA[c], true);
+  gtCells += cell(gtL, gtA, true);
+  rows += `<tr><td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f5f5a;border:1px solid #0f5f5a;vertical-align:middle;white-space:nowrap;letter-spacing:0.05em;">GRAND TOTAL</td>${gtCells}</tr>`;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Channel Sales — ${period}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a202c;padding:28px;}
+  h1{font-size:22px;font-weight:800;color:#0f5f5a;margin-bottom:3px;}.sub{font-size:13px;color:#718096;margin-bottom:20px;}
+  .pills{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;}.pill{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:12px 18px;}
+  .pill-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:3px;}
+  .pill-value{font-size:20px;font-weight:800;color:#0f5f5a;}.tbl-wrap{overflow-x:auto;background:#fff;border-radius:12px;border:1px solid #dde3ec;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
+  table{border-collapse:collapse;width:100%;font-size:12px;}</style></head><body>
+  <h1>📶 Channel Sales Report</h1>
+  <div class="sub">${period} &nbsp;·&nbsp; Generated ${new Date().toLocaleString()}</div>
+  <div class="pills">
+    <div class="pill"><div class="pill-label">Channels</div><div class="pill-value">${document.getElementById('chanStatChans').textContent}</div></div>
+    <div class="pill"><div class="pill-label">Categories</div><div class="pill-value">${document.getElementById('chanStatCats').textContent}</div></div>
+    <div class="pill"><div class="pill-label">Total Revenue</div><div class="pill-value">${document.getElementById('chanStatRev').textContent}</div></div>
+    <div class="pill"><div class="pill-label">Total Volume</div><div class="pill-value">${document.getElementById('chanStatVol').textContent}</div></div>
+  </div>
+  <div class="tbl-wrap"><table><thead>${hdr}</thead><tbody>${rows}</tbody></table></div>
+  </body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `Channel_Sales_${period.replace(/\s|–|\/|\./g,'_')}.html`; a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
   showToast('HTML file downloaded ✓', 'ok');
 }
 
