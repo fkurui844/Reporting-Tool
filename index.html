@@ -3355,10 +3355,20 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
     const rowBg   = ri % 2 === 1 ? 'background:rgba(255,255,255,0.02);' : '';
 
     // Row total
-    let rLtrs = 0, rAmt = 0;
+    let rLtrs = 0, rAmt = 0, rTgtL = 0, rTgtK = 0;
     for (const c of visCats) {
       rLtrs += pivot[r]?.[c]?.ltrs   || 0;
       rAmt  += pivot[r]?.[c]?.amount || 0;
+      if (hasCatTgts) {
+        const catTgt = getLocCatTarget(r, c);
+        rTgtL += catTgt?.ltrs || 0;
+        rTgtK += catTgt?.ksh  || 0;
+      }
+    }
+    // If no per-category targets exist, fall back to the region-level target
+    if (!hasCatTgts) {
+      rTgtL = regTgt?.ltrs || 0;
+      rTgtK = regTgt?.ksh  || 0;
     }
 
     bodyHtml += `<tr>`;
@@ -3373,8 +3383,8 @@ function renderLocSalesTable(data, filterRegion, filterCat) {
       bodyHtml += dataCell(ltrs, amount, tgt?.ltrs || 0, tgt?.ksh || 0, false, false);
     }
 
-    // Row total cell
-    bodyHtml += dataCell(rLtrs, rAmt, regTgt?.ltrs || 0, regTgt?.ksh || 0, false, true);
+    // Row total cell — uses summed category targets (or region-level fallback)
+    bodyHtml += dataCell(rLtrs, rAmt, rTgtL, rTgtK, false, true);
     bodyHtml += '</tr>';
   }
 
