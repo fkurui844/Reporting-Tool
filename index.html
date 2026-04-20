@@ -2785,8 +2785,8 @@ function renderCharts(data) {
       </div>
       <div class="chart-card">
         <div class="chart-card-head">
-          <span class="chart-card-title">Volume by Region</span>
-          <span class="chart-card-sub">Litres / Kgs · highest to lowest</span>
+          <span class="chart-card-title">Volume by Region vs Target</span>
+          <span class="chart-card-sub">Actual Ltrs/Kgs · Target Ltrs/Kgs · % Achievement</span>
         </div>
         <div class="chart-canvas-wrap"><canvas id="chartRegRev" height="280"></canvas></div>
       </div>
@@ -2878,26 +2878,182 @@ function renderCharts(data) {
     }
   });
 
-  // ── Chart 2: Volume by Region — horizontal bar (replaces Revenue by Region) ──
-  const regByVol  = Object.entries(groupBy(data.transactions, 'region')).sort((a,b)=>b[1].ltrs-a[1].ltrs);
+  // ── Chart 2: Volume by Region vs Target — horizontal grouped bar + % achievement line ──
+  const volRegTgts = refData.targets || {};
+  const hasVolRegTgts = Object.keys(volRegTgts).length > 0;
+
+  function getRegTgtLtrs(r) {
+    const rU = r.toUpperCase();
+    if (volRegTgts[rU]) return volRegTgts[rU].ltrs || 0;
+    for (const k of Object.keys(volRegTgts))
+      if (rU.includes(k) || k.includes(rU)) return volRegTgts[k].ltrs || 0;
+    return 0;
+  }
+
+  const regByVol = Object.entries(groupBy(data.transactions, 'region')).sort((a,b)=>b[1].ltrs-a[1].ltrs);
   const regLabels = regByVol.map(([k])=>k);
-  const regAmts   = regByVol.map(([,d])=>Math.round(d.ltrs));
+  const regActualVol = regByVol.map(([,d])=>Math.round(d.ltrs));
+  const regTargetVol = regLabels.map(r => Math.round(getRegTgtLtrs(r)));
+  const regVolPcts   = regLabels.map((r, i) => {
+    const tgt = regTargetVol[i];
+    return tgt > 0 ? Math.round((regActualVol[i] / tgt) * 100) : null;
+  });
+  const pctColVol = p => p === null ? '#4f9cff' : p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
+
+  const volDatasets = [
+    {
+      type: 'bar',
+      label: 'Actual Volume (Ltrs/Kgs)',
+      data: regActualVol,
+      backgroundColor: regLabels.map((r, i) => {
+        const p = regVolPcts[i];
+        return p === null ? chartColors(regLabels.length)[i] : p >= 100 ? 'rgba(29,184,122,0.85)' : p >= 70 ? 'rgba(246,173,43,0.85)' : 'rgba(225,36,90,0.85)';
+      }),
+      borderRadius: 4,
+      borderSkipped: false,
+      yAxisID: 'x',
+      xAxisID: 'x',
+      order: 2,
+      datalabels: {
+        anchor: 'end', align: 'right', offset: 4, clip: false,
+        color: '#fff',
+        backgroundColor: (ctx) => {
+          const p = regVolPcts[ctx.dataIndex];
+          return p === null ? '#3a6fd8' : p >= 100 ? '#0d9e63' : p >= 70 ? '#b45309' : '#c01048';
+        },
+        borderRadius: 4,
+        padding: { top: 3, bottom: 3, left: 5, right: 5 },
+        font: { family: "'DM Sans', sans-serif", size: 10, weight: '700' },
+        formatter: fmtLbl
+      }
+    }
+  ];
+
+  if (hasVolRegTgts) {
+    volDatasets.push({
+      type: 'bar',
+      label: 'Target Volume (Ltrs/Kgs)',
+      data: regTargetVol,
+      backgroundColor: 'rgba(255,255,255,0.10)',
+      borderColor: 'rgba(255,255,255,0.30)',
+      borderWidth: 1,
+      borderRadius: 4,
+      borderSkipped: false,
+      order: 3,
+      datalabels: {
+        anchor: 'end', align: 'right', offset: 4, clip: false,
+        color: 'rgba(255,255,255,0.45)',
+        font: { family: "'DM Sans', sans-serif", size: 9, weight: '600' },
+        formatter: v => v > 0 ? 'tgt:' + fmtLbl(v) : ''
+      }
+    });
+    volDatasets.push({
+      type: 'line',
+      label: '% Achievement',
+      data: regVolPcts,
+      borderColor: '#f6ad2b',
+      backgroundColor: 'rgba(246,173,43,0.08)',
+      pointBackgroundColor: regVolPcts.map(pctColVol),
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      pointRadius: 6,
+      pointHoverRadius: 8,
+      tension: 0.3,
+      fill: false,
+      xAxisID: 'xPct',
+      order: 1,
+      datalabels: {
+        anchor: 'end', align: 'right', offset: 6, clip: false,
+        color: regVolPcts.map(pctColVol),
+        font: { family: "'DM Sans', sans-serif", size: 11, weight: '800' },
+        formatter: v => v !== null ? v + '%' : ''
+      }
+    });
+  }
+
   mkChart('chartRegRev', {
     type: 'bar',
-    data: {
-      labels: regLabels,
-      datasets: [{ label: 'Volume (Ltrs/Kgs)', data: regAmts, backgroundColor: chartColors(regLabels.length), borderRadius: 4, borderSkipped: false }]
-    },
+    data: { labels: regLabels, datasets: volDatasets },
     options: {
-      ...baseChartOptions('top'),
+      responsive: true, maintainAspectRatio: true,
       indexAxis: 'y',
-      plugins: { ...baseChartOptions('top').plugins, legend: { display: false }, datalabels: barDL(true) },
+      layout: { padding: { right: hasVolRegTgts ? 64 : 48, top: 8, bottom: 8 } },
+      plugins: {
+        legend: {
+          display: hasVolRegTgts,
+          position: 'top',
+          labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, boxWidth: 12, padding: 12 }
+        },
+        tooltip: {
+          backgroundColor: chartSurfaceColor(),
+          titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744',
+          bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10,
+          callbacks: {
+            label: ctx => {
+              if (ctx.dataset.label === '% Achievement') return ' Achievement: ' + (ctx.raw !== null ? ctx.raw + '%' : 'N/A');
+              return ' ' + ctx.dataset.label + ': ' + Number(ctx.raw).toLocaleString();
+            }
+          }
+        },
+        datalabels: { display: 'auto' }
+      },
       scales: {
-        x: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { color: gc } },
-        y: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } }, grid: { color: gc } }
+        x: {
+          ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v },
+          grid: { color: gc }
+        },
+        y: {
+          ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 } },
+          grid: { color: gc }
+        },
+        ...(hasVolRegTgts ? {
+          xPct: {
+            position: 'top',
+            min: 0,
+            max: Math.max(160, ...regVolPcts.filter(p => p !== null).map(p => p + 30)),
+            ticks: { color: '#f6ad2b', font: { family: "'DM Sans', sans-serif", size: 10 }, callback: v => v + '%' },
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: '% Achievement', color: '#f6ad2b', font: { size: 10, weight: '600' } }
+          }
+        } : {})
       }
     }
   });
+
+  // Draw dashed 100% reference line on Volume by Region chart when targets exist
+  if (hasVolRegTgts) {
+    const volRegChart = _chartInstances['chartRegRev'];
+    if (volRegChart && !volRegChart._volRefLineAdded) {
+      volRegChart._volRefLineAdded = true;
+      Chart.register({
+        id: 'volRegion100Line',
+        afterDraw(chart) {
+          if (chart.canvas.id !== 'chartRegRev') return;
+          const xPct = chart.scales['xPct'];
+          if (!xPct) return;
+          const x100 = xPct.getPixelForValue(100);
+          const { top, bottom } = chart.chartArea;
+          const ctx2 = chart.ctx;
+          ctx2.save();
+          ctx2.beginPath();
+          ctx2.setLineDash([6, 4]);
+          ctx2.strokeStyle = 'rgba(29,184,122,0.55)';
+          ctx2.lineWidth = 1.5;
+          ctx2.moveTo(x100, top);
+          ctx2.lineTo(x100, bottom);
+          ctx2.stroke();
+          ctx2.setLineDash([]);
+          ctx2.font = "bold 10px 'DM Sans', sans-serif";
+          ctx2.fillStyle = '#1db87a';
+          ctx2.textAlign = 'center';
+          ctx2.fillText('100%', x100, top - 6);
+          ctx2.textAlign = 'left';
+          ctx2.restore();
+        }
+      });
+      volRegChart.update();
+    }
+  }
 
   // ── Chart: Revenue by Region vs Target (grouped bar + % achievement line) ──
   const regionTgts = refData.targets || {};
