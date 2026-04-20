@@ -2792,7 +2792,18 @@ function renderCharts(data) {
       </div>
     </div>
 
-    <!-- Row 2: Volume by Type donut + Top 10 Customers side by side -->
+    <!-- Row 2: Region Revenue vs Target (full width) -->
+    <div class="charts-full" id="chartRegionTargetWrap" style="display:none;">
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <span class="chart-card-title">Revenue by Region vs Target</span>
+          <span class="chart-card-sub">Actual KSH · Target KSH · % Achievement line</span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartRegionTarget" height="260"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 3: Volume by Type donut + Top 10 Customers side by side -->
     <div class="charts-grid-2">
       <div class="chart-card">
         <div class="chart-card-head">
@@ -2887,6 +2898,194 @@ function renderCharts(data) {
       }
     }
   });
+
+  // ── Chart: Revenue by Region vs Target (grouped bar + % achievement line) ──
+  const regionTgts = refData.targets || {};
+  const hasRegTgts = Object.keys(regionTgts).length > 0;
+  const rtWrap = document.getElementById('chartRegionTargetWrap');
+  if (hasRegTgts) {
+    rtWrap.style.display = '';
+
+    // Build sorted region list — match actual sales regions to targets
+    function getRegTgtKsh(r) {
+      const rU = r.toUpperCase();
+      if (regionTgts[rU]) return regionTgts[rU].ksh || 0;
+      for (const k of Object.keys(regionTgts)) {
+        if (rU.includes(k) || k.includes(rU)) return regionTgts[k].ksh || 0;
+      }
+      return 0;
+    }
+
+    // Merge actual + target regions (some target regions may have 0 actuals)
+    const allRegionKeys = new Set([
+      ...regRows.map(([k]) => k.toUpperCase()),
+      ...Object.keys(regionTgts).map(k => k.toUpperCase())
+    ]);
+
+    // Build unified list with actuals + targets, sorted by actual revenue desc
+    const rtRows = [...allRegionKeys].map(rU => {
+      const actual = (byRegion[rU] || byRegion[Object.keys(byRegion).find(k => k.toUpperCase() === rU) || ''] || { amount: 0 }).amount;
+      const target = getRegTgtKsh(rU);
+      const pct    = target > 0 ? Math.round((actual / target) * 100) : null;
+      return { label: rU, actual: Math.round(actual), target: Math.round(target), pct };
+    }).sort((a, b) => b.actual - a.actual);
+
+    const rtLabels  = rtRows.map(r => r.label);
+    const rtActuals = rtRows.map(r => r.actual);
+    const rtTargets = rtRows.map(r => r.target);
+    const rtPcts    = rtRows.map(r => r.pct);
+
+    const pctColor100 = (p) => p === null ? 'rgba(0,0,0,0)' : p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
+
+    mkChart('chartRegionTarget', {
+      type: 'bar',
+      data: {
+        labels: rtLabels,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Actual (KSH)',
+            data: rtActuals,
+            backgroundColor: rtRows.map(r => r.pct === null ? '#4f7cff' : r.pct >= 100 ? 'rgba(29,184,122,0.82)' : r.pct >= 70 ? 'rgba(246,173,43,0.82)' : 'rgba(225,36,90,0.82)'),
+            borderRadius: 5,
+            borderSkipped: false,
+            yAxisID: 'yKsh',
+            order: 2,
+            datalabels: {
+              anchor: 'end', align: 'end', offset: 2, clip: false,
+              color: '#fff',
+              backgroundColor: ctx => {
+                const p = rtRows[ctx.dataIndex]?.pct;
+                return p === null ? '#4f7cff' : p >= 100 ? '#0d9e63' : p >= 70 ? '#b45309' : '#c01048';
+              },
+              borderRadius: 4,
+              padding: { top: 3, bottom: 3, left: 5, right: 5 },
+              font: { family: "'DM Sans', sans-serif", size: 10, weight: '700' },
+              formatter: fmtLbl
+            }
+          },
+          {
+            type: 'bar',
+            label: 'Target (KSH)',
+            data: rtTargets,
+            backgroundColor: 'rgba(255,255,255,0.12)',
+            borderColor: 'rgba(255,255,255,0.35)',
+            borderWidth: 1,
+            borderRadius: 5,
+            borderSkipped: false,
+            yAxisID: 'yKsh',
+            order: 3,
+            datalabels: {
+              anchor: 'end', align: 'end', offset: 2, clip: false,
+              color: 'rgba(255,255,255,0.55)',
+              font: { family: "'DM Sans', sans-serif", size: 9, weight: '600' },
+              formatter: v => v > 0 ? 'tgt: ' + fmtLbl(v) : ''
+            }
+          },
+          {
+            type: 'line',
+            label: '% Achievement',
+            data: rtPcts,
+            borderColor: '#f6ad2b',
+            backgroundColor: 'rgba(246,173,43,0.08)',
+            pointBackgroundColor: rtRows.map(r => pctColor100(r.pct)),
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            tension: 0.35,
+            fill: false,
+            yAxisID: 'yPct',
+            order: 1,
+            datalabels: {
+              anchor: 'top', align: 'top', offset: 6, clip: false,
+              color: rtRows.map(r => pctColor100(r.pct)),
+              font: { family: "'DM Sans', sans-serif", size: 11, weight: '800' },
+              formatter: v => v !== null ? v + '%' : ''
+            }
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        layout: { padding: { top: 48, right: 24 } },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 12 }, boxWidth: 12, padding: 14 }
+          },
+          tooltip: {
+            backgroundColor: chartSurfaceColor(),
+            titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744',
+            bodyColor: tc, borderColor: gc, borderWidth: 1, padding: 10,
+            callbacks: {
+              label: ctx => {
+                if (ctx.dataset.label === '% Achievement') return ' Achievement: ' + (ctx.raw !== null ? ctx.raw + '%' : 'N/A');
+                return ' ' + ctx.dataset.label + ': KSH ' + Number(ctx.raw).toLocaleString();
+              }
+            }
+          },
+          datalabels: { display: 'auto' },
+          // Draw a dashed 100% reference line on the % axis
+          annotation: undefined
+        },
+        scales: {
+          x: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, maxRotation: 30 }, grid: { color: gc } },
+          yKsh: {
+            position: 'left',
+            ticks: { color: '#4f9cff', font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v },
+            grid: { color: gc },
+            title: { display: true, text: 'Revenue (KSH)', color: '#4f9cff', font: { size: 11, weight: '600' } }
+          },
+          yPct: {
+            position: 'right',
+            min: 0,
+            max: Math.max(150, ...rtPcts.filter(p => p !== null).map(p => p + 20)),
+            ticks: { color: '#f6ad2b', font: { family: "'DM Sans', sans-serif", size: 11 }, callback: v => v + '%' },
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: '% Achievement', color: '#f6ad2b', font: { size: 11, weight: '600' } }
+          }
+        }
+      }
+    });
+
+    // Draw a dashed 100% reference line using Chart.js afterDraw plugin
+    const regTgtChart = _chartInstances['chartRegionTarget'];
+    if (regTgtChart) {
+      const _afterDraw = regTgtChart.options.animation?.onComplete;
+      // Inject afterDraw via plugin
+      if (!regTgtChart._rtPluginAdded) {
+        regTgtChart._rtPluginAdded = true;
+        Chart.register({
+          id: 'regionTarget100Line',
+          afterDraw(chart) {
+            if (chart.canvas.id !== 'chartRegionTarget') return;
+            const yPct = chart.scales['yPct'];
+            if (!yPct) return;
+            const y100 = yPct.getPixelForValue(100);
+            const { left, right } = chart.chartArea;
+            const ctx2 = chart.ctx;
+            ctx2.save();
+            ctx2.beginPath();
+            ctx2.setLineDash([6, 4]);
+            ctx2.strokeStyle = 'rgba(29,184,122,0.55)';
+            ctx2.lineWidth = 1.5;
+            ctx2.moveTo(left, y100);
+            ctx2.lineTo(right, y100);
+            ctx2.stroke();
+            ctx2.setLineDash([]);
+            ctx2.font = "bold 10px 'DM Sans', sans-serif";
+            ctx2.fillStyle = '#1db87a';
+            ctx2.fillText('100% Target', right - 76, y100 - 5);
+            ctx2.restore();
+          }
+        });
+        regTgtChart.update();
+      }
+    }
+  } else {
+    if (rtWrap) rtWrap.style.display = 'none';
+  }
 
   // shared doughnut datalabels config
   const donutDL = {
