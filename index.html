@@ -3904,9 +3904,9 @@ function exportLocSalesCSV() {
   const cat    = document.getElementById('locCatFilter').value;
   const visR   = q ? regions.filter(r => r.toLowerCase().includes(q)) : regions;
   const visC   = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
-  // Respect the Show Targets toggle
-  const locCatTgts   = _locShowTargets ? (refData.locationCategoryTargets || {}) : {};
-  const regionTgts   = _locShowTargets ? (refData.targets || {}) : {};
+  // Always include targets in export when data exists (regardless of toggle)
+  const locCatTgts   = refData.locationCategoryTargets || {};
+  const regionTgts   = refData.targets || {};
 
   function getLocCatTgt(r, c) {
     const rU = r.toUpperCase(), cU = normalizeCat(c);
@@ -3923,13 +3923,14 @@ function exportLocSalesCSV() {
     return null;
   }
   function pct(a, t) { return (!t || t === 0) ? '' : Math.round((a/t)*100) + '%'; }
-  const hasCatTgts = _locShowTargets && Object.keys(locCatTgts).length > 0;
+  const hasCatTgts = Object.keys(locCatTgts).length > 0;
+  const hasAnyTgts = hasCatTgts || Object.keys(regionTgts).length > 0;
 
-  // Header rows: when targets off, only Vol + Rev columns; when on, include target + % columns
+  // Header rows: when targets available, include target + % columns
   const colGroups = [...visR, 'TOTALS'];
   let hdr1 = 'Category';
   let hdr2 = '';
-  if (_locShowTargets) {
+  if (hasAnyTgts) {
     for (const r of colGroups) {
       hdr1 += `,"${r}",,,,,"${r}",`;
       hdr2 += `,Vol (Ltrs/Kgs),Vol Target,Vol %,Revenue (KSH),Rev Target,Rev %`;
@@ -3953,14 +3954,14 @@ function exportLocSalesCSV() {
       const tgtL   = tgt?.ltrs || 0;
       const tgtK   = tgt?.ksh  || 0;
       totLtrs += ltrs; totAmt += amount; totTgtL += tgtL; totTgtK += tgtK;
-      if (_locShowTargets) {
+      if (hasAnyTgts) {
         row += `,${Math.round(ltrs)},${tgtL ? Math.round(tgtL) : ''},${pct(ltrs, tgtL)},${Math.round(amount)},${tgtK ? Math.round(tgtK) : ''},${pct(amount, tgtK)}`;
       } else {
         row += `,${Math.round(ltrs)},${Math.round(amount)}`;
       }
     }
     // Totals column
-    if (_locShowTargets) {
+    if (hasAnyTgts) {
       row += `,${Math.round(totLtrs)},${totTgtL ? Math.round(totTgtL) : ''},${pct(totLtrs, totTgtL)},${Math.round(totAmt)},${totTgtK ? Math.round(totTgtK) : ''},${pct(totAmt, totTgtK)}`;
     } else {
       row += `,${Math.round(totLtrs)},${Math.round(totAmt)}`;
@@ -3974,18 +3975,21 @@ function exportLocSalesCSV() {
   for (const r of visR) {
     const ltrs   = visC.reduce((s,c)=>s+(pivot[r]?.[c]?.ltrs||0),0);
     const amount = visC.reduce((s,c)=>s+(pivot[r]?.[c]?.amount||0),0);
-    const tgt    = getRegTgt(r);
-    const tgtL   = tgt?.ltrs || 0, tgtK = tgt?.ksh || 0;
-    gtLtrs += ltrs; gtAmt += amount; gtTgtL += tgtL; gtTgtK += tgtK;
-    if (_locShowTargets) {
-      gtRow += `,${Math.round(ltrs)},${tgtL ? Math.round(tgtL) : ''},${pct(ltrs, tgtL)},${Math.round(amount)},${tgtK ? Math.round(tgtK) : ''},${pct(amount, tgtK)}`;
+    // Row TOTAL target: sum category targets (same as TOTAL column in the table)
+    let rTgtL = 0, rTgtK = 0;
+    if (hasCatTgts) {
+      for (const c of visC) { const t = getLocCatTgt(r, c); rTgtL += t?.ltrs || 0; rTgtK += t?.ksh || 0; }
+    } else {
+      const rt = getRegTgt(r); rTgtL = rt?.ltrs || 0; rTgtK = rt?.ksh || 0;
+    }
+    gtLtrs += ltrs; gtAmt += amount; gtTgtL += rTgtL; gtTgtK += rTgtK;
+    if (hasAnyTgts) {
+      gtRow += `,${Math.round(ltrs)},${rTgtL ? Math.round(rTgtL) : ''},${pct(ltrs, rTgtL)},${Math.round(amount)},${rTgtK ? Math.round(rTgtK) : ''},${pct(amount, rTgtK)}`;
     } else {
       gtRow += `,${Math.round(ltrs)},${Math.round(amount)}`;
     }
   }
-  if (_locShowTargets) {
-    // Fix: when category targets exist, sum them instead of using region-level targets
-    if (hasCatTgts) { gtTgtL=0; gtTgtK=0; for (const c of visC) { let cTgtL=0,cTgtK=0; for (const r of visR) { const t=getLocCatTgt(r,c); cTgtL+=t?.ltrs||0; cTgtK+=t?.ksh||0; } gtTgtL+=cTgtL; gtTgtK+=cTgtK; } }
+  if (hasAnyTgts) {
     gtRow += `,${Math.round(gtLtrs)},${gtTgtL ? Math.round(gtTgtL) : ''},${pct(gtLtrs, gtTgtL)},${Math.round(gtAmt)},${gtTgtK ? Math.round(gtTgtK) : ''},${pct(gtAmt, gtTgtK)}`;
   } else {
     gtRow += `,${Math.round(gtLtrs)},${Math.round(gtAmt)}`;
@@ -4199,9 +4203,10 @@ function exportLocSalesHTML() {
   const visC  = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
   const period = document.getElementById('locSalesPeriod').textContent || '';
 
-  const locCatTgts  = _locShowTargets ? (refData.locationCategoryTargets || {}) : {};
-  const regionTgts  = _locShowTargets ? (refData.targets || {}) : {};
-  const hasCatTgts  = _locShowTargets && Object.keys(locCatTgts).length > 0;
+  const locCatTgts  = refData.locationCategoryTargets || {};
+  const regionTgts  = refData.targets || {};
+  const hasCatTgts  = Object.keys(locCatTgts).length > 0;
+  const hasAnyTgts  = hasCatTgts || Object.keys(regionTgts).length > 0;
 
   function getRegTgt(r) {
     const rU = r.toUpperCase();
@@ -4279,15 +4284,18 @@ function exportLocSalesHTML() {
     const r   = visR[ri];
     const rt  = getRegTgt(r);
     const bg  = ri % 2 === 1 ? '#f8fafc' : '#fff';
-    let rL = 0, rA = 0, cells = '';
+    let rL = 0, rA = 0, rTgtL = 0, rTgtK = 0, cells = '';
     for (const c of visC) {
       const ltrs   = pivot[r]?.[c]?.ltrs   || 0;
       const amount = pivot[r]?.[c]?.amount || 0;
       const tgt    = hasCatTgts ? getLocCatTgt(r, c) : null;
       rL += ltrs; rA += amount;
+      if (hasCatTgts) { rTgtL += tgt?.ltrs || 0; rTgtK += tgt?.ksh || 0; }
       cells += dataCell(ltrs, amount, tgt?.ltrs || 0, tgt?.ksh || 0, false);
     }
-    cells += dataCell(rL, rA, rt?.ltrs || 0, rt?.ksh || 0, false);
+    // TOTAL column: use summed category targets when available, else region-level target
+    if (!hasCatTgts) { rTgtL = rt?.ltrs || 0; rTgtK = rt?.ksh || 0; }
+    cells += dataCell(rL, rA, rTgtL, rTgtK, false);
     rows += `<tr>
       <td style="padding:9px 12px;font-weight:800;font-size:13px;color:#0f2744;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;background:${bg};position:sticky;left:0;">${r}</td>
       ${cells}
@@ -4310,15 +4318,14 @@ function exportLocSalesHTML() {
   const catCount  = document.getElementById('locStatCats')?.textContent  || '—';
   const revTotal  = document.getElementById('locStatRev')?.textContent   || '—';
   const volTotal  = document.getElementById('locStatVol')?.textContent   || '—';
-  // Target/achievement pills for HTML export (only when toggle is on)
+
+  // Target/achievement pills for HTML export (always include when targets exist)
   let tgtPillsHtml = '';
-  if (_locShowTargets) {
-    const tgtText = document.getElementById('locStatTarget')?.textContent;
-    const achText = document.getElementById('locStatAch')?.textContent;
-    const achCol  = document.getElementById('locStatAch')?.style.color || '#1db87a';
-    if (tgtText && tgtText !== '—')
-      tgtPillsHtml = `<div class="pill"><div class="pill-label">Target (KSH)</div><div class="pill-value">${tgtText}</div></div>
-    <div class="pill"><div class="pill-label">% Achieved</div><div class="pill-value" style="color:${achCol};font-size:22px;">${achText}</div></div>`;
+  if (hasAnyTgts && gtTK > 0) {
+    const achPct = Math.round((gtA / gtTK) * 100);
+    const achCol = achPct >= 100 ? '#1db87a' : achPct >= 70 ? '#b45309' : '#E1245A';
+    tgtPillsHtml = `<div class="pill"><div class="pill-label">Target (KSH)</div><div class="pill-value">KSH ${Math.round(gtTK).toLocaleString()}</div></div>
+    <div class="pill"><div class="pill-label">% Achieved</div><div class="pill-value" style="color:${achCol};font-size:22px;">${achPct}%</div></div>`;
   }
 
   const html = `<!DOCTYPE html>
@@ -4362,7 +4369,7 @@ function exportLocSalesHTML() {
     ${tgtPillsHtml}
   </div>
 
-  ${_locShowTargets ? `<div class="key-box">
+  ${hasAnyTgts ? `<div class="key-box">
     <div>
       <div class="key-title">Report Key</div>
       <div class="key-sub">How to read each cell</div>
