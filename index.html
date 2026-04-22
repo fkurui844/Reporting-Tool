@@ -2379,7 +2379,7 @@ function renderReport(data){
       <div style="font-size:13px;color:var(--text-muted);margin-top:3px;">Day ${elapsedDays || '—'} of 30</div>
       ${mtdHtml}
     </div>
-    <div class="metric-card" style="border-left:3px solid #0f2744;">
+    <div class="metric-card" style="border-left:3px solid #0f2744;" data-target-only="1">
       <div class="m-label">Daily Average</div>
       <div style="font-size:13px;color:var(--text-muted);margin-top:3px;">Based on ${elapsedDays || '—'} day${elapsedDays !== 1 ? 's' : ''} elapsed</div>
       ${dailyRow('Revenue (KSH)', dailyAvgAmt, reqDailyAmt)}
