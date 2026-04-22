@@ -178,6 +178,7 @@
     body.targets-hidden .m-tgt,
     body.targets-hidden .ach-bar-wrap,
     body.targets-hidden .achievement-banner,
+    body.targets-hidden .tgt-col,
     body.targets-hidden [data-target-only="1"] { display: none !important; }
 
     /* ── Header ── */
@@ -2431,11 +2432,11 @@ function renderReport(data){
         return `<tr>
           <td style="font-weight:600;">${n}</td>
           <td style="text-align:right;">${fmt(d.ltrs)}</td>
-          <td style="text-align:right;color:var(--text-muted);">${tVol}</td>
-          <td style="text-align:right;">${volPct}</td>
+          <td class="tgt-col" style="text-align:right;color:var(--text-muted);">${tVol}</td>
+          <td class="tgt-col" style="text-align:right;">${volPct}</td>
           <td style="text-align:right;">${fmt(d.amount)}</td>
-          <td style="text-align:right;color:var(--text-muted);">${tAmt}</td>
-          <td style="text-align:right;">${revPct}</td>
+          <td class="tgt-col" style="text-align:right;color:var(--text-muted);">${tAmt}</td>
+          <td class="tgt-col" style="text-align:right;">${revPct}</td>
         </tr>`;
       }).join('');
       const pctA = tA>0 ? Math.round((totA/tA)*100) : null;
@@ -2444,11 +2445,11 @@ function renderReport(data){
         <tr class="total-row">
           <td>Totals</td>
           <td style="text-align:right;">${fmt(totL)}</td>
-          <td style="text-align:right;">${tL?fmt(tL):'—'}</td>
-          <td style="text-align:right;color:${pctColor(pctL)};font-weight:700;">${pctL!==null?pctL+'%':'—'}</td>
+          <td class="tgt-col" style="text-align:right;">${tL?fmt(tL):'—'}</td>
+          <td class="tgt-col" style="text-align:right;color:${pctColor(pctL)};font-weight:700;">${pctL!==null?pctL+'%':'—'}</td>
           <td style="text-align:right;">${fmt(totA)}</td>
-          <td style="text-align:right;">${tA?fmt(tA):'—'}</td>
-          <td style="text-align:right;color:${pctColor(pctA)};font-weight:700;">${pctA!==null?pctA+'%':'—'}</td>
+          <td class="tgt-col" style="text-align:right;">${tA?fmt(tA):'—'}</td>
+          <td class="tgt-col" style="text-align:right;color:${pctColor(pctA)};font-weight:700;">${pctA!==null?pctA+'%':'—'}</td>
         </tr>`;
       return `<div class="tbl-card">
         <div class="tbl-card-head ${headCls}">${title}</div>
@@ -2456,16 +2457,16 @@ function renderReport(data){
           <thead>
             <tr>
               <th rowspan="2" style="vertical-align:bottom;border-right:1px solid var(--border);">Category</th>
-              <th colspan="3" style="text-align:center;border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);letter-spacing:0.06em;">SALES IN VOLUME</th>
-              <th colspan="3" style="text-align:center;border-bottom:1px solid var(--border2);letter-spacing:0.06em;">SALES IN REVENUE</th>
+              <th colspan="3" class="cat-vol-group" style="text-align:center;border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);letter-spacing:0.06em;">SALES IN VOLUME</th>
+              <th colspan="3" class="cat-rev-group" style="text-align:center;border-bottom:1px solid var(--border2);letter-spacing:0.06em;">SALES IN REVENUE</th>
             </tr>
             <tr>
               <th style="text-align:right;">ACTUAL</th>
-              <th style="text-align:right;">TARGET</th>
-              <th style="text-align:right;border-right:1px solid var(--border2);">VOL%</th>
+              <th class="tgt-col" style="text-align:right;">TARGET</th>
+              <th class="tgt-col" style="text-align:right;border-right:1px solid var(--border2);">VOL%</th>
               <th style="text-align:right;">ACTUAL</th>
-              <th style="text-align:right;">TARGET</th>
-              <th style="text-align:right;">Rev%</th>
+              <th class="tgt-col" style="text-align:right;">TARGET</th>
+              <th class="tgt-col" style="text-align:right;">Rev%</th>
             </tr>
           </thead>
           <tbody>${tRows}${foot}</tbody>
@@ -5023,10 +5024,16 @@ function applyTargetToggle(on) {
     body.classList.remove('targets-hidden');
     badge.textContent = 'Targets On';
     badge.className   = 'tgt-badge on';
+    // Restore colspan on By Category group headers
+    document.querySelectorAll('.cat-vol-group').forEach(th => th.setAttribute('colspan', '3'));
+    document.querySelectorAll('.cat-rev-group').forEach(th => th.setAttribute('colspan', '3'));
   } else {
     body.classList.add('targets-hidden');
     badge.textContent = 'Targets Off';
     badge.className   = 'tgt-badge off';
+    // Reduce colspan on By Category group headers (only ACTUAL column remains)
+    document.querySelectorAll('.cat-vol-group').forEach(th => th.setAttribute('colspan', '1'));
+    document.querySelectorAll('.cat-rev-group').forEach(th => th.setAttribute('colspan', '1'));
   }
 }
 
