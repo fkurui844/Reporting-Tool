@@ -111,6 +111,75 @@
     }
     .toggle-switch input:checked ~ .toggle-knob { transform: translateX(18px); }
 
+    /* ── Target Toggle ── */
+    .target-toggle-wrap {
+      display: none; /* shown after upload */
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      margin-bottom: 14px;
+    }
+    .target-toggle-wrap.visible { display: flex; }
+    .target-toggle-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .target-toggle-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      flex: 1;
+    }
+    .tgt-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .tgt-switch input { opacity: 0; width: 0; height: 0; }
+    .tgt-track {
+      position: absolute;
+      inset: 0;
+      background: #dde3ec;
+      border-radius: 99px;
+      cursor: pointer;
+      transition: background 0.25s;
+    }
+    .tgt-switch input:checked + .tgt-track { background: #1db87a; }
+    .tgt-knob {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.25s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+      pointer-events: none;
+    }
+    .tgt-switch input:checked ~ .tgt-knob { transform: translateX(20px); }
+    .tgt-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+    .tgt-badge.on  { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    .tgt-badge.off { background: var(--pill-bg); color: var(--text-muted); border: 1px solid var(--border); }
+
+    /* Hide target-related elements when targets are off */
+    body.targets-hidden .target-row,
+    body.targets-hidden .pct-row,
+    body.targets-hidden .m-bar-wrap,
+    body.targets-hidden .m-tgt,
+    body.targets-hidden .ach-bar-wrap,
+    body.targets-hidden .achievement-banner,
+    body.targets-hidden [data-target-only="1"] { display: none !important; }
+
     /* ── Header ── */
     .app-header {
       background: #0f2744;
@@ -1281,6 +1350,18 @@
       </div>
     </div>
 
+    <!-- Target Toggle Bar -->
+    <div class="target-toggle-wrap" id="targetToggleWrap">
+      <span class="target-toggle-label">🎯 Show Targets</span>
+      <span class="target-toggle-desc">Toggle to compare sales against targets, or view clean sales numbers only</span>
+      <span class="tgt-badge off" id="tgtBadge">Targets Off</span>
+      <label class="tgt-switch" title="Toggle targets visibility">
+        <input type="checkbox" id="targetToggle" onchange="applyTargetToggle(this.checked)">
+        <div class="tgt-track"></div>
+        <div class="tgt-knob"></div>
+      </label>
+    </div>
+
     <!-- Achievement banner -->
     <div class="metrics-grid" id="metricsGrid"></div>
 
@@ -2219,12 +2300,12 @@ function renderReport(data){
 
   // Metrics — pre-compute target HTML to avoid nested template literals
   function tgtHtml(actual, target) {
-    if (!target) return '<div class="m-sub" style="color:#e53e3e;font-size:11px;">⚠ No target loaded — check Targets sheet</div>';
+    if (!target) return '<div class="m-sub" style="color:#e53e3e;font-size:11px;" data-target-only="1">⚠ No target loaded — check Targets sheet</div>';
     const p   = Math.round((actual / target) * 100);
     const w   = Math.min(p, 100);
     const col = p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
-    return '<div class="m-bar-wrap"><div class="m-bar-fill" style="width:' + w + '%;background:' + col + '"></div></div>'
-         + '<div class="m-tgt"><span>Monthly Target: ' + fmt(target) + '</span><strong style="color:' + col + '">' + p + '%</strong></div>';
+    return '<div class="m-bar-wrap" data-target-only="1"><div class="m-bar-fill" style="width:' + w + '%;background:' + col + '"></div></div>'
+         + '<div class="m-tgt" data-target-only="1"><span>Monthly Target: ' + fmt(target) + '</span><strong style="color:' + col + '">' + p + '%</strong></div>';
   }
   const revTgtHtml = tgtHtml(totalAmt, overallTgtAmt);
   const volTgtHtml = tgtHtml(totalLtrs, overallTgtLtr);
@@ -2245,14 +2326,14 @@ function renderReport(data){
       <div style="margin-top:10px;">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;">
           <span style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#718096">${label}</span>
-          <span style="font-size:15px;font-weight:800;color:${col}">${pct !== null ? pct + '%' : '—'}</span>
+          <span style="font-size:15px;font-weight:800;color:${col}" data-target-only="1">${pct !== null ? pct + '%' : '—'}</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
           <span style="font-size:15px;font-weight:700;color:#0f2744">${fmt(actual)}</span>
-          <span style="font-size:13px;color:#718096">/ ${dayTarget !== null ? fmt(dayTarget) : '—'}</span>
+          <span style="font-size:13px;color:#718096" data-target-only="1">/ ${dayTarget !== null ? fmt(dayTarget) : '—'}</span>
         </div>
-        <div class="m-bar-wrap"><div class="m-bar-fill" style="width:${barW}%;background:${col}"></div></div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Monthly target: ${monthlyTarget !== null ? fmt(monthlyTarget) : '—'}</div>
+        <div class="m-bar-wrap" data-target-only="1"><div class="m-bar-fill" style="width:${barW}%;background:${col}"></div></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;" data-target-only="1">Monthly target: ${monthlyTarget !== null ? fmt(monthlyTarget) : '—'}</div>
       </div>`;
   }
 
@@ -2269,9 +2350,9 @@ function renderReport(data){
 
   function dailyRow(label, avg, required) {
     const reqLabel = required !== null && required > 0
-      ? `<span style="font-size:11px;color:var(--text-muted);">Required/day to hit target: <strong style="color:#0f2744">${fmt(required)}</strong></span>`
+      ? `<span style="font-size:11px;color:var(--text-muted);" data-target-only="1">Required/day to hit target: <strong style="color:#0f2744">${fmt(required)}</strong></span>`
       : required !== null && required <= 0
-      ? `<span style="font-size:11px;color:#1db87a;font-weight:600;">✓ Target already on track</span>`
+      ? `<span style="font-size:11px;color:#1db87a;font-weight:600;" data-target-only="1">✓ Target already on track</span>`
       : '';
     return `
       <div style="margin-top:10px;">
@@ -2292,7 +2373,7 @@ function renderReport(data){
       <div class="m-value">${fmt(totalLtrs)}</div>
       ${volTgtHtml}
     </div>
-    <div class="metric-card ${mtdCls}" style="border-left-color:${mtdColor}">
+    <div class="metric-card ${mtdCls}" style="border-left-color:${mtdColor}" data-target-only="1">
       <div class="m-label">MTD Sales vs Target</div>
       <div style="font-size:13px;color:var(--text-muted);margin-top:3px;">Day ${elapsedDays || '—'} of 30</div>
       ${mtdHtml}
@@ -2304,6 +2385,10 @@ function renderReport(data){
       ${dailyRow('Volume (Ltrs/Kgs)', dailyAvgLtrs, reqDailyLtrs)}
     </div>
   `;
+
+  // Show target toggle bar and apply current state
+  document.getElementById('targetToggleWrap').classList.add('visible');
+  applyTargetToggle(document.getElementById('targetToggle').checked);
 
   // Tables
   const byRegion   = groupBy(data.transactions,'region');
@@ -4928,6 +5013,21 @@ function exportTypeSalesHTML() {
   a.href = url; a.download = `Type_Sales_${period.replace(/\s|–|\/|\./g,'_')}.html`; a.click();
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
   showToast('HTML file downloaded ✓', 'ok');
+}
+
+// ── Target Toggle ──────────────────────────────────────
+function applyTargetToggle(on) {
+  const body  = document.body;
+  const badge = document.getElementById('tgtBadge');
+  if (on) {
+    body.classList.remove('targets-hidden');
+    badge.textContent = 'Targets On';
+    badge.className   = 'tgt-badge on';
+  } else {
+    body.classList.add('targets-hidden');
+    badge.textContent = 'Targets Off';
+    badge.className   = 'tgt-badge off';
+  }
 }
 
 // Init — only load sheet reference data, NOT customers yet
