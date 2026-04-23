@@ -122,7 +122,7 @@
       padding: 8px 14px;
       margin-bottom: 14px;
     }
-    .target-toggle-wrap.visible { display: flex; }
+    .target-toggle-wrap.visible { display: inline-flex; }
     .target-toggle-label {
       font-size: 13px;
       font-weight: 600;
@@ -1321,7 +1321,19 @@
         <h2 id="reportPeriod">Period: —</h2>
         <small id="reportGenerated"></small>
       </div>
-      <button class="btn-upload-again" onclick="resetUpload()" style="display:none">↑ Upload another file</button>
+      <div style="display:flex;align-items:center;gap:10px;margin-left:auto;">
+        <button class="btn-upload-again" onclick="resetUpload()" style="display:none">↑ Upload another file</button>
+        <div class="target-toggle-wrap" id="targetToggleWrap" style="margin-bottom:0;border:none;padding:0;background:transparent;">
+          <span class="target-toggle-label">🎯 Show Targets</span>
+          <span class="target-toggle-desc">Toggle to compare sales against targets, or view clean sales numbers only</span>
+          <span class="tgt-badge off" id="tgtBadge">Targets Off</span>
+          <label class="tgt-switch" title="Toggle targets visibility">
+            <input type="checkbox" id="targetToggle" onchange="applyTargetToggle(this.checked)">
+            <div class="tgt-track"></div>
+            <div class="tgt-knob"></div>
+          </label>
+        </div>
+      </div>
     </div>
 
     <!-- Metrics -->
@@ -1349,18 +1361,6 @@
       <div class="cov-breakdown" id="covBreakdownChannel">
         <div class="cov-breakdown-grid" id="covBreakdownGridChannel"></div>
       </div>
-    </div>
-
-    <!-- Target Toggle Bar -->
-    <div class="target-toggle-wrap" id="targetToggleWrap">
-      <span class="target-toggle-label">🎯 Show Targets</span>
-      <span class="target-toggle-desc">Toggle to compare sales against targets, or view clean sales numbers only</span>
-      <span class="tgt-badge off" id="tgtBadge">Targets Off</span>
-      <label class="tgt-switch" title="Toggle targets visibility">
-        <input type="checkbox" id="targetToggle" onchange="applyTargetToggle(this.checked)">
-        <div class="tgt-track"></div>
-        <div class="tgt-knob"></div>
-      </label>
     </div>
 
     <!-- Achievement banner -->
