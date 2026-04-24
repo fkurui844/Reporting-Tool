@@ -1927,10 +1927,10 @@ let customersLoaded = false;
 function switchPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('page' + cap(page)).classList.add('active');
-  document.getElementById('nav' + cap(page)).classList.add('active');
-  
-  // Charts tab — no customer table to load
+  const pageEl = document.getElementById('page' + cap(page));
+  const navEl  = document.getElementById('nav'  + cap(page));
+  if (pageEl) pageEl.classList.add('active');
+  if (navEl)  navEl.classList.add('active');
 }
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
@@ -2845,9 +2845,9 @@ function renderReport(data){
   } else { mc.style.display='none'; }
 
   // Render charts on the Customers tab
-  renderCharts(data);
-  populateLocSalesPage(data);
-  populateTypeSalesPage(data);
+  try { renderCharts(data); } catch(e) { console.error('[Charts] renderCharts failed:', e); }
+  try { populateLocSalesPage(data); } catch(e) { console.error('[LocSales] populateLocSalesPage failed:', e); }
+  try { populateTypeSalesPage(data); } catch(e) { console.error('[TypeSales] populateTypeSalesPage failed:', e); }
 }
 
 function renderNonTrading(list) {
