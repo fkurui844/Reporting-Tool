@@ -3990,9 +3990,9 @@ function exportLocSalesCSV() {
   const cat    = document.getElementById('locCatFilter').value;
   const visR   = q ? regions.filter(r => r.toLowerCase().includes(q)) : regions;
   const visC   = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
-  // Always include targets in export when data exists (regardless of toggle)
-  const locCatTgts   = refData.locationCategoryTargets || {};
-  const regionTgts   = refData.targets || {};
+  // Respect the targets toggle — only include targets if toggle is ON
+  const locCatTgts   = _locShowTargets ? (refData.locationCategoryTargets || {}) : {};
+  const regionTgts   = _locShowTargets ? (refData.targets || {}) : {};
 
   function getLocCatTgt(r, c) {
     const rU = r.toUpperCase(), cU = normalizeCat(c);
@@ -4289,10 +4289,10 @@ function exportLocSalesHTML() {
   const visC  = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
   const period = document.getElementById('locSalesPeriod').textContent || '';
 
-  const locCatTgts  = refData.locationCategoryTargets || {};
-  const regionTgts  = refData.targets || {};
-  const hasCatTgts  = Object.keys(locCatTgts).length > 0;
-  const hasAnyTgts  = hasCatTgts || Object.keys(regionTgts).length > 0;
+  const locCatTgts  = _locShowTargets ? (refData.locationCategoryTargets || {}) : {};
+  const regionTgts  = _locShowTargets ? (refData.targets || {}) : {};
+  const hasCatTgts  = _locShowTargets && Object.keys(locCatTgts).length > 0;
+  const hasAnyTgts  = _locShowTargets && (hasCatTgts || Object.keys(regionTgts).length > 0);
 
   function getRegTgt(r) {
     const rU = r.toUpperCase();
