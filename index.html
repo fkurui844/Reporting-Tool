@@ -2002,7 +2002,10 @@ async function loadSheetData() {
 
   for (const s of sheets) {
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}`;
+      // For Customers sheet, explicitly request all columns A:H so the Route column (F)
+      // is never dropped by gviz even when most cells are empty/zero
+      const range = (s === 'Customers') ? '&range=A:H' : '';
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}${range}`;
       const r = await fetch(url);
       if (r.ok) {
         const txt = await r.text();
@@ -2038,7 +2041,9 @@ async function loadSheetData() {
       ? ` | ✓ Per-location/category targets: ${lcCount} locations` + (chCount > 0 ? `, ${chCount} channels` : '')
       : chCount > 0 ? ` | ✓ Type targets: ${chCount} channels`
       : tgt ? ` | MTD target: KSH ${Math.round(tgt.ksh).toLocaleString()}` : ' | ⚠ No target loaded';
-    setSheetDot('ok', `Loaded — ${cc} customers, ${pc} products, ${tc} targets${tgtNote}.`);
+    const routeCount = Object.values(refData.customers).filter(c => c.route && c.route.trim()).length;
+    const routeNote = routeCount > 0 ? ` | 🚚 ${routeCount} customers with routes` : ' | ⚠ No routes loaded yet';
+    setSheetDot('ok', `Loaded — ${cc} customers, ${pc} products, ${tc} targets${tgtNote}${routeNote}.`);
   } else {
     setSheetDot('err', 'Could not load sheet. Ensure it is shared as "Anyone with link can view".');
   }
@@ -2091,7 +2096,11 @@ function parseCustomerSheet(csv) {
   const locIdx   = findCol(hdrs,['location','region','territory','area','zone','district','branch','loc','reg']);
   const chanIdx  = findCol(hdrs,['channel','trade channel','sales channel','chan','class','segment']);
   const typeIdx  = findCol(hdrs,['type','customer type','cust type','category']);
-  const routeIdx = findCol(hdrs,['route']);
+  // routeIdx: detect by header keyword; fall back to column F (index 5) if header
+  // detection fails (e.g. gviz strips sparse columns and shifts indices)
+  let routeIdx = findCol(hdrs,['route','rte']);
+  // Sanity-check: if the detected index already holds a known field, header must have shifted
+  if (routeIdx < 0 && hdrs.length >= 6) routeIdx = 5; // column F — fixed position fallback
   console.log('[Customers] Col indices → code:'+codeIdx+' name:'+nameIdx+' region:'+locIdx+' channel:'+chanIdx+' type:'+typeIdx+' route:'+routeIdx);
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
