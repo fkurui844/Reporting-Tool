@@ -1997,19 +1997,62 @@ const SHEET_ID = '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8';
 
 async function loadSheetData() {
   setSheetDot('loading', 'Loading reference data from Google Sheet…');
-  const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Type Targets'];
-  const results = {};
 
+  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {} };
+
+  // ── Step 1: Load Customers via google.script.run (GAS) ──────────────────
+  // gviz drops sparse columns (e.g. Route when mostly empty), so we read
+  // Customers directly through the Apps Script backend which always returns
+  // all columns reliably. This also handles any future column additions.
+  const customersLoaded = await new Promise(resolve => {
+    try {
+      google.script.run
+        .withSuccessHandler(rows => {
+          rows.forEach(c => {
+            const code     = (c.sapCode || '').trim().replace(/^0+/, '') || (c.sapCode || '').trim();
+            const rawCode  = (c.sapCode || '').trim();
+            const route    = (c.route   || '').trim().replace(/^0+(\.0+)?$/, '').toUpperCase();
+            const entry = {
+              outlet:  (c.name     || '').trim(),
+              region:  (c.location || '').trim().toUpperCase(),
+              channel: (c.channel  || '').trim().toUpperCase(),
+              type:    (c.type     || '').trim().toUpperCase(),
+              route:   route,
+            };
+            if (code)    refData.customers[code]    = entry;
+            if (rawCode && rawCode !== code) refData.customers[rawCode] = entry;
+            if (!(entry.type || '').includes('STAFF')) {
+              refData.customerTotal = (refData.customerTotal || 0) + 1;
+              const reg  = entry.region  || 'UNKNOWN';
+              const chan = entry.channel || 'UNKNOWN';
+              refData.regionTotals[reg]   = (refData.regionTotals[reg]   || 0) + 1;
+              refData.channelTotals[chan] = (refData.channelTotals[chan] || 0) + 1;
+            }
+          });
+          console.log('[Customers] Loaded via GAS:', rows.length, 'rows');
+          resolve(true);
+        })
+        .withFailureHandler(e => {
+          console.warn('[Customers] GAS load failed, falling back to gviz:', e.message);
+          resolve(false);
+        })
+        .getAllCustomers();
+    } catch(e) {
+      console.warn('[Customers] google.script.run not available — loading via JSONP instead');
+      resolve(false);
+    }
+  });
+
+  // ── Step 2: Load all other reference sheets via gviz ────────────────────
+  const sheets = ['Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Type Targets'];
+
+  const results = {};
   for (const s of sheets) {
     try {
-      // For Customers sheet, explicitly request all columns A:H so the Route column (F)
-      // is never dropped by gviz even when most cells are empty/zero
-      const range = (s === 'Customers') ? '&range=A:H' : '';
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}${range}`;
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}`;
       const r = await fetch(url);
       if (r.ok) {
         const txt = await r.text();
-        // gviz returns HTTP 200 even on errors — check it's actually CSV
         results[s] = (txt && !txt.startsWith('google.') && txt.includes(',')) ? txt : null;
       } else {
         results[s] = null;
@@ -2017,8 +2060,92 @@ async function loadSheetData() {
     } catch { results[s] = null; }
   }
 
-  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {} };
-  if (results['Customers']) parseCustomerSheet(results['Customers']);
+  // ── Customers fallback: JSONP via gviz (CORS-safe, always all columns) ──
+  // fetch() is blocked by CORS for Google export/gviz URLs in standalone HTML.
+  // JSONP injects a <script> tag instead — no CORS restriction — and returns
+  // the full JSON DataTable including every column, even sparse ones like Route.
+  if (!customersLoaded) {
+    await new Promise(resolve => {
+      const callbackName = '__gsCustomers_' + Date.now();
+      const timeout = setTimeout(() => {
+        delete window[callbackName];
+        script.remove();
+        console.warn('[Customers] JSONP timed out');
+        resolve();
+      }, 15000);
+
+      window[callbackName] = function(resp) {
+        clearTimeout(timeout);
+        delete window[callbackName];
+        script.remove();
+        try {
+          const table = resp.table;
+          if (!table || !table.cols || !table.rows) { resolve(); return; }
+
+          // Map column labels → indices (case-insensitive)
+          const colLabel = table.cols.map(c => (c.label || c.id || '').toLowerCase().trim());
+          console.log('[Customers] JSONP columns:', colLabel);
+
+          function colIdx(keywords) {
+            for (const kw of keywords) {
+              const i = colLabel.findIndex(h => h.includes(kw));
+              if (i >= 0) return i;
+            }
+            return -1;
+          }
+
+          const iCode  = colIdx(['sap code','sap','code','account']);
+          const iName  = colIdx(['outlet','name','customer','client']);
+          const iLoc   = colIdx(['location','region','territory','area','zone']);
+          const iChan  = colIdx(['channel','trade channel','sales channel','chan']);
+          const iType  = colIdx(['type','customer type','cust type']);
+          // Route: keyword match first, then fixed position col F (index 5)
+          let   iRoute = colIdx(['route','rte']);
+          if (iRoute < 0 && table.cols.length >= 6) iRoute = 5;
+          console.log('[Customers] JSONP col indices → code:', iCode, 'name:', iName,
+            'loc:', iLoc, 'chan:', iChan, 'type:', iType, 'route:', iRoute);
+
+          const cell = (row, idx) => {
+            if (idx < 0 || !row.c || !row.c[idx]) return '';
+            const v = row.c[idx];
+            return (v.v !== null && v.v !== undefined) ? String(v.v).trim() : '';
+          };
+
+          table.rows.forEach(row => {
+            const rawCode = iCode >= 0 ? cell(row, iCode) : '';
+            if (!rawCode) return;
+            const code  = rawCode.replace(/^0+/, '') || rawCode;
+            const route = cell(row, iRoute).replace(/^0+(\.0+)?$/, '').toUpperCase();
+            const entry = {
+              outlet:  iName  >= 0 ? cell(row, iName)  : '',
+              region:  iLoc   >= 0 ? cell(row, iLoc).toUpperCase()  : '',
+              channel: iChan  >= 0 ? cell(row, iChan).toUpperCase() : '',
+              type:    iType  >= 0 ? cell(row, iType).toUpperCase() : '',
+              route:   route,
+            };
+            refData.customers[code] = entry;
+            if (rawCode !== code) refData.customers[rawCode] = entry;
+            if (!(entry.type || '').includes('STAFF')) {
+              refData.customerTotal = (refData.customerTotal || 0) + 1;
+              refData.regionTotals[entry.region   || 'UNKNOWN'] = (refData.regionTotals[entry.region   || 'UNKNOWN'] || 0) + 1;
+              refData.channelTotals[entry.channel || 'UNKNOWN'] = (refData.channelTotals[entry.channel || 'UNKNOWN'] || 0) + 1;
+            }
+          });
+
+          const withRoute = Object.values(refData.customers).filter(c => c.route).length;
+          console.log('[Customers] JSONP loaded', table.rows.length, 'rows,', withRoute, 'with routes');
+        } catch(e) {
+          console.error('[Customers] JSONP parse error:', e);
+        }
+        resolve();
+      };
+
+      const script = document.createElement('script');
+      script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=Customers&tqx=out:json;responseHandler:${callbackName}`;
+      script.onerror = () => { clearTimeout(timeout); delete window[callbackName]; resolve(); };
+      document.head.appendChild(script);
+    });
+  }
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'] || results['Target'] || results['Regional Targets'])
     parseTargetSheet(results['Targets'] || results['Target'] || results['Regional Targets']);
