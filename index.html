@@ -1803,20 +1803,76 @@
 
 <!-- ══════════════════ ROUTE SALES PAGE ══════════════════ -->
 <div class="page" id="pageRoute">
-  <div class="customers-page">
-    <div class="charts-section" id="routeSalesSection">
-      <div class="charts-section-header">
-        <h2>🚚 Route Sales</h2>
-        <span class="section-badge" style="background:#0f5f5a;color:#fff;">ROUTE SALES</span>
-        <span class="chart-period-note" id="routeSalesPeriodNote">Upload a SAP file to populate Route Sales</span>
+  <div class="locsales-page">
+
+    <!-- Top bar -->
+    <div class="locsales-topbar">
+      <div>
+        <h2 class="locsales-title">🚚 Route Sales</h2>
+        <div class="locsales-subtitle" id="routeSalesPeriod">Upload a SAP file to see data</div>
       </div>
-      <div id="routeSalesBody">
-        <div class="charts-no-data">
-          <div class="charts-no-data-icon">🚚</div>
-          <div>Upload a SAP sales file on the <strong>Upload Sales</strong> tab to see Route Sales here.</div>
+      <div class="locsales-controls">
+        <div class="locsales-search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="locsales-search" id="routeSearch" type="text" placeholder="Search route…" oninput="filterRouteSales()">
+        </div>
+        <select class="locsales-filter-select" id="routeCatFilter" onchange="filterRouteSales()">
+          <option value="">All Categories</option>
+        </select>
+        <button class="locsales-export-btn" onclick="exportRouteSalesCSV()">⬇ Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Summary stat pills -->
+    <div class="locsales-summary" id="routeSalesSummary" style="display:none">
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Routes</span>
+        <span class="loc-stat-value" id="routeStatRoutes">—</span>
+      </div>
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Categories</span>
+        <span class="loc-stat-value" id="routeStatCats">—</span>
+      </div>
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Total Revenue</span>
+        <span class="loc-stat-value" id="routeStatRev">—</span>
+      </div>
+      <div class="loc-stat-pill">
+        <span class="loc-stat-label">Total Volume</span>
+        <span class="loc-stat-value" id="routeStatVol">—</span>
+      </div>
+    </div>
+
+    <!-- Report Key -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;">
+      <div style="flex:0 0 auto;font-size:12px;font-weight:700;color:var(--text-head);text-transform:uppercase;letter-spacing:0.07em;padding-top:1px;">Key</div>
+      <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;"></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="background:#1a3c5e;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:0.04em;white-space:nowrap;">V (Ltrs/Kgs)</span>
+          <span style="font-size:12px;color:var(--text-muted);">Volume sold in Litres / Kilograms</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <span style="background:#1a3c5e;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:0.04em;white-space:nowrap;">R (KSH)</span>
+          <span style="font-size:12px;color:var(--text-muted);">Revenue in Kenyan Shillings</span>
         </div>
       </div>
     </div>
+
+    <!-- Table container -->
+    <div class="locsales-table-outer">
+      <div class="locsales-empty" id="routeSalesEmpty">
+        <div class="locsales-empty-icon">🚚</div>
+        <div>Upload a SAP file on the <strong>Upload Sales</strong> tab to see Route Sales here.</div>
+      </div>
+      <div class="locsales-table-wrap" id="routeSalesTableWrap" style="display:none">
+        <table id="routeSalesTable">
+          <thead id="routeSalesHead"></thead>
+          <tbody id="routeSalesTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -2030,12 +2086,13 @@ function parseCustomerSheet(csv) {
   const lines = csv.trim().split('\n');
   const hdrs  = parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   console.log('[Customers] Headers detected:', hdrs); // debug — check browser console
-  const codeIdx = findCol(hdrs,['sap code','sap','code','customer code','cust code','account']);
-  const nameIdx = findCol(hdrs,['outlet','name','customer','client','account name','description']);
-  const locIdx  = findCol(hdrs,['location','region','territory','area','zone','district','branch','route','loc','reg']);
-  const chanIdx = findCol(hdrs,['channel','trade channel','sales channel','chan','class','segment']);
-  const typeIdx = findCol(hdrs,['type','customer type','cust type','category']);
-  console.log('[Customers] Col indices → code:'+codeIdx+' name:'+nameIdx+' region:'+locIdx+' channel:'+chanIdx+' type:'+typeIdx);
+  const codeIdx  = findCol(hdrs,['sap code','sap','code','customer code','cust code','account']);
+  const nameIdx  = findCol(hdrs,['outlet','name','customer','client','account name','description']);
+  const locIdx   = findCol(hdrs,['location','region','territory','area','zone','district','branch','loc','reg']);
+  const chanIdx  = findCol(hdrs,['channel','trade channel','sales channel','chan','class','segment']);
+  const typeIdx  = findCol(hdrs,['type','customer type','cust type','category']);
+  const routeIdx = findCol(hdrs,['route']);
+  console.log('[Customers] Col indices → code:'+codeIdx+' name:'+nameIdx+' region:'+locIdx+' channel:'+chanIdx+' type:'+typeIdx+' route:'+routeIdx);
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
     const raw = codeIdx>=0?cols[codeIdx]:'';
@@ -2047,6 +2104,7 @@ function parseCustomerSheet(csv) {
       region:  locIdx>=0?(cols[locIdx]||'').trim().toUpperCase():'',
       channel: chanIdx>=0?(cols[chanIdx]||'').trim().toUpperCase():'',
       type:    typeIdx>=0?(cols[typeIdx]||'').trim().toUpperCase():'',
+      route:   routeIdx>=0?(cols[routeIdx]||'').trim().toUpperCase():'',
     };
     refData.customers[code] = entry;
     // Also index by the raw code (with leading zeros) so lookup works
@@ -2276,7 +2334,7 @@ function parseSAP(text){
         const info=refData.customers[code]||refData.customers[rawCode]; const found=!!info;
         const region=(found&&info.region)?info.region:inferRegion(sapChan);
         const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
-        curCust={code,rawCode,name,found,region,channel,type:found?info.type:''};
+        curCust={code,rawCode,name,found,region,channel,type:found?info.type:'',route:found?info.route:''};
         if(!found&&!result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
         if(found&&(!info.region||!info.channel)&&!result.incompleteCustomers[code])
           result.incompleteCustomers[code]={rawCode,name,regionRead:info.region||'(blank)',channelRead:info.channel||'(blank)',ltrs:0,amount:0};
@@ -2293,7 +2351,7 @@ function parseSAP(text){
       const prod=refData.products[matCode]||{};
       const category=prod.category||inferCategory(cols.join(' '));
       const ltrs=qty*(prod.ltrs||inferLtrs(cols.join(' ')));
-      result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,category,ltrs});
+      result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,route:curCust.route||'',category,ltrs});
       if(!curCust.found&&result.missingCustomers[curCust.code]){
         result.missingCustomers[curCust.code].ltrs+=ltrs;
         result.missingCustomers[curCust.code].amount+=amount;
@@ -2848,6 +2906,7 @@ function renderReport(data){
   try { renderCharts(data); } catch(e) { console.error('[Charts] renderCharts failed:', e); }
   try { populateLocSalesPage(data); } catch(e) { console.error('[LocSales] populateLocSalesPage failed:', e); }
   try { populateTypeSalesPage(data); } catch(e) { console.error('[TypeSales] populateTypeSalesPage failed:', e); }
+  try { populateRouteSalesPage(data); } catch(e) { console.error('[RouteSales] populateRouteSalesPage failed:', e); }
 }
 
 function renderNonTrading(list) {
@@ -4905,6 +4964,193 @@ function filterTypeSales() {
   const cat = document.getElementById('typeCatFilter').value;
   renderTypeSalesTable(_typeSalesData, q, cat);
 }
+
+// ═══════════════════════════════════════════════════════
+// ROUTE SALES
+// ═══════════════════════════════════════════════════════
+let _routeSalesData = null;
+
+function buildRouteSalesData(transactions) {
+  const pivot = {};
+  const routeSet = new Set();
+  const catSet   = new Set();
+  const grandTotal = { ltrs: 0, amount: 0 };
+
+  for (const t of transactions) {
+    const route = (t.route || 'UNASSIGNED').toUpperCase().trim() || 'UNASSIGNED';
+    const cat   = (t.category || 'UNKNOWN').toUpperCase();
+    routeSet.add(route);
+    catSet.add(cat);
+    if (!pivot[route]) pivot[route] = {};
+    if (!pivot[route][cat]) pivot[route][cat] = { ltrs: 0, amount: 0 };
+    pivot[route][cat].ltrs   += t.ltrs;
+    pivot[route][cat].amount += t.amount;
+    grandTotal.ltrs   += t.ltrs;
+    grandTotal.amount += t.amount;
+  }
+
+  // Sort routes by total revenue desc
+  const routes = [...routeSet].sort((a, b) => {
+    const totA = Object.values(pivot[a]||{}).reduce((s,d)=>s+d.amount,0);
+    const totB = Object.values(pivot[b]||{}).reduce((s,d)=>s+d.amount,0);
+    return totB - totA;
+  });
+  // Sort categories by total revenue desc
+  const categories = [...catSet].sort((a, b) => {
+    const totA = routes.reduce((s,r)=>s+(pivot[r]?.[a]?.amount||0),0);
+    const totB = routes.reduce((s,r)=>s+(pivot[r]?.[b]?.amount||0),0);
+    return totB - totA;
+  });
+
+  return { routes, categories, pivot, grandTotal };
+}
+
+function renderRouteSalesTable(data, filterRoute, filterCat) {
+  const { routes, categories, pivot } = data;
+  const fmt = v => Math.round(v).toLocaleString();
+  const visRoutes = filterRoute ? routes.filter(r => r.toLowerCase().includes(filterRoute)) : routes;
+  const visCats   = filterCat   ? categories.filter(c => c === filterCat.toUpperCase()) : categories;
+
+  function pctColor(p) {
+    if (p === null) return 'var(--text-muted)';
+    return p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
+  }
+
+  function dataCell(ltrs, amount, isTotCol) {
+    const isDark  = isTotCol;
+    const numCol  = isDark ? '#f6ad2b' : 'var(--text-head)';
+    const cellBg  = isTotCol ? 'background:rgba(27,79,114,0.35);' : '';
+    const lblCol  = isDark ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)';
+    const divCol  = isDark ? 'rgba(255,255,255,0.12)' : 'var(--border2)';
+    if (!ltrs && !amount) {
+      return `<td style="padding:8px 10px;text-align:center;${cellBg}border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);"><span style="color:var(--text-muted);font-size:12px;">—</span></td>`;
+    }
+    return `<td style="padding:7px 9px;vertical-align:top;${cellBg}border-bottom:1px solid var(--border2);border-right:1px solid var(--border2);min-width:110px;">
+      <div style="font-size:10px;font-weight:700;color:${lblCol};letter-spacing:0.05em;margin-bottom:1px;">V (Ltrs/Kgs)</div>
+      <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmt(ltrs)}</div>
+      <div style="border-top:1px dashed ${divCol};margin:4px 0 3px;"></div>
+      <div style="font-size:10px;font-weight:700;color:${lblCol};letter-spacing:0.05em;margin-bottom:1px;">R (KSH)</div>
+      <div style="font-size:12px;font-weight:700;color:${numCol};text-align:right;">${fmt(amount)}</div>
+    </td>`;
+  }
+
+  // ── Header ──
+  let headHtml = '<tr>';
+  headHtml += `<th style="vertical-align:middle;min-width:150px;text-align:left;border-right:2px solid rgba(255,255,255,0.2);padding:10px 14px;position:sticky;left:0;z-index:20;background:#0f2744;font-size:11px;letter-spacing:0.08em;">ROUTE</th>`;
+  for (const c of visCats) {
+    headHtml += `<th style="min-width:110px;text-align:center;padding:10px 8px;border-right:1px solid rgba(255,255,255,0.08);font-size:11px;letter-spacing:0.04em;">${esc(c)}</th>`;
+  }
+  headHtml += `<th style="background:#1b4f72;min-width:110px;text-align:center;padding:10px 8px;border-left:2px solid rgba(255,255,255,0.2);font-size:11px;letter-spacing:0.06em;color:#f6ad2b;font-weight:700;">TOTAL</th>`;
+  headHtml += '</tr>';
+  document.getElementById('routeSalesHead').innerHTML = headHtml;
+
+  // ── Pre-compute category totals ──
+  const catTotals = {};
+  for (const c of visCats) catTotals[c] = { ltrs: 0, amount: 0 };
+  const grandTotals = { ltrs: 0, amount: 0 };
+
+  for (const r of visRoutes) {
+    for (const c of visCats) {
+      catTotals[c].ltrs   += pivot[r]?.[c]?.ltrs   || 0;
+      catTotals[c].amount += pivot[r]?.[c]?.amount || 0;
+    }
+  }
+  for (const c of visCats) {
+    grandTotals.ltrs   += catTotals[c].ltrs;
+    grandTotals.amount += catTotals[c].amount;
+  }
+
+  // ── Body rows ──
+  let bodyHtml = '';
+  for (let ri = 0; ri < visRoutes.length; ri++) {
+    const r = visRoutes[ri];
+    const rowBg = ri % 2 === 1 ? 'background:rgba(255,255,255,0.02);' : '';
+    let rLtrs = 0, rAmt = 0;
+    for (const c of visCats) {
+      rLtrs += pivot[r]?.[c]?.ltrs   || 0;
+      rAmt  += pivot[r]?.[c]?.amount || 0;
+    }
+    bodyHtml += `<tr>`;
+    bodyHtml += `<td style="padding:9px 14px;font-weight:700;font-size:13px;color:var(--text-head);border-right:2px solid var(--border);border-bottom:1px solid var(--border2);vertical-align:middle;position:sticky;left:0;z-index:5;background:var(--surface);${rowBg}white-space:nowrap;">${esc(r)}</td>`;
+    for (const c of visCats) {
+      bodyHtml += dataCell(pivot[r]?.[c]?.ltrs||0, pivot[r]?.[c]?.amount||0, false);
+    }
+    bodyHtml += dataCell(rLtrs, rAmt, true);
+    bodyHtml += '</tr>';
+  }
+
+  // ── Grand Total row ──
+  bodyHtml += `<tr class="loc-total-row" style="border-top:3px solid rgba(255,255,255,0.25);">`;
+  bodyHtml += `<td style="padding:10px 14px;font-size:12px;font-weight:800;letter-spacing:0.06em;border-right:2px solid rgba(255,255,255,0.2);vertical-align:middle;position:sticky;left:0;z-index:5;background:#0f2744;white-space:nowrap;">GRAND TOTAL</td>`;
+  for (const c of visCats) {
+    bodyHtml += dataCell(catTotals[c].ltrs, catTotals[c].amount, true);
+  }
+  bodyHtml += dataCell(grandTotals.ltrs, grandTotals.amount, true);
+  bodyHtml += '</tr>';
+
+  document.getElementById('routeSalesTbody').innerHTML = bodyHtml;
+}
+
+function filterRouteSales() {
+  if (!_routeSalesData) return;
+  const q   = (document.getElementById('routeSearch').value || '').toLowerCase().trim();
+  const cat = document.getElementById('routeCatFilter').value;
+  renderRouteSalesTable(_routeSalesData, q, cat);
+}
+
+function populateRouteSalesPage(data) {
+  const d = buildRouteSalesData(data.transactions);
+  _routeSalesData = d;
+  const fmtBig = v => Math.round(v).toLocaleString();
+
+  const sub = document.getElementById('routeSalesPeriod');
+  if (sub) sub.textContent = data.period ? 'Period: ' + data.period : '';
+
+  document.getElementById('routeStatRoutes').textContent = d.routes.length;
+  document.getElementById('routeStatCats').textContent   = d.categories.length;
+  document.getElementById('routeStatRev').textContent    = 'KSH ' + fmtBig(d.grandTotal.amount);
+  document.getElementById('routeStatVol').textContent    = fmtBig(d.grandTotal.ltrs) + ' L/Kg';
+  document.getElementById('routeSalesSummary').style.display = 'flex';
+
+  const catSel = document.getElementById('routeCatFilter');
+  catSel.innerHTML = '<option value="">All Categories</option>' +
+    d.categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  document.getElementById('routeSalesEmpty').style.display    = 'none';
+  document.getElementById('routeSalesTableWrap').style.display = 'block';
+
+  renderRouteSalesTable(d, '', '');
+}
+
+function exportRouteSalesCSV() {
+  if (!_routeSalesData) { showToast('No data to export — upload a SAP file first.', 'err'); return; }
+  const { routes, categories, pivot } = _routeSalesData;
+  const q    = (document.getElementById('routeSearch').value || '').toLowerCase().trim();
+  const cat  = document.getElementById('routeCatFilter').value;
+  const visR = q   ? routes.filter(r => r.toLowerCase().includes(q)) : routes;
+  const visC = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
+  const fmt  = v => Math.round(v);
+
+  const catVolHdrs = visC.map(c => `"${c} Vol (L/Kg)"`).join(',');
+  const catRevHdrs = visC.map(c => `"${c} Rev (KSH)"`).join(',');
+  let csv = `Route,${catVolHdrs},${catRevHdrs},Total Vol (L/Kg),Total Rev (KSH)\n`;
+
+  for (const r of visR) {
+    let totLtrs = 0, totAmt = 0;
+    const vols = visC.map(c => { const v = pivot[r]?.[c]?.ltrs||0; totLtrs+=v; return fmt(v); });
+    const revs = visC.map(c => { const v = pivot[r]?.[c]?.amount||0; totAmt+=v; return fmt(v); });
+    csv += `"${r}",${vols.join(',')},${revs.join(',')},${fmt(totLtrs)},${fmt(totAmt)}\n`;
+  }
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `Route_Sales_${(document.getElementById('routeSalesPeriod').textContent||'').replace(/\s|–|\/|\./g,'_')}.csv`; a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+  showToast('CSV downloaded ✓', 'ok');
+}
+
+
 
 function populateTypeSalesPage(data) {
   const d = buildTypeSalesData(data.transactions);
