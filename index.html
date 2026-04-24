@@ -2104,7 +2104,7 @@ function parseCustomerSheet(csv) {
       region:  locIdx>=0?(cols[locIdx]||'').trim().toUpperCase():'',
       channel: chanIdx>=0?(cols[chanIdx]||'').trim().toUpperCase():'',
       type:    typeIdx>=0?(cols[typeIdx]||'').trim().toUpperCase():'',
-      route:   routeIdx>=0?(cols[routeIdx]||'').trim().toUpperCase():'',
+      route:   routeIdx>=0?(cols[routeIdx]||'').trim().replace(/^0+$/,'').toUpperCase():'',
     };
     refData.customers[code] = entry;
     // Also index by the raw code (with leading zeros) so lookup works
@@ -2351,7 +2351,7 @@ function parseSAP(text){
       const prod=refData.products[matCode]||{};
       const category=prod.category||inferCategory(cols.join(' '));
       const ltrs=qty*(prod.ltrs||inferLtrs(cols.join(' ')));
-      result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,route:curCust.route||'',category,ltrs});
+      result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,route:(curCust.route||'').replace(/^0+(\.0+)?$/,''),category,ltrs});
       if(!curCust.found&&result.missingCustomers[curCust.code]){
         result.missingCustomers[curCust.code].ltrs+=ltrs;
         result.missingCustomers[curCust.code].amount+=amount;
@@ -4976,8 +4976,14 @@ function buildRouteSalesData(transactions) {
   const catSet   = new Set();
   const grandTotal = { ltrs: 0, amount: 0 };
 
+  // Normalise a raw route value: strip numeric-zero placeholders ("0", "0.0") → UNASSIGNED
+  function normaliseRoute(raw) {
+    const s = (raw || '').toString().trim().replace(/^0+(\.0+)?$/, '').toUpperCase();
+    return s || 'UNASSIGNED';
+  }
+
   for (const t of transactions) {
-    const route = (t.route || 'UNASSIGNED').toUpperCase().trim() || 'UNASSIGNED';
+    const route = normaliseRoute(t.route);
     const cat   = (t.category || 'UNKNOWN').toUpperCase();
     routeSet.add(route);
     catSet.add(cat);
@@ -4989,8 +4995,10 @@ function buildRouteSalesData(transactions) {
     grandTotal.amount += t.amount;
   }
 
-  // Sort routes by total revenue desc
+  // Sort named routes by total revenue desc; push UNASSIGNED to the bottom
   const routes = [...routeSet].sort((a, b) => {
+    if (a === 'UNASSIGNED') return 1;
+    if (b === 'UNASSIGNED') return -1;
     const totA = Object.values(pivot[a]||{}).reduce((s,d)=>s+d.amount,0);
     const totB = Object.values(pivot[b]||{}).reduce((s,d)=>s+d.amount,0);
     return totB - totA;
