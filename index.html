@@ -5465,20 +5465,22 @@ function exportSpcExcel() {
 
   /* ══════════════════════════════════════════════
      SHEET 4 — Raw Data Per Customer
-     Columns: SAP CODE | CUSTOMER NAME | LOCATION | MATERIAL CODE | PRODUCT | CATEGORY | QTY (UNITS) | VOLUME (LTRS/KGS) | REVENUE (KSH) | % CONTRI TO TOTAL SALES
+     Columns: SAP CODE | CUSTOMER NAME | LOCATION | CHANNEL | TYPE | MATERIAL CODE | PRODUCT | CATEGORY | QTY (UNITS) | VOLUME (LTRS/KGS) | REVENUE (KSH) | % CONTRI TO TOTAL SALES
   ══════════════════════════════════════════════ */
   const s4rows = [];
 
-  // Title
-  s4rows.push([ titleCell(`Raw Data Per Customer — ${period}`, navy, 14), ...Array(9).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
-  s4rows.push([ metaCell(`Generated: ${new Date().toLocaleString()}`), ...Array(9).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
-  s4rows.push(Array(10).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone}))); // spacer
+  // Title (12 cols now)
+  s4rows.push([ titleCell(`Raw Data Per Customer — ${period}`, navy, 14), ...Array(11).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s4rows.push([ metaCell(`Generated: ${new Date().toLocaleString()}`), ...Array(11).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s4rows.push(Array(12).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone}))); // spacer
 
-  // Header row — matches image structure exactly
+  // Header row
   s4rows.push([
     hdrCell('SAP CODE',                wh, navyFill, false),
     hdrCell('CUSTOMER NAME',           wh, navyFill, false),
     hdrCell('LOCATION',                wh, navyFill, true),
+    hdrCell('CHANNEL',                 wh, navyFill, true),
+    hdrCell('TYPE',                    wh, navyFill, true),
     hdrCell('MATERIAL CODE',           wh, navyFill, false),
     hdrCell('PRODUCT',                 wh, navyFill, false),
     hdrCell('CATEGORY',                wh, navyFill, true),
@@ -5494,31 +5496,37 @@ function exportSpcExcel() {
     prods.forEach((p, pi) => {
       const bg = pi % 2 === 0 ? evenFill.fgColor : oddFill.fgColor;
       const contriShare = grandTotalAmt ? p.amount / grandTotalAmt : 0;
+      const centerCell = (v) => ({ v: v || '—', t: 's', s: { font: { name: FONT, sz: 10, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } });
+      const mutedCenter = (v) => ({ v: v || '—', t: 's', s: { font: { name: FONT, sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } });
       s4rows.push([
-        txtCell(c.code, muted, bg, false, 10),
-        txtCell(c.name, navy, bg, pi === 0, 10),
-        { v: c.region || '—', t: 's', s: { font: { name: FONT, sz: 10, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } },
-        txtCell(p.matCode, muted, bg, false, 10),
-        txtCell(p.description || p.matCode, dark, bg, false, 10),
-        { v: p.category || '—', t: 's', s: { font: { name: FONT, sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } },
-        numCell(p.qty,    dark, bg, decFmt),
-        numCell(p.ltrs,   dark, bg, decFmt),
-        numCell(p.amount, teal, bg),
-        pctCell(contriShare * 100, teal, bg),
+        txtCell(c.code,                          muted, bg, false, 10),  // SAP CODE
+        txtCell(c.name,                          navy,  bg, pi === 0, 10), // CUSTOMER NAME
+        centerCell(c.region),                                               // LOCATION
+        centerCell(c.channel),                                              // CHANNEL
+        centerCell(c.type),                                                 // TYPE
+        txtCell(p.matCode,                       muted, bg, false, 10),  // MATERIAL CODE
+        txtCell(p.description || p.matCode,      dark,  bg, false, 10),  // PRODUCT
+        mutedCenter(p.category),                                            // CATEGORY
+        numCell(p.qty,    dark, bg, decFmt),                              // QTY (UNITS)
+        numCell(p.ltrs,   dark, bg, decFmt),                              // VOLUME
+        numCell(p.amount, teal, bg),                                      // REVENUE
+        pctCell(contriShare * 100, teal, bg),                             // % CONTRI
       ]);
     });
-    // Thin spacer row between customers (no border)
-    s4rows.push(Array(10).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})));
+    // Spacer row between customers (no border)
+    s4rows.push(Array(12).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})));
   }
 
   // Grand total row
   s4rows.push([
-    totTxtCell('GRAND TOTAL', wh, tealFill.fgColor),
+    totTxtCell('GRAND TOTAL',              wh, tealFill.fgColor),
     totTxtCell(`${sorted.length} Customers`, wh, tealFill.fgColor),
-    emptyCell(tealFill.fgColor, totBdr),
-    emptyCell(tealFill.fgColor, totBdr),
-    emptyCell(tealFill.fgColor, totBdr),
-    emptyCell(tealFill.fgColor, totBdr),
+    emptyCell(tealFill.fgColor, totBdr),   // LOCATION
+    emptyCell(tealFill.fgColor, totBdr),   // CHANNEL
+    emptyCell(tealFill.fgColor, totBdr),   // TYPE
+    emptyCell(tealFill.fgColor, totBdr),   // MATERIAL CODE
+    emptyCell(tealFill.fgColor, totBdr),   // PRODUCT
+    emptyCell(tealFill.fgColor, totBdr),   // CATEGORY
     totCell(sorted.reduce((s,c)=>s+Object.values(c.products).reduce((a,p)=>a+p.qty,0),0), wh, tealFill.fgColor, decFmt),
     totCell(grandTotalLtrs, wh, tealFill.fgColor, decFmt),
     totCell(grandTotalAmt, gold, tealFill.fgColor),
@@ -5530,6 +5538,8 @@ function exportSpcExcel() {
     { wch: 14 },  // SAP CODE
     { wch: 36 },  // CUSTOMER NAME
     { wch: 18 },  // LOCATION
+    { wch: 16 },  // CHANNEL
+    { wch: 14 },  // TYPE
     { wch: 16 },  // MATERIAL CODE
     { wch: 34 },  // PRODUCT
     { wch: 14 },  // CATEGORY
