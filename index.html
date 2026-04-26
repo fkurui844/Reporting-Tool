@@ -1274,6 +1274,7 @@
     <button class="nav-btn active" id="navUpload" onclick="switchPage('upload')">📤 Upload Sales</button>
     <button class="nav-btn" id="navLocation" onclick="switchPage('location')">📍 Location Sales</button>
     <button class="nav-btn" id="navType" onclick="switchPage('type')">🏷 Type Sales</button>
+    <button class="nav-btn" id="navSpc" onclick="switchPage('spc')">👤 Sales Per Customer</button>
     <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">📊 Charts</button>
     <div class="theme-toggle">
       <span class="theme-toggle-label" id="themeLabel">☀️</span>
@@ -1711,7 +1712,92 @@
   </div>
 </div>
 
-<!-- ══════════════════ CHARTS PAGE ══════════════════ -->
+<!-- ══════════════════ SALES PER CUSTOMER PAGE ══════════════════ -->
+<style>
+  .spc-page { padding: 24px 28px; max-width: 100%; }
+  .spc-topbar { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+  .spc-title { font-size: 20px; font-weight: 800; color: var(--text-head); margin-bottom: 2px; }
+  .spc-period { font-size: 13px; color: var(--text-muted); }
+  .spc-pills { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+  .spc-pill { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 11px 16px; min-width: 130px; }
+  .spc-pill-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 3px; }
+  .spc-pill-val { font-size: 19px; font-weight: 800; color: var(--text-head); }
+  .spc-pill-val.green { color: #0f5f5a; }
+  .spc-search-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .spc-search { flex: 1; min-width: 200px; max-width: 360px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: 'DM Sans', sans-serif; background: var(--input-bg); color: var(--text); outline: none; transition: border 0.15s; }
+  .spc-search:focus { border-color: #0f2744; }
+  .spc-sort-row { display: flex; gap: 6px; align-items: center; }
+  .spc-sort-btn { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--text-muted); transition: all 0.15s; }
+  .spc-sort-btn.active { background: #0f2744; color: #fff; border-color: #0f2744; }
+  .spc-count-note { font-size: 12px; color: var(--text-muted); }
+  .spc-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+  .spc-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .spc-table thead tr { background: #0f2744; }
+  .spc-table thead th { padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.72); letter-spacing: 0.07em; border: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
+  .spc-table thead th.num { text-align: right; }
+  .spc-table thead th.gold { color: #f6ad2b; }
+  .spc-cust-row { cursor: pointer; transition: background 0.12s; }
+  .spc-cust-row:hover td { background: #e8f0fb !important; }
+  .spc-cust-row td { padding: 10px 14px; border: 1px solid var(--border2); vertical-align: middle; }
+  .spc-cust-code { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text-muted); }
+  .spc-cust-name { font-weight: 700; font-size: 13px; color: var(--text-head); }
+  .spc-cust-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .spc-toggle-icon { font-size: 11px; color: var(--text-muted); transition: transform 0.2s; display: inline-block; }
+  .spc-cust-row.open .spc-toggle-icon { transform: rotate(90deg); }
+  .spc-num { text-align: right; font-weight: 700; color: var(--text); }
+  .spc-num.rev { color: #0f5f5a; font-size: 14px; }
+  .spc-share-bar-wrap { height: 4px; background: var(--border2); border-radius: 99px; margin-top: 4px; min-width: 60px; }
+  .spc-share-bar { height: 4px; background: #0f2744; border-radius: 99px; }
+  .spc-share-pct { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+  /* Product breakdown rows */
+  .spc-prod-section { display: none; }
+  .spc-prod-section.open { display: table-row-group; }
+  .spc-prod-header-row td { background: #f0f4f8; padding: 6px 14px 4px; border: 1px solid var(--border2); }
+  .spc-prod-header-row.dark-mode-aware td { background: var(--th-bg); }
+  .spc-prod-head-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #0f2744; }
+  .spc-prod-row td { padding: 7px 14px; border: 1px solid var(--border2); background: #fafbfd; font-size: 12px; }
+  .spc-prod-row:last-child td { border-bottom: 2px solid var(--border); }
+  .spc-prod-matcode { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-muted); }
+  .spc-prod-name { font-weight: 600; color: var(--text); }
+  .spc-prod-cat { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: var(--pill-bg); color: var(--text-muted); margin-top: 2px; }
+  .spc-prod-num { text-align: right; font-size: 12px; color: var(--text); }
+  .spc-prod-num.rev { color: #0f5f5a; font-weight: 700; }
+  .spc-prod-subtotal td { background: #e8f4f0; padding: 7px 14px; border: 1px solid #c8e6de; font-size: 12px; font-weight: 700; }
+  .spc-grand-row td { background: #0f2744; color: #fff; padding: 11px 14px; font-weight: 800; font-size: 13px; border: 1px solid #0f2744; }
+  .spc-grand-row td.gold { color: #f6ad2b; text-align: right; }
+  .spc-grand-row td.wh { color: #fff; text-align: right; }
+  .spc-no-data { text-align: center; padding: 48px 24px; color: var(--text-muted); font-size: 14px; }
+  .spc-no-data-icon { font-size: 36px; margin-bottom: 10px; }
+  body.dark .spc-cust-row:hover td { background: #1c2128 !important; }
+  body.dark .spc-prod-row td { background: var(--th-bg); }
+  body.dark .spc-prod-header-row td { background: #1c2128; }
+  body.dark .spc-prod-subtotal td { background: #0a2e28; border-color: #0f5f5a; }
+</style>
+<div class="page" id="pageSpc">
+  <div class="spc-page">
+    <div class="spc-topbar">
+      <div>
+        <div class="spc-title">👤 Sales Per Customer</div>
+        <div class="spc-period" id="spcPeriod">Period: —</div>
+      </div>
+    </div>
+    <div id="spcPills" class="spc-pills" style="display:none;"></div>
+    <div id="spcControls" class="spc-search-row" style="display:none;">
+      <input class="spc-search" id="spcSearch" type="text" placeholder="🔍  Search customer name or SAP code…" oninput="spcFilter()">
+      <div class="spc-sort-row">
+        <span style="font-size:12px;color:var(--text-muted);font-weight:600;">Sort:</span>
+        <button class="spc-sort-btn active" id="spcSortRev" onclick="spcSort('revenue')">Revenue ↓</button>
+        <button class="spc-sort-btn" id="spcSortVol" onclick="spcSort('volume')">Volume ↓</button>
+        <button class="spc-sort-btn" id="spcSortName" onclick="spcSort('name')">Name A–Z</button>
+      </div>
+      <span class="spc-count-note" id="spcCountNote"></span>
+    </div>
+    <div id="spcBody">
+      <div class="spc-no-data"><div class="spc-no-data-icon">📂</div><div>Upload a SAP file on the <strong>Upload Sales</strong> tab to see Sales Per Customer here.</div></div>
+    </div>
+  </div>
+</div>
+
 <div class="page" id="pageCustomers">
   <div class="customers-page">
 
@@ -2670,6 +2756,7 @@ function renderReport(data){
   renderCharts(data);
   populateLocSalesPage(data);
   populateTypeSalesPage(data);
+  populateSalesPerCustomerPage(data);
 }
 
 function renderNonTrading(list) {
@@ -5014,6 +5101,197 @@ function exportTypeSalesHTML() {
   a.href = url; a.download = `Type_Sales_${period.replace(/\s|–|\/|\./g,'_')}.html`; a.click();
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
   showToast('HTML file downloaded ✓', 'ok');
+}
+
+// ── Sales Per Customer Page ────────────────────────────
+let _spcData    = [];   // [{code, name, region, channel, type, totalLtrs, totalAmt, products:[]}]
+let _spcSort    = 'revenue';
+let _spcFilter  = '';
+
+function populateSalesPerCustomerPage(data) {
+  if (!data || !data.transactions || !data.transactions.length) return;
+
+  document.getElementById('spcPeriod').textContent = 'Period: ' + (data.period || '—');
+
+  // Aggregate by customer then by product within each customer
+  const custMap = {};
+  const grandTotalAmt  = data.transactions.reduce((s, t) => s + t.amount, 0);
+  const grandTotalLtrs = data.transactions.reduce((s, t) => s + t.ltrs,   0);
+
+  for (const tx of data.transactions) {
+    const code = tx.custCode || '';
+    if (!custMap[code]) {
+      custMap[code] = { code, name: tx.custName || code, region: tx.region || '—', channel: tx.channel || '—', type: tx.type || '—', totalLtrs: 0, totalAmt: 0, products: {} };
+    }
+    const cust = custMap[code];
+    cust.totalLtrs += tx.ltrs   || 0;
+    cust.totalAmt  += tx.amount || 0;
+
+    // Product level
+    const mat = tx.matCode || 'UNKNOWN';
+    if (!cust.products[mat]) {
+      const prod = refData.products[mat] || {};
+      cust.products[mat] = { matCode: mat, description: prod.description || mat, category: tx.category || '—', qty: 0, ltrs: 0, amount: 0 };
+    }
+    cust.products[mat].qty    += tx.qty    || 0;
+    cust.products[mat].ltrs   += tx.ltrs   || 0;
+    cust.products[mat].amount += tx.amount || 0;
+  }
+
+  _spcData = Object.values(custMap);
+
+  // Summary pills
+  document.getElementById('spcPills').style.display = 'flex';
+  document.getElementById('spcPills').innerHTML = `
+    <div class="spc-pill"><div class="spc-pill-label">Customers</div><div class="spc-pill-val">${_spcData.length}</div></div>
+    <div class="spc-pill"><div class="spc-pill-label">Total Revenue (KSH)</div><div class="spc-pill-val green">KSH ${fmt(grandTotalAmt)}</div></div>
+    <div class="spc-pill"><div class="spc-pill-label">Total Volume (Ltrs/Kgs)</div><div class="spc-pill-val">${fmt(grandTotalLtrs)}</div></div>
+    <div class="spc-pill"><div class="spc-pill-label">Avg Revenue / Customer</div><div class="spc-pill-val">KSH ${fmt(grandTotalAmt / (_spcData.length || 1))}</div></div>`;
+
+  document.getElementById('spcControls').style.display = 'flex';
+  spcRender(grandTotalAmt, grandTotalLtrs);
+}
+
+function spcSort(by) {
+  _spcSort = by;
+  document.querySelectorAll('.spc-sort-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('spcSort' + by.charAt(0).toUpperCase() + by.slice(1)).classList.add('active');
+  const grandTotalAmt  = _spcData.reduce((s, c) => s + c.totalAmt,  0);
+  const grandTotalLtrs = _spcData.reduce((s, c) => s + c.totalLtrs, 0);
+  spcRender(grandTotalAmt, grandTotalLtrs);
+}
+
+function spcFilter() {
+  _spcFilter = document.getElementById('spcSearch').value.toLowerCase().trim();
+  const grandTotalAmt  = _spcData.reduce((s, c) => s + c.totalAmt,  0);
+  const grandTotalLtrs = _spcData.reduce((s, c) => s + c.totalLtrs, 0);
+  spcRender(grandTotalAmt, grandTotalLtrs);
+}
+
+function spcToggle(code) {
+  const row  = document.getElementById('spcRow_' + code);
+  const sect = document.getElementById('spcProd_' + code);
+  if (!row || !sect) return;
+  const open = sect.classList.toggle('open');
+  row.classList.toggle('open', open);
+}
+
+function spcRender(grandTotalAmt, grandTotalLtrs) {
+  const f = _spcFilter;
+  let rows = _spcData.filter(c => !f || c.name.toLowerCase().includes(f) || c.code.toLowerCase().includes(f));
+
+  if (_spcSort === 'revenue') rows.sort((a, b) => b.totalAmt  - a.totalAmt);
+  else if (_spcSort === 'volume') rows.sort((a, b) => b.totalLtrs - a.totalLtrs);
+  else rows.sort((a, b) => a.name.localeCompare(b.name));
+
+  document.getElementById('spcCountNote').textContent =
+    rows.length === _spcData.length ? `${rows.length} customer${rows.length !== 1 ? 's' : ''}` : `${rows.length} of ${_spcData.length} customers`;
+
+  if (!rows.length) {
+    document.getElementById('spcBody').innerHTML =
+      `<div class="spc-no-data"><div class="spc-no-data-icon">🔍</div><div>No customers match "<strong>${f}</strong>".</div></div>`;
+    return;
+  }
+
+  const fmtK = v => Math.round(v).toLocaleString();
+  const fmtQ = v => parseFloat(v.toFixed(1)).toLocaleString();
+  const revShare = v => grandTotalAmt ? Math.round((v / grandTotalAmt) * 100) : 0;
+
+  let tbody = '';
+  for (let i = 0; i < rows.length; i++) {
+    const c   = rows[i];
+    const bg  = i % 2 === 0 ? 'var(--surface)' : 'var(--row-pct)';
+    const rs  = revShare(c.totalAmt);
+    const barW = Math.min(rs, 100);
+
+    // Sort products by revenue desc
+    const prods = Object.values(c.products).sort((a, b) => b.amount - a.amount);
+
+    // Customer row
+    tbody += `
+    <tr class="spc-cust-row" id="spcRow_${c.code}" onclick="spcToggle('${c.code}')">
+      <td style="background:${bg};">
+        <span class="spc-toggle-icon">▶</span>
+      </td>
+      <td style="background:${bg};">
+        <div class="spc-cust-code">${c.code}</div>
+        <div class="spc-cust-name">${c.name}</div>
+        <div class="spc-cust-meta">${c.region} · ${c.channel}${c.type ? ' · ' + c.type : ''}</div>
+      </td>
+      <td class="spc-num" style="background:${bg};">${prods.length}</td>
+      <td class="spc-num" style="background:${bg};">${fmtQ(c.totalLtrs)}</td>
+      <td class="spc-num rev" style="background:${bg};">
+        KSH ${fmtK(c.totalAmt)}
+        <div class="spc-share-bar-wrap"><div class="spc-share-bar" style="width:${barW}%;"></div></div>
+        <div class="spc-share-pct">${rs}% of total</div>
+      </td>
+    </tr>`;
+
+    // Product breakdown (hidden until toggled)
+    let prodRows = '';
+    for (const p of prods) {
+      const pShare = c.totalAmt ? Math.round((p.amount / c.totalAmt) * 100) : 0;
+      prodRows += `
+      <tr class="spc-prod-row">
+        <td></td>
+        <td>
+          <div class="spc-prod-matcode">${p.matCode}</div>
+          <div class="spc-prod-name">${p.description || p.matCode}</div>
+          <span class="spc-prod-cat">${p.category}</span>
+        </td>
+        <td class="spc-prod-num" style="color:var(--text-muted);">${fmtQ(p.qty)} units</td>
+        <td class="spc-prod-num">${fmtQ(p.ltrs)}</td>
+        <td class="spc-prod-num rev">
+          KSH ${fmtK(p.amount)}
+          <div class="spc-share-bar-wrap"><div class="spc-share-bar" style="width:${Math.min(pShare,100)}%;background:#0f5f5a;"></div></div>
+          <div class="spc-share-pct">${pShare}% of customer</div>
+        </td>
+      </tr>`;
+    }
+
+    tbody += `
+    <tbody class="spc-prod-section" id="spcProd_${c.code}">
+      <tr class="spc-prod-header-row">
+        <td colspan="5" style="background:#e8f0f8;">
+          <span class="spc-prod-head-label">📦 Products sold to ${c.name} (${prods.length} SKU${prods.length !== 1 ? 's' : ''})</span>
+        </td>
+      </tr>
+      <tr class="spc-prod-row" style="display:none;"></tr>
+      ${prodRows}
+      <tr class="spc-prod-subtotal">
+        <td colspan="2" style="color:#0f5f5a;">Customer Subtotal</td>
+        <td class="spc-prod-num" style="text-align:right;background:#e8f4f0;">${prods.length} SKU${prods.length !== 1 ? 's' : ''}</td>
+        <td class="spc-prod-num" style="text-align:right;background:#e8f4f0;">${fmtQ(c.totalLtrs)}</td>
+        <td class="spc-prod-num rev" style="text-align:right;background:#e8f4f0;">KSH ${fmtK(c.totalAmt)}</td>
+      </tr>
+    </tbody>`;
+  }
+
+  // Grand total row
+  const grandTotalSkus = rows.reduce((s, c) => s + Object.keys(c.products).length, 0);
+  tbody += `
+    <tr class="spc-grand-row">
+      <td colspan="2">GRAND TOTAL — ${rows.length} Customer${rows.length !== 1 ? 's' : ''}</td>
+      <td class="wh">${grandTotalSkus} SKUs</td>
+      <td class="wh">${fmtQ(grandTotalLtrs)}</td>
+      <td class="gold">KSH ${fmtK(grandTotalAmt)}</td>
+    </tr>`;
+
+  document.getElementById('spcBody').innerHTML = `
+    <div class="spc-table-wrap">
+      <table class="spc-table">
+        <thead>
+          <tr>
+            <th style="width:32px;"></th>
+            <th>CUSTOMER</th>
+            <th class="num">SKUS</th>
+            <th class="num">VOLUME (LTRS/KGS)</th>
+            <th class="num gold">REVENUE (KSH)</th>
+          </tr>
+        </thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>`;
 }
 
 // ── Target Toggle ──────────────────────────────────────
