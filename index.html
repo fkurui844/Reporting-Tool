@@ -5146,37 +5146,123 @@ function exportSpcExcel() {
   const lightFill = { patternType: 'solid', fgColor: { rgb: 'E8F4F0' } };
   const altFill   = { patternType: 'solid', fgColor: { rgb: 'F0F4F8' } };
   const prodFill  = { patternType: 'solid', fgColor: { rgb: 'FAFBFD' } };
+  const evenFill  = { patternType: 'solid', fgColor: { rgb: 'FFFFFF' } };
+  const oddFill   = { patternType: 'solid', fgColor: { rgb: 'F4F7FB' } };
 
   const wh   = { rgb: 'FFFFFF' };
   const navy = { rgb: '0F2744' };
   const teal = { rgb: '0F5F5A' };
   const gold = { rgb: 'F6AD2B' };
-  const muted= { rgb: '718096' };
+  const muted= { rgb: '64748B' };
   const dark = { rgb: '1A202C' };
+  const accent = { rgb: 'E1245A' };
 
+  const FONT = 'Segoe UI';
   const bold  = true;
   const numFmt = '#,##0';
   const decFmt = '#,##0.0';
-  const pctFmt = '0%';
-  const thin  = { style: 'thin',   color: { rgb: 'DDE3EC' } };
-  const thinT = { style: 'thin',   color: { rgb: 'FFFFFF' } };
-  const med   = { style: 'medium', color: { rgb: '0F2744' } };
-  const bdr   = (t,r,b,l) => ({ top:t, right:r, bottom:b, left:l });
+  const pctFmt = '0.0%';
+
+  /* ── Border presets ── */
+  // Inner data borders: medium outer, thin inner grid
+  const bdrNone  = { style: 'none' };
+  const bdrThin  = (rgb) => ({ style: 'thin',   color: { rgb: rgb || 'C8D6E5' } });
+  const bdrMed   = (rgb) => ({ style: 'medium', color: { rgb: rgb || '0F2744' } });
+  const bdrThick = (rgb) => ({ style: 'thick',  color: { rgb: rgb || '0F2744' } });
+
+  // Standard data cell border: thin grid lines in slate-blue
+  const gridBdr  = { top: bdrThin('C8D6E5'), right: bdrThin('C8D6E5'), bottom: bdrThin('C8D6E5'), left: bdrThin('C8D6E5') };
+  // Header cell border: white inner lines, medium outer
+  const hdrBdr   = { top: bdrMed('0F2744'), right: bdrThin('FFFFFF'), bottom: bdrMed('0F2744'), left: bdrThin('FFFFFF') };
+  // Subtotal row border: medium top & bottom navy
+  const subBdr   = { top: bdrMed('0F5F5A'), right: bdrThin('C8D6E5'), bottom: bdrMed('0F5F5A'), left: bdrThin('C8D6E5') };
+  // Total row border: thick outer navy
+  const totBdr   = { top: bdrThick('0F2744'), right: bdrMed('0F2744'), bottom: bdrThick('0F2744'), left: bdrMed('0F2744') };
 
   function hdrCell(v, fg, bg, center) {
-    return { v, t: 's', s: { font: { bold, color: fg, sz: 10 }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: center ? 'center' : 'left', vertical: 'center', wrapText: true }, border: bdr(thinT,thinT,thinT,thinT) } };
+    return { v, t: 's', s: {
+      font:      { name: FONT, bold, color: fg, sz: 10 },
+      fill:      { patternType:'solid', fgColor: bg },
+      alignment: { horizontal: center ? 'center' : 'left', vertical: 'center', wrapText: true },
+      border:    hdrBdr
+    }};
   }
   function numCell(v, fg, bg, fmt2) {
-    return { v, t: 'n', z: fmt2 || numFmt, s: { font: { bold, color: fg }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } };
+    return { v, t: 'n', z: fmt2 || numFmt, s: {
+      font:      { name: FONT, bold: false, color: fg },
+      fill:      { patternType:'solid', fgColor: bg },
+      alignment: { horizontal: 'right', vertical: 'center' },
+      border:    gridBdr
+    }};
+  }
+  function numCellBold(v, fg, bg, fmt2) {
+    return { v, t: 'n', z: fmt2 || numFmt, s: {
+      font:      { name: FONT, bold: true, color: fg },
+      fill:      { patternType:'solid', fgColor: bg },
+      alignment: { horizontal: 'right', vertical: 'center' },
+      border:    subBdr
+    }};
   }
   function txtCell(v, fg, bg, bold2, sz) {
-    return { v: v||'', t: 's', s: { font: { bold: bold2||false, color: fg||dark, sz: sz||11 }, fill: { patternType:'solid', fgColor: bg||{rgb:'FFFFFF'} }, alignment: { horizontal: 'left', vertical: 'center', wrapText: true }, border: bdr(thin,thin,thin,thin) } };
+    return { v: v||'', t: 's', s: {
+      font:      { name: FONT, bold: bold2||false, color: fg||dark, sz: sz||10 },
+      fill:      { patternType:'solid', fgColor: bg||{rgb:'FFFFFF'} },
+      alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+      border:    gridBdr
+    }};
   }
   function pctCell(v, fg, bg) {
-    return { v: v/100, t: 'n', z: pctFmt, s: { font: { bold: true, color: fg||muted }, fill: { patternType:'solid', fgColor: bg||{rgb:'FFFFFF'} }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } };
+    return { v: v/100, t: 'n', z: pctFmt, s: {
+      font:      { name: FONT, bold: false, color: fg||muted },
+      fill:      { patternType:'solid', fgColor: bg||{rgb:'FFFFFF'} },
+      alignment: { horizontal: 'right', vertical: 'center' },
+      border:    gridBdr
+    }};
   }
-  function emptyCell(bg) {
-    return { v: '', t: 's', s: { fill: { patternType:'solid', fgColor: bg||{rgb:'FFFFFF'} }, border: bdr(thin,thin,thin,thin) } };
+  function emptyCell(bg, bdrStyle) {
+    return { v: '', t: 's', s: {
+      fill:   { patternType:'solid', fgColor: bg||{rgb:'FFFFFF'} },
+      border: bdrStyle || gridBdr
+    }};
+  }
+  function totCell(v, fg, bg, fmt2) {
+    return { v, t: 'n', z: fmt2 || numFmt, s: {
+      font:      { name: FONT, bold: true, color: fg },
+      fill:      { patternType:'solid', fgColor: bg },
+      alignment: { horizontal: 'right', vertical: 'center' },
+      border:    totBdr
+    }};
+  }
+  function totTxtCell(v, fg, bg, center) {
+    return { v: v||'', t: 's', s: {
+      font:      { name: FONT, bold: true, color: fg, sz: 10 },
+      fill:      { patternType:'solid', fgColor: bg },
+      alignment: { horizontal: center ? 'center' : 'left', vertical: 'center', wrapText: true },
+      border:    totBdr
+    }};
+  }
+  function subTxtCell(v, fg, bg) {
+    return { v: v||'', t: 's', s: {
+      font:      { name: FONT, bold: true, color: fg, sz: 10 },
+      fill:      { patternType:'solid', fgColor: bg },
+      alignment: { horizontal: 'left', vertical: 'center' },
+      border:    subBdr
+    }};
+  }
+  function titleCell(v, fg, sz) {
+    return { v, t: 's', s: {
+      font:      { name: FONT, bold: true, color: fg, sz: sz||14 },
+      fill:      { patternType:'solid', fgColor: {rgb:'FFFFFF'} },
+      alignment: { horizontal: 'left', vertical: 'center' },
+      border:    { top: bdrNone, right: bdrNone, bottom: bdrNone, left: bdrNone }
+    }};
+  }
+  function metaCell(v) {
+    return { v, t: 's', s: {
+      font:      { name: FONT, sz: 9, color: muted, italic: true },
+      fill:      { patternType:'solid', fgColor: {rgb:'FFFFFF'} },
+      border:    { top: bdrNone, right: bdrNone, bottom: bdrNone, left: bdrNone }
+    }};
   }
 
   /* ══════════════════════════════════════════════
@@ -5185,16 +5271,9 @@ function exportSpcExcel() {
   const s1rows = [];
 
   // Title row
-  s1rows.push([
-    { v: `Sales Per Customer — ${period}`, t: 's', s: { font: { bold, sz: 14, color: navy }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} }, alignment: { horizontal: 'left', vertical: 'center' } } },
-    ...Array(7).fill(emptyCell({rgb:'FFFFFF'}))
-  ]);
-  // Generated row
-  s1rows.push([
-    { v: `Generated: ${new Date().toLocaleString()}`, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} } } },
-    ...Array(7).fill(emptyCell({rgb:'FFFFFF'}))
-  ]);
-  s1rows.push(Array(8).fill(emptyCell({rgb:'FFFFFF'}))); // spacer
+  s1rows.push([ titleCell(`Sales Per Customer — ${period}`, navy, 14), ...Array(7).fill(emptyCell({rgb:'FFFFFF'}, {top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s1rows.push([ metaCell(`Generated: ${new Date().toLocaleString()}`), ...Array(7).fill(emptyCell({rgb:'FFFFFF'}, {top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s1rows.push(Array(9).fill(emptyCell({rgb:'FFFFFF'}, {top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone}))); // spacer
 
   // Header row
   s1rows.push([
@@ -5211,37 +5290,37 @@ function exportSpcExcel() {
 
   const sorted = [..._spcData].sort((a, b) => b.totalAmt - a.totalAmt);
   sorted.forEach((c, i) => {
-    const bg = i % 2 === 0 ? { rgb: 'FFFFFF' } : { rgb: 'F8FAFC' };
+    const bg = i % 2 === 0 ? evenFill.fgColor : oddFill.fgColor;
     const share = grandTotalAmt ? c.totalAmt / grandTotalAmt : 0;
     s1rows.push([
-      { v: c.code, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
-      txtCell(c.name, navy, bg, true, 11),
-      { v: c.region,  t: 's', s: { font: { sz: 11, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
-      { v: c.channel, t: 's', s: { font: { sz: 11, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
-      { v: c.type||'—', t: 's', s: { font: { sz: 11, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+      txtCell(c.code, muted, bg, false, 10),
+      txtCell(c.name, navy, bg, true, 10),
+      { v: c.region,    t: 's', s: { font: { name: FONT, sz: 10, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } },
+      { v: c.channel,   t: 's', s: { font: { name: FONT, sz: 10, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } },
+      { v: c.type||'—', t: 's', s: { font: { name: FONT, sz: 10, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } },
       numCell(Object.keys(c.products).length, dark, bg, '0'),
       numCell(c.totalLtrs, dark, bg, decFmt),
-      numCell(c.totalAmt, { rgb: '0F5F5A' }, bg),
-      pctCell(share * 100, { rgb: '0F5F5A' }, bg),
+      numCell(c.totalAmt, teal, bg),
+      pctCell(share * 100, teal, bg),
     ]);
   });
 
   // Grand total row
   s1rows.push([
-    hdrCell('GRAND TOTAL', wh, tealFill, false),
-    hdrCell(`${sorted.length} Customers`, wh, tealFill, false),
-    emptyCell({ rgb: '0F5F5A' }),
-    emptyCell({ rgb: '0F5F5A' }),
-    emptyCell({ rgb: '0F5F5A' }),
-    numCell(sorted.reduce((s,c)=>s+Object.keys(c.products).length,0), wh, tealFill, '0'),
-    numCell(grandTotalLtrs, wh, tealFill, decFmt),
-    numCell(grandTotalAmt,  gold, tealFill),
-    { v: '100%', t: 's', s: { font: { bold, color: gold }, fill: { patternType:'solid', fgColor: tealFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+    totTxtCell('GRAND TOTAL', wh, tealFill.fgColor),
+    totTxtCell(`${sorted.length} Customers`, wh, tealFill.fgColor),
+    emptyCell(tealFill.fgColor, totBdr),
+    emptyCell(tealFill.fgColor, totBdr),
+    emptyCell(tealFill.fgColor, totBdr),
+    totCell(sorted.reduce((s,c)=>s+Object.keys(c.products).length,0), wh, tealFill.fgColor, '0'),
+    totCell(grandTotalLtrs, wh, tealFill.fgColor, decFmt),
+    totCell(grandTotalAmt, gold, tealFill.fgColor),
+    { v: '100%', t: 's', s: { font: { name: FONT, bold: true, color: gold, sz: 10 }, fill: { patternType:'solid', fgColor: tealFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: totBdr } },
   ]);
 
   const ws1 = XLSX.utils.aoa_to_sheet(s1rows);
-  ws1['!cols'] = [{ wch: 14 }, { wch: 38 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 8 }, { wch: 18 }, { wch: 18 }, { wch: 10 }];
-  ws1['!rows'] = [{ hpt: 22 }, { hpt: 14 }, { hpt: 8 }, { hpt: 32 }];
+  ws1['!cols'] = [{ wch: 14 }, { wch: 38 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 8 }, { wch: 20 }, { wch: 20 }, { wch: 12 }];
+  ws1['!rows'] = [{ hpt: 24 }, { hpt: 14 }, { hpt: 6 }, { hpt: 34 }];
   ws1['!freeze'] = { xSplit: 0, ySplit: 4 }; // freeze after header
   XLSX.utils.book_append_sheet(wb, ws1, 'Customer Summary');
 
@@ -5250,72 +5329,67 @@ function exportSpcExcel() {
   ══════════════════════════════════════════════ */
   const s2rows = [];
 
-  s2rows.push([
-    { v: `Products Per Customer — ${period}`, t: 's', s: { font: { bold, sz: 14, color: navy }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} }, alignment: { horizontal: 'left', vertical: 'center' } } },
-    ...Array(7).fill(emptyCell({rgb:'FFFFFF'}))
-  ]);
-  s2rows.push([
-    { v: `Generated: ${new Date().toLocaleString()}`, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} } } },
-    ...Array(7).fill(emptyCell({rgb:'FFFFFF'}))
-  ]);
-  s2rows.push(Array(8).fill(emptyCell({rgb:'FFFFFF'})));
+  s2rows.push([ titleCell(`Products Per Customer — ${period}`, navy, 14), ...Array(7).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s2rows.push([ metaCell(`Generated: ${new Date().toLocaleString()}`), ...Array(7).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s2rows.push(Array(9).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})));
 
   s2rows.push([
-    hdrCell('SAP CODE',       wh, navyFill, false),
-    hdrCell('CUSTOMER NAME',  wh, navyFill, false),
-    hdrCell('MATERIAL CODE',  wh, navyFill, false),
-    hdrCell('PRODUCT',        wh, navyFill, false),
-    hdrCell('CATEGORY',       wh, navyFill, true),
-    hdrCell('QTY (UNITS)',    wh, navyFill, true),
+    hdrCell('SAP CODE',          wh, navyFill, false),
+    hdrCell('CUSTOMER NAME',     wh, navyFill, false),
+    hdrCell('MATERIAL CODE',     wh, navyFill, false),
+    hdrCell('PRODUCT',           wh, navyFill, false),
+    hdrCell('CATEGORY',          wh, navyFill, true),
+    hdrCell('QTY (UNITS)',       wh, navyFill, true),
     hdrCell('VOLUME (LTRS/KGS)', wh, navyFill, true),
-    hdrCell('REVENUE (KSH)',  gold, navyFill, true),
-    hdrCell('% OF CUSTOMER',  gold, navyFill, true),
+    hdrCell('REVENUE (KSH)',     gold, navyFill, true),
+    hdrCell('% OF CUSTOMER',     gold, navyFill, true),
   ]);
 
   for (const c of sorted) {
     const prods = Object.values(c.products).sort((a, b) => b.amount - a.amount);
     prods.forEach((p, pi) => {
       const isFirst = pi === 0;
+      const bg = pi % 2 === 0 ? evenFill.fgColor : oddFill.fgColor;
       const custShare = c.totalAmt ? p.amount / c.totalAmt : 0;
       s2rows.push([
-        { v: isFirst ? c.code : '', t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: prodFill.fgColor }, alignment: { horizontal: 'left', vertical: 'top' }, border: bdr(thin,thin,thin,thin) } },
-        { v: isFirst ? c.name : '', t: 's', s: { font: { bold: isFirst, sz: 11, color: navy }, fill: { patternType:'solid', fgColor: prodFill.fgColor }, alignment: { horizontal: 'left', vertical: 'top', wrapText: true }, border: bdr(thin,thin,thin,thin) } },
-        txtCell(p.matCode, muted, prodFill.fgColor, false, 10),
-        txtCell(p.description || p.matCode, dark, prodFill.fgColor, false, 11),
-        { v: p.category, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: prodFill.fgColor }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
-        numCell(p.qty,    dark, prodFill.fgColor, decFmt),
-        numCell(p.ltrs,   dark, prodFill.fgColor, decFmt),
-        numCell(p.amount, { rgb: '0F5F5A' }, prodFill.fgColor),
-        pctCell(custShare * 100, { rgb: '0F5F5A' }, prodFill.fgColor),
+        { v: isFirst ? c.code : '', t: 's', s: { font: { name: FONT, sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'top' }, border: gridBdr } },
+        { v: isFirst ? c.name : '', t: 's', s: { font: { name: FONT, bold: isFirst, sz: 10, color: navy }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'top', wrapText: true }, border: gridBdr } },
+        txtCell(p.matCode, muted, bg, false, 10),
+        txtCell(p.description || p.matCode, dark, bg, false, 10),
+        { v: p.category, t: 's', s: { font: { name: FONT, sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } },
+        numCell(p.qty,    dark, bg, decFmt),
+        numCell(p.ltrs,   dark, bg, decFmt),
+        numCell(p.amount, teal, bg),
+        pctCell(custShare * 100, teal, bg),
       ]);
     });
     // Customer subtotal row
     s2rows.push([
-      { v: '', t: 's', s: { fill: { patternType:'solid', fgColor: lightFill.fgColor }, border: bdr(thin,thin,med,thin) } },
-      { v: `↳ ${c.name} Subtotal`, t: 's', s: { font: { bold, sz: 11, color: teal }, fill: { patternType:'solid', fgColor: lightFill.fgColor }, alignment: { horizontal: 'left', vertical: 'center' }, border: bdr(thin,thin,med,thin) } },
-      emptyCell(lightFill.fgColor),
-      emptyCell(lightFill.fgColor),
-      emptyCell(lightFill.fgColor),
-      numCell(prods.reduce((s,p)=>s+p.qty,0),  teal, lightFill.fgColor, decFmt),
-      numCell(c.totalLtrs, teal, lightFill.fgColor, decFmt),
-      numCell(c.totalAmt,  { rgb: '0A7A73' }, lightFill.fgColor),
-      { v: '100%', t: 's', s: { font: { bold, color: { rgb: '0A7A73' } }, fill: { patternType:'solid', fgColor: lightFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,med,thin) } },
+      emptyCell(lightFill.fgColor, subBdr),
+      subTxtCell(`↳ ${c.name} Subtotal`, teal, lightFill.fgColor),
+      emptyCell(lightFill.fgColor, subBdr),
+      emptyCell(lightFill.fgColor, subBdr),
+      emptyCell(lightFill.fgColor, subBdr),
+      numCellBold(prods.reduce((s,p)=>s+p.qty,0), teal, lightFill.fgColor, decFmt),
+      numCellBold(c.totalLtrs, teal, lightFill.fgColor, decFmt),
+      numCellBold(c.totalAmt, { rgb: '0A7A73' }, lightFill.fgColor),
+      { v: '100%', t: 's', s: { font: { name: FONT, bold: true, color: { rgb: '0A7A73' }, sz: 10 }, fill: { patternType:'solid', fgColor: lightFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: subBdr } },
     ]);
     // Spacer between customers
-    s2rows.push(Array(9).fill(emptyCell({rgb:'FFFFFF'})));
+    s2rows.push(Array(9).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})));
   }
 
   // Grand total
   s2rows.push([
-    hdrCell('GRAND TOTAL', wh, tealFill, false),
-    hdrCell(`${sorted.length} Customers`, wh, tealFill, false),
-    emptyCell({ rgb: '0F5F5A' }),
-    emptyCell({ rgb: '0F5F5A' }),
-    emptyCell({ rgb: '0F5F5A' }),
-    numCell(sorted.reduce((s,c)=>s+Object.values(c.products).reduce((a,p)=>a+p.qty,0),0), wh, tealFill, decFmt),
-    numCell(grandTotalLtrs, wh, tealFill, decFmt),
-    numCell(grandTotalAmt,  gold, tealFill),
-    { v: '', t: 's', s: { fill: { patternType:'solid', fgColor: tealFill.fgColor }, border: bdr(thin,thin,thin,thin) } },
+    totTxtCell('GRAND TOTAL', wh, tealFill.fgColor),
+    totTxtCell(`${sorted.length} Customers`, wh, tealFill.fgColor),
+    emptyCell(tealFill.fgColor, totBdr),
+    emptyCell(tealFill.fgColor, totBdr),
+    emptyCell(tealFill.fgColor, totBdr),
+    totCell(sorted.reduce((s,c)=>s+Object.values(c.products).reduce((a,p)=>a+p.qty,0),0), wh, tealFill.fgColor, decFmt),
+    totCell(grandTotalLtrs, wh, tealFill.fgColor, decFmt),
+    totCell(grandTotalAmt, gold, tealFill.fgColor),
+    emptyCell(tealFill.fgColor, totBdr),
   ]);
 
   const ws2 = XLSX.utils.aoa_to_sheet(s2rows);
@@ -5329,23 +5403,17 @@ function exportSpcExcel() {
   ══════════════════════════════════════════════ */
   const s3rows = [];
 
-  s3rows.push([
-    { v: `Category Summary Per Customer — ${period}`, t: 's', s: { font: { bold, sz: 14, color: navy }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} }, alignment: { horizontal: 'left', vertical: 'center' } } },
-    ...Array(5).fill(emptyCell({rgb:'FFFFFF'}))
-  ]);
-  s3rows.push([
-    { v: `Generated: ${new Date().toLocaleString()}`, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} } } },
-    ...Array(5).fill(emptyCell({rgb:'FFFFFF'}))
-  ]);
-  s3rows.push(Array(6).fill(emptyCell({rgb:'FFFFFF'})));
+  s3rows.push([ titleCell(`Category Summary Per Customer — ${period}`, navy, 14), ...Array(5).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s3rows.push([ metaCell(`Generated: ${new Date().toLocaleString()}`), ...Array(5).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s3rows.push(Array(6).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})));
 
   s3rows.push([
-    hdrCell('SAP CODE',      wh, navyFill, false),
-    hdrCell('CUSTOMER NAME', wh, navyFill, false),
-    hdrCell('CATEGORY',      wh, navyFill, true),
+    hdrCell('SAP CODE',          wh, navyFill, false),
+    hdrCell('CUSTOMER NAME',     wh, navyFill, false),
+    hdrCell('CATEGORY',          wh, navyFill, true),
     hdrCell('VOLUME (LTRS/KGS)', wh, navyFill, true),
-    hdrCell('REVENUE (KSH)', gold, navyFill, true),
-    hdrCell('% OF CUSTOMER', gold, navyFill, true),
+    hdrCell('REVENUE (KSH)',     gold, navyFill, true),
+    hdrCell('% OF CUSTOMER',     gold, navyFill, true),
   ]);
 
   for (const c of sorted) {
@@ -5357,36 +5425,36 @@ function exportSpcExcel() {
     }
     const cats = Object.entries(catMap).sort((a, b) => b[1].amount - a[1].amount);
     cats.forEach(([cat, d], ci) => {
-      const bg = ci % 2 === 0 ? { rgb: 'FFFFFF' } : { rgb: 'F8FAFC' };
+      const bg = ci % 2 === 0 ? evenFill.fgColor : oddFill.fgColor;
       const share = c.totalAmt ? d.amount / c.totalAmt : 0;
       s3rows.push([
-        { v: ci === 0 ? c.code : '', t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'top' }, border: bdr(thin,thin,thin,thin) } },
-        { v: ci === 0 ? c.name : '', t: 's', s: { font: { bold: ci===0, sz: 11, color: navy }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'top', wrapText: true }, border: bdr(thin,thin,thin,thin) } },
-        { v: cat, t: 's', s: { font: { sz: 11, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+        { v: ci === 0 ? c.code : '', t: 's', s: { font: { name: FONT, sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'top' }, border: gridBdr } },
+        { v: ci === 0 ? c.name : '', t: 's', s: { font: { name: FONT, bold: ci===0, sz: 10, color: navy }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'top', wrapText: true }, border: gridBdr } },
+        { v: cat, t: 's', s: { font: { name: FONT, sz: 10, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } },
         numCell(d.ltrs,   dark, bg, decFmt),
-        numCell(d.amount, { rgb: '0F5F5A' }, bg),
-        pctCell(share * 100, { rgb: '0F5F5A' }, bg),
+        numCell(d.amount, teal, bg),
+        pctCell(share * 100, teal, bg),
       ]);
     });
     // Subtotal
     s3rows.push([
-      emptyCell(lightFill.fgColor),
-      { v: `↳ ${c.name} Subtotal`, t: 's', s: { font: { bold, sz: 11, color: teal }, fill: { patternType:'solid', fgColor: lightFill.fgColor }, alignment: { horizontal: 'left', vertical: 'center' }, border: bdr(thin,thin,med,thin) } },
-      emptyCell(lightFill.fgColor),
-      numCell(c.totalLtrs, teal, lightFill.fgColor, decFmt),
-      numCell(c.totalAmt,  { rgb: '0A7A73' }, lightFill.fgColor),
-      { v: '100%', t: 's', s: { font: { bold, color: { rgb: '0A7A73' } }, fill: { patternType:'solid', fgColor: lightFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,med,thin) } },
+      emptyCell(lightFill.fgColor, subBdr),
+      subTxtCell(`↳ ${c.name} Subtotal`, teal, lightFill.fgColor),
+      emptyCell(lightFill.fgColor, subBdr),
+      numCellBold(c.totalLtrs, teal, lightFill.fgColor, decFmt),
+      numCellBold(c.totalAmt, { rgb: '0A7A73' }, lightFill.fgColor),
+      { v: '100%', t: 's', s: { font: { name: FONT, bold: true, color: { rgb: '0A7A73' }, sz: 10 }, fill: { patternType:'solid', fgColor: lightFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: subBdr } },
     ]);
-    s3rows.push(Array(6).fill(emptyCell({rgb:'FFFFFF'})));
+    s3rows.push(Array(6).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})));
   }
 
   s3rows.push([
-    hdrCell('GRAND TOTAL', wh, tealFill, false),
-    hdrCell(`${sorted.length} Customers`, wh, tealFill, false),
-    emptyCell({ rgb: '0F5F5A' }),
-    numCell(grandTotalLtrs, wh, tealFill, decFmt),
-    numCell(grandTotalAmt,  gold, tealFill),
-    emptyCell({ rgb: '0F5F5A' }),
+    totTxtCell('GRAND TOTAL', wh, tealFill.fgColor),
+    totTxtCell(`${sorted.length} Customers`, wh, tealFill.fgColor),
+    emptyCell(tealFill.fgColor, totBdr),
+    totCell(grandTotalLtrs, wh, tealFill.fgColor, decFmt),
+    totCell(grandTotalAmt, gold, tealFill.fgColor),
+    emptyCell(tealFill.fgColor, totBdr),
   ]);
 
   const ws3 = XLSX.utils.aoa_to_sheet(s3rows);
@@ -5402,27 +5470,21 @@ function exportSpcExcel() {
   const s4rows = [];
 
   // Title
-  s4rows.push([
-    { v: `Raw Data Per Customer — ${period}`, t: 's', s: { font: { bold, sz: 14, color: navy }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} }, alignment: { horizontal: 'left', vertical: 'center' } } },
-    ...Array(9).fill(emptyCell({rgb:'FFFFFF'}))
-  ]);
-  s4rows.push([
-    { v: `Generated: ${new Date().toLocaleString()}`, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} } } },
-    ...Array(9).fill(emptyCell({rgb:'FFFFFF'}))
-  ]);
-  s4rows.push(Array(10).fill(emptyCell({rgb:'FFFFFF'}))); // spacer
+  s4rows.push([ titleCell(`Raw Data Per Customer — ${period}`, navy, 14), ...Array(9).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s4rows.push([ metaCell(`Generated: ${new Date().toLocaleString()}`), ...Array(9).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s4rows.push(Array(10).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone}))); // spacer
 
   // Header row — matches image structure exactly
   s4rows.push([
-    hdrCell('SAP CODE',              wh, navyFill, false),
-    hdrCell('CUSTOMER NAME',         wh, navyFill, false),
-    hdrCell('LOCATION',              wh, navyFill, true),
-    hdrCell('MATERIAL CODE',         wh, navyFill, false),
-    hdrCell('PRODUCT',               wh, navyFill, false),
-    hdrCell('CATEGORY',              wh, navyFill, true),
-    hdrCell('QTY (UNITS)',           wh, navyFill, true),
-    hdrCell('VOLUME (LTRS/KGS)',     wh, navyFill, true),
-    hdrCell('REVENUE (KSH)',         gold, navyFill, true),
+    hdrCell('SAP CODE',                wh, navyFill, false),
+    hdrCell('CUSTOMER NAME',           wh, navyFill, false),
+    hdrCell('LOCATION',                wh, navyFill, true),
+    hdrCell('MATERIAL CODE',           wh, navyFill, false),
+    hdrCell('PRODUCT',                 wh, navyFill, false),
+    hdrCell('CATEGORY',                wh, navyFill, true),
+    hdrCell('QTY (UNITS)',             wh, navyFill, true),
+    hdrCell('VOLUME (LTRS/KGS)',       wh, navyFill, true),
+    hdrCell('REVENUE (KSH)',           gold, navyFill, true),
     hdrCell('% CONTRI TO TOTAL SALES', gold, navyFill, true),
   ]);
 
@@ -5430,47 +5492,37 @@ function exportSpcExcel() {
   for (const c of sorted) {
     const prods = Object.values(c.products).sort((a, b) => b.amount - a.amount);
     prods.forEach((p, pi) => {
-      const bg = pi % 2 === 0 ? { rgb: 'FFFFFF' } : { rgb: 'F8FAFC' };
+      const bg = pi % 2 === 0 ? evenFill.fgColor : oddFill.fgColor;
       const contriShare = grandTotalAmt ? p.amount / grandTotalAmt : 0;
       s4rows.push([
-        // SAP CODE — show on every row for easy filtering/sorting
-        { v: c.code, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
-        // CUSTOMER NAME
-        txtCell(c.name, navy, bg, pi === 0, 11),
-        // LOCATION (region)
-        { v: c.region || '—', t: 's', s: { font: { sz: 11, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
-        // MATERIAL CODE
+        txtCell(c.code, muted, bg, false, 10),
+        txtCell(c.name, navy, bg, pi === 0, 10),
+        { v: c.region || '—', t: 's', s: { font: { name: FONT, sz: 10, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } },
         txtCell(p.matCode, muted, bg, false, 10),
-        // PRODUCT
-        txtCell(p.description || p.matCode, dark, bg, false, 11),
-        // CATEGORY
-        { v: p.category || '—', t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
-        // QTY (UNITS)
+        txtCell(p.description || p.matCode, dark, bg, false, 10),
+        { v: p.category || '—', t: 's', s: { font: { name: FONT, sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } },
         numCell(p.qty,    dark, bg, decFmt),
-        // VOLUME (LTRS/KGS)
         numCell(p.ltrs,   dark, bg, decFmt),
-        // REVENUE (KSH)
-        numCell(p.amount, { rgb: '0F5F5A' }, bg),
-        // % CONTRI TO TOTAL SALES
-        pctCell(contriShare * 100, { rgb: '0F5F5A' }, bg),
+        numCell(p.amount, teal, bg),
+        pctCell(contriShare * 100, teal, bg),
       ]);
     });
-    // Thin spacer row between customers (white)
-    s4rows.push(Array(10).fill(emptyCell({rgb:'FFFFFF'})));
+    // Thin spacer row between customers (no border)
+    s4rows.push(Array(10).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})));
   }
 
   // Grand total row
   s4rows.push([
-    hdrCell('GRAND TOTAL', wh, tealFill, false),
-    hdrCell(`${sorted.length} Customers`, wh, tealFill, false),
-    emptyCell({ rgb: '0F5F5A' }),
-    emptyCell({ rgb: '0F5F5A' }),
-    emptyCell({ rgb: '0F5F5A' }),
-    emptyCell({ rgb: '0F5F5A' }),
-    numCell(sorted.reduce((s,c)=>s+Object.values(c.products).reduce((a,p)=>a+p.qty,0),0), wh, tealFill, decFmt),
-    numCell(grandTotalLtrs, wh, tealFill, decFmt),
-    numCell(grandTotalAmt,  gold, tealFill),
-    { v: '100%', t: 's', s: { font: { bold, color: gold }, fill: { patternType:'solid', fgColor: tealFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+    totTxtCell('GRAND TOTAL', wh, tealFill.fgColor),
+    totTxtCell(`${sorted.length} Customers`, wh, tealFill.fgColor),
+    emptyCell(tealFill.fgColor, totBdr),
+    emptyCell(tealFill.fgColor, totBdr),
+    emptyCell(tealFill.fgColor, totBdr),
+    emptyCell(tealFill.fgColor, totBdr),
+    totCell(sorted.reduce((s,c)=>s+Object.values(c.products).reduce((a,p)=>a+p.qty,0),0), wh, tealFill.fgColor, decFmt),
+    totCell(grandTotalLtrs, wh, tealFill.fgColor, decFmt),
+    totCell(grandTotalAmt, gold, tealFill.fgColor),
+    { v: '100%', t: 's', s: { font: { name: FONT, bold: true, color: gold, sz: 10 }, fill: { patternType:'solid', fgColor: tealFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: totBdr } },
   ]);
 
   const ws4 = XLSX.utils.aoa_to_sheet(s4rows);
