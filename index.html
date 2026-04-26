@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1779,6 +1780,19 @@
       <div>
         <div class="spc-title">👤 Sales Per Customer</div>
         <div class="spc-period" id="spcPeriod">Period: —</div>
+      </div>
+      <div style="position:relative;display:inline-block;" id="spcExportWrap">
+        <div style="display:flex;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.15);">
+          <button class="locsales-export-btn" style="border-radius:0;border-right:1px solid rgba(255,255,255,0.2);gap:6px;display:flex;align-items:center;" onclick="exportSpcExcel()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export Excel
+          </button>
+          <button class="locsales-export-btn" style="border-radius:0;padding:8px 11px;" onclick="toggleSpcExportMenu()" title="More export options">▾</button>
+        </div>
+        <div id="spcExportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;min-width:170px;overflow:hidden;">
+          <button onclick="exportSpcExcel();toggleSpcExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📗 Download Excel (.xlsx)</button>
+          <button onclick="exportSpcHTML();toggleSpcExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;border-top:1px solid var(--border2);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">🌐 Download HTML</button>
+        </div>
       </div>
     </div>
     <div id="spcPills" class="spc-pills" style="display:none;"></div>
@@ -5104,6 +5118,380 @@ function exportTypeSalesHTML() {
 }
 
 // ── Sales Per Customer Page ────────────────────────────
+// ── SPC Export helpers ─────────────────────────────────
+
+function toggleSpcExportMenu() {
+  const m = document.getElementById('spcExportMenu');
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+  if (m.style.display === 'block') {
+    const close = (e) => { if (!document.getElementById('spcExportWrap')?.contains(e.target)) { m.style.display = 'none'; document.removeEventListener('click', close); } };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }
+}
+
+/* ── Excel Export ── */
+function exportSpcExcel() {
+  if (!_spcData || !_spcData.length) { showToast('No data to export — upload a SAP file first.', 'err'); return; }
+
+  const period       = document.getElementById('spcPeriod').textContent.replace('Period: ', '');
+  const grandTotalAmt  = _spcData.reduce((s, c) => s + c.totalAmt,  0);
+  const grandTotalLtrs = _spcData.reduce((s, c) => s + c.totalLtrs, 0);
+
+  const wb = XLSX.utils.book_new();
+
+  /* ─ Shared style helpers ─ */
+  const navyFill  = { patternType: 'solid', fgColor: { rgb: '0F2744' } };
+  const tealFill  = { patternType: 'solid', fgColor: { rgb: '0F5F5A' } };
+  const goldFill  = { patternType: 'solid', fgColor: { rgb: 'F6AD2B' } };
+  const lightFill = { patternType: 'solid', fgColor: { rgb: 'E8F4F0' } };
+  const altFill   = { patternType: 'solid', fgColor: { rgb: 'F0F4F8' } };
+  const prodFill  = { patternType: 'solid', fgColor: { rgb: 'FAFBFD' } };
+
+  const wh   = { rgb: 'FFFFFF' };
+  const navy = { rgb: '0F2744' };
+  const teal = { rgb: '0F5F5A' };
+  const gold = { rgb: 'F6AD2B' };
+  const muted= { rgb: '718096' };
+  const dark = { rgb: '1A202C' };
+
+  const bold  = true;
+  const numFmt = '#,##0';
+  const decFmt = '#,##0.0';
+  const pctFmt = '0%';
+  const thin  = { style: 'thin',   color: { rgb: 'DDE3EC' } };
+  const thinT = { style: 'thin',   color: { rgb: 'FFFFFF' } };
+  const med   = { style: 'medium', color: { rgb: '0F2744' } };
+  const bdr   = (t,r,b,l) => ({ top:t, right:r, bottom:b, left:l });
+
+  function hdrCell(v, fg, bg, center) {
+    return { v, t: 's', s: { font: { bold, color: fg, sz: 10 }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: center ? 'center' : 'left', vertical: 'center', wrapText: true }, border: bdr(thinT,thinT,thinT,thinT) } };
+  }
+  function numCell(v, fg, bg, fmt2) {
+    return { v, t: 'n', z: fmt2 || numFmt, s: { font: { bold, color: fg }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } };
+  }
+  function txtCell(v, fg, bg, bold2, sz) {
+    return { v: v||'', t: 's', s: { font: { bold: bold2||false, color: fg||dark, sz: sz||11 }, fill: { patternType:'solid', fgColor: bg||{rgb:'FFFFFF'} }, alignment: { horizontal: 'left', vertical: 'center', wrapText: true }, border: bdr(thin,thin,thin,thin) } };
+  }
+  function pctCell(v, fg, bg) {
+    return { v: v/100, t: 'n', z: pctFmt, s: { font: { bold: true, color: fg||muted }, fill: { patternType:'solid', fgColor: bg||{rgb:'FFFFFF'} }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } };
+  }
+  function emptyCell(bg) {
+    return { v: '', t: 's', s: { fill: { patternType:'solid', fgColor: bg||{rgb:'FFFFFF'} }, border: bdr(thin,thin,thin,thin) } };
+  }
+
+  /* ══════════════════════════════════════════════
+     SHEET 1 — Customer Summary
+  ══════════════════════════════════════════════ */
+  const s1rows = [];
+
+  // Title row
+  s1rows.push([
+    { v: `Sales Per Customer — ${period}`, t: 's', s: { font: { bold, sz: 14, color: navy }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} }, alignment: { horizontal: 'left', vertical: 'center' } } },
+    ...Array(7).fill(emptyCell({rgb:'FFFFFF'}))
+  ]);
+  // Generated row
+  s1rows.push([
+    { v: `Generated: ${new Date().toLocaleString()}`, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} } } },
+    ...Array(7).fill(emptyCell({rgb:'FFFFFF'}))
+  ]);
+  s1rows.push(Array(8).fill(emptyCell({rgb:'FFFFFF'}))); // spacer
+
+  // Header row
+  s1rows.push([
+    hdrCell('SAP CODE',          wh, navyFill, false),
+    hdrCell('CUSTOMER NAME',     wh, navyFill, false),
+    hdrCell('REGION',            wh, navyFill, true),
+    hdrCell('CHANNEL',           wh, navyFill, true),
+    hdrCell('TYPE',              wh, navyFill, true),
+    hdrCell('SKUs',              wh, navyFill, true),
+    hdrCell('VOLUME (LTRS/KGS)', wh, navyFill, true),
+    hdrCell('REVENUE (KSH)',     gold, navyFill, true),
+    hdrCell('% OF TOTAL',        gold, navyFill, true),
+  ]);
+
+  const sorted = [..._spcData].sort((a, b) => b.totalAmt - a.totalAmt);
+  sorted.forEach((c, i) => {
+    const bg = i % 2 === 0 ? { rgb: 'FFFFFF' } : { rgb: 'F8FAFC' };
+    const share = grandTotalAmt ? c.totalAmt / grandTotalAmt : 0;
+    s1rows.push([
+      { v: c.code, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+      txtCell(c.name, navy, bg, true, 11),
+      { v: c.region,  t: 's', s: { font: { sz: 11, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+      { v: c.channel, t: 's', s: { font: { sz: 11, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+      { v: c.type||'—', t: 's', s: { font: { sz: 11, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+      numCell(Object.keys(c.products).length, dark, bg, '0'),
+      numCell(c.totalLtrs, dark, bg, decFmt),
+      numCell(c.totalAmt, { rgb: '0F5F5A' }, bg),
+      pctCell(share * 100, { rgb: '0F5F5A' }, bg),
+    ]);
+  });
+
+  // Grand total row
+  s1rows.push([
+    hdrCell('GRAND TOTAL', wh, tealFill, false),
+    hdrCell(`${sorted.length} Customers`, wh, tealFill, false),
+    emptyCell({ rgb: '0F5F5A' }),
+    emptyCell({ rgb: '0F5F5A' }),
+    emptyCell({ rgb: '0F5F5A' }),
+    numCell(sorted.reduce((s,c)=>s+Object.keys(c.products).length,0), wh, tealFill, '0'),
+    numCell(grandTotalLtrs, wh, tealFill, decFmt),
+    numCell(grandTotalAmt,  gold, tealFill),
+    { v: '100%', t: 's', s: { font: { bold, color: gold }, fill: { patternType:'solid', fgColor: tealFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+  ]);
+
+  const ws1 = XLSX.utils.aoa_to_sheet(s1rows);
+  ws1['!cols'] = [{ wch: 14 }, { wch: 38 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 8 }, { wch: 18 }, { wch: 18 }, { wch: 10 }];
+  ws1['!rows'] = [{ hpt: 22 }, { hpt: 14 }, { hpt: 8 }, { hpt: 32 }];
+  ws1['!freeze'] = { xSplit: 0, ySplit: 4 }; // freeze after header
+  XLSX.utils.book_append_sheet(wb, ws1, 'Customer Summary');
+
+  /* ══════════════════════════════════════════════
+     SHEET 2 — Products Per Customer
+  ══════════════════════════════════════════════ */
+  const s2rows = [];
+
+  s2rows.push([
+    { v: `Products Per Customer — ${period}`, t: 's', s: { font: { bold, sz: 14, color: navy }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} }, alignment: { horizontal: 'left', vertical: 'center' } } },
+    ...Array(7).fill(emptyCell({rgb:'FFFFFF'}))
+  ]);
+  s2rows.push([
+    { v: `Generated: ${new Date().toLocaleString()}`, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} } } },
+    ...Array(7).fill(emptyCell({rgb:'FFFFFF'}))
+  ]);
+  s2rows.push(Array(8).fill(emptyCell({rgb:'FFFFFF'})));
+
+  s2rows.push([
+    hdrCell('SAP CODE',       wh, navyFill, false),
+    hdrCell('CUSTOMER NAME',  wh, navyFill, false),
+    hdrCell('MATERIAL CODE',  wh, navyFill, false),
+    hdrCell('PRODUCT',        wh, navyFill, false),
+    hdrCell('CATEGORY',       wh, navyFill, true),
+    hdrCell('QTY (UNITS)',    wh, navyFill, true),
+    hdrCell('VOLUME (LTRS/KGS)', wh, navyFill, true),
+    hdrCell('REVENUE (KSH)',  gold, navyFill, true),
+    hdrCell('% OF CUSTOMER',  gold, navyFill, true),
+  ]);
+
+  for (const c of sorted) {
+    const prods = Object.values(c.products).sort((a, b) => b.amount - a.amount);
+    prods.forEach((p, pi) => {
+      const isFirst = pi === 0;
+      const custShare = c.totalAmt ? p.amount / c.totalAmt : 0;
+      s2rows.push([
+        { v: isFirst ? c.code : '', t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: prodFill.fgColor }, alignment: { horizontal: 'left', vertical: 'top' }, border: bdr(thin,thin,thin,thin) } },
+        { v: isFirst ? c.name : '', t: 's', s: { font: { bold: isFirst, sz: 11, color: navy }, fill: { patternType:'solid', fgColor: prodFill.fgColor }, alignment: { horizontal: 'left', vertical: 'top', wrapText: true }, border: bdr(thin,thin,thin,thin) } },
+        txtCell(p.matCode, muted, prodFill.fgColor, false, 10),
+        txtCell(p.description || p.matCode, dark, prodFill.fgColor, false, 11),
+        { v: p.category, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: prodFill.fgColor }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+        numCell(p.qty,    dark, prodFill.fgColor, decFmt),
+        numCell(p.ltrs,   dark, prodFill.fgColor, decFmt),
+        numCell(p.amount, { rgb: '0F5F5A' }, prodFill.fgColor),
+        pctCell(custShare * 100, { rgb: '0F5F5A' }, prodFill.fgColor),
+      ]);
+    });
+    // Customer subtotal row
+    s2rows.push([
+      { v: '', t: 's', s: { fill: { patternType:'solid', fgColor: lightFill.fgColor }, border: bdr(thin,thin,med,thin) } },
+      { v: `↳ ${c.name} Subtotal`, t: 's', s: { font: { bold, sz: 11, color: teal }, fill: { patternType:'solid', fgColor: lightFill.fgColor }, alignment: { horizontal: 'left', vertical: 'center' }, border: bdr(thin,thin,med,thin) } },
+      emptyCell(lightFill.fgColor),
+      emptyCell(lightFill.fgColor),
+      emptyCell(lightFill.fgColor),
+      numCell(prods.reduce((s,p)=>s+p.qty,0),  teal, lightFill.fgColor, decFmt),
+      numCell(c.totalLtrs, teal, lightFill.fgColor, decFmt),
+      numCell(c.totalAmt,  { rgb: '0A7A73' }, lightFill.fgColor),
+      { v: '100%', t: 's', s: { font: { bold, color: { rgb: '0A7A73' } }, fill: { patternType:'solid', fgColor: lightFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,med,thin) } },
+    ]);
+    // Spacer between customers
+    s2rows.push(Array(9).fill(emptyCell({rgb:'FFFFFF'})));
+  }
+
+  // Grand total
+  s2rows.push([
+    hdrCell('GRAND TOTAL', wh, tealFill, false),
+    hdrCell(`${sorted.length} Customers`, wh, tealFill, false),
+    emptyCell({ rgb: '0F5F5A' }),
+    emptyCell({ rgb: '0F5F5A' }),
+    emptyCell({ rgb: '0F5F5A' }),
+    numCell(sorted.reduce((s,c)=>s+Object.values(c.products).reduce((a,p)=>a+p.qty,0),0), wh, tealFill, decFmt),
+    numCell(grandTotalLtrs, wh, tealFill, decFmt),
+    numCell(grandTotalAmt,  gold, tealFill),
+    { v: '', t: 's', s: { fill: { patternType:'solid', fgColor: tealFill.fgColor }, border: bdr(thin,thin,thin,thin) } },
+  ]);
+
+  const ws2 = XLSX.utils.aoa_to_sheet(s2rows);
+  ws2['!cols'] = [{ wch: 14 }, { wch: 36 }, { wch: 14 }, { wch: 32 }, { wch: 14 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 12 }];
+  ws2['!rows'] = [{ hpt: 22 }, { hpt: 14 }, { hpt: 8 }, { hpt: 32 }];
+  ws2['!freeze'] = { xSplit: 0, ySplit: 4 };
+  XLSX.utils.book_append_sheet(wb, ws2, 'Products Per Customer');
+
+  /* ══════════════════════════════════════════════
+     SHEET 3 — Category Summary Per Customer
+  ══════════════════════════════════════════════ */
+  const s3rows = [];
+
+  s3rows.push([
+    { v: `Category Summary Per Customer — ${period}`, t: 's', s: { font: { bold, sz: 14, color: navy }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} }, alignment: { horizontal: 'left', vertical: 'center' } } },
+    ...Array(5).fill(emptyCell({rgb:'FFFFFF'}))
+  ]);
+  s3rows.push([
+    { v: `Generated: ${new Date().toLocaleString()}`, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} } } },
+    ...Array(5).fill(emptyCell({rgb:'FFFFFF'}))
+  ]);
+  s3rows.push(Array(6).fill(emptyCell({rgb:'FFFFFF'})));
+
+  s3rows.push([
+    hdrCell('SAP CODE',      wh, navyFill, false),
+    hdrCell('CUSTOMER NAME', wh, navyFill, false),
+    hdrCell('CATEGORY',      wh, navyFill, true),
+    hdrCell('VOLUME (LTRS/KGS)', wh, navyFill, true),
+    hdrCell('REVENUE (KSH)', gold, navyFill, true),
+    hdrCell('% OF CUSTOMER', gold, navyFill, true),
+  ]);
+
+  for (const c of sorted) {
+    const catMap = {};
+    for (const p of Object.values(c.products)) {
+      if (!catMap[p.category]) catMap[p.category] = { ltrs: 0, amount: 0 };
+      catMap[p.category].ltrs   += p.ltrs;
+      catMap[p.category].amount += p.amount;
+    }
+    const cats = Object.entries(catMap).sort((a, b) => b[1].amount - a[1].amount);
+    cats.forEach(([cat, d], ci) => {
+      const bg = ci % 2 === 0 ? { rgb: 'FFFFFF' } : { rgb: 'F8FAFC' };
+      const share = c.totalAmt ? d.amount / c.totalAmt : 0;
+      s3rows.push([
+        { v: ci === 0 ? c.code : '', t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'top' }, border: bdr(thin,thin,thin,thin) } },
+        { v: ci === 0 ? c.name : '', t: 's', s: { font: { bold: ci===0, sz: 11, color: navy }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'top', wrapText: true }, border: bdr(thin,thin,thin,thin) } },
+        { v: cat, t: 's', s: { font: { sz: 11, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+        numCell(d.ltrs,   dark, bg, decFmt),
+        numCell(d.amount, { rgb: '0F5F5A' }, bg),
+        pctCell(share * 100, { rgb: '0F5F5A' }, bg),
+      ]);
+    });
+    // Subtotal
+    s3rows.push([
+      emptyCell(lightFill.fgColor),
+      { v: `↳ ${c.name} Subtotal`, t: 's', s: { font: { bold, sz: 11, color: teal }, fill: { patternType:'solid', fgColor: lightFill.fgColor }, alignment: { horizontal: 'left', vertical: 'center' }, border: bdr(thin,thin,med,thin) } },
+      emptyCell(lightFill.fgColor),
+      numCell(c.totalLtrs, teal, lightFill.fgColor, decFmt),
+      numCell(c.totalAmt,  { rgb: '0A7A73' }, lightFill.fgColor),
+      { v: '100%', t: 's', s: { font: { bold, color: { rgb: '0A7A73' } }, fill: { patternType:'solid', fgColor: lightFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,med,thin) } },
+    ]);
+    s3rows.push(Array(6).fill(emptyCell({rgb:'FFFFFF'})));
+  }
+
+  s3rows.push([
+    hdrCell('GRAND TOTAL', wh, tealFill, false),
+    hdrCell(`${sorted.length} Customers`, wh, tealFill, false),
+    emptyCell({ rgb: '0F5F5A' }),
+    numCell(grandTotalLtrs, wh, tealFill, decFmt),
+    numCell(grandTotalAmt,  gold, tealFill),
+    emptyCell({ rgb: '0F5F5A' }),
+  ]);
+
+  const ws3 = XLSX.utils.aoa_to_sheet(s3rows);
+  ws3['!cols'] = [{ wch: 14 }, { wch: 36 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 12 }];
+  ws3['!rows'] = [{ hpt: 22 }, { hpt: 14 }, { hpt: 8 }, { hpt: 32 }];
+  ws3['!freeze'] = { xSplit: 0, ySplit: 4 };
+  XLSX.utils.book_append_sheet(wb, ws3, 'Category Per Customer');
+
+  // Write file
+  const fname = `Sales_Per_Customer_${period.replace(/\s|–|\/|\./g, '_')}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  showToast('Excel file downloaded ✓', 'ok');
+}
+
+/* ── HTML Export ── */
+function exportSpcHTML() {
+  if (!_spcData || !_spcData.length) { showToast('No data to export — upload a SAP file first.', 'err'); return; }
+
+  const period         = document.getElementById('spcPeriod').textContent.replace('Period: ', '');
+  const grandTotalAmt  = _spcData.reduce((s, c) => s + c.totalAmt,  0);
+  const grandTotalLtrs = _spcData.reduce((s, c) => s + c.totalLtrs, 0);
+  const fmtN = v => Math.round(v).toLocaleString();
+  const fmtD = v => parseFloat(v.toFixed(1)).toLocaleString();
+
+  const sorted = [..._spcData].sort((a, b) => b.totalAmt - a.totalAmt);
+
+  let custRows = '';
+  for (const c of sorted) {
+    const prods   = Object.values(c.products).sort((a, b) => b.amount - a.amount);
+    const revShare= grandTotalAmt ? Math.round((c.totalAmt / grandTotalAmt) * 100) : 0;
+    const barW    = Math.min(revShare, 100);
+
+    let prodRows = prods.map(p => {
+      const ps = c.totalAmt ? Math.round((p.amount / c.totalAmt) * 100) : 0;
+      return `<tr style="background:#fafbfd;">
+        <td style="padding:6px 12px 6px 36px;font-size:11px;font-family:monospace;color:#718096;border:1px solid #eef0f5;">${p.matCode}</td>
+        <td style="padding:6px 12px;font-size:12px;color:#1a202c;border:1px solid #eef0f5;">${p.description||p.matCode} <span style="display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;background:#f0f2f5;color:#718096;margin-left:4px;">${p.category}</span></td>
+        <td style="padding:6px 12px;text-align:right;font-size:12px;color:#718096;border:1px solid #eef0f5;">${fmtD(p.qty)}</td>
+        <td style="padding:6px 12px;text-align:right;font-size:12px;border:1px solid #eef0f5;">${fmtD(p.ltrs)}</td>
+        <td style="padding:6px 12px;text-align:right;font-size:12px;font-weight:700;color:#0f5f5a;border:1px solid #eef0f5;">KSH ${fmtN(p.amount)} <span style="font-size:10px;font-weight:600;color:#718096;">(${ps}%)</span></td>
+      </tr>`;
+    }).join('');
+
+    custRows += `
+    <tr style="background:#f0f4f8;">
+      <td colspan="5" style="padding:8px 14px;border:1px solid #dde3ec;">
+        <span style="font-size:11px;font-family:monospace;color:#718096;">${c.code}</span>
+        <strong style="font-size:13px;color:#0f2744;margin-left:8px;">${c.name}</strong>
+        <span style="font-size:11px;color:#718096;margin-left:8px;">${c.region} · ${c.channel}${c.type?' · '+c.type:''}</span>
+        <span style="float:right;font-size:12px;font-weight:700;color:#0f5f5a;">KSH ${fmtN(c.totalAmt)} &nbsp;|&nbsp; ${fmtD(c.totalLtrs)} Ltrs/Kgs &nbsp;|&nbsp; ${prods.length} SKU${prods.length!==1?'s':''}</span>
+        <div style="height:4px;background:#dde3ec;border-radius:99px;margin-top:6px;"><div style="height:4px;background:#0f2744;border-radius:99px;width:${barW}%;"></div></div>
+        <div style="font-size:10px;color:#718096;margin-top:2px;">${revShare}% of total revenue</div>
+      </td>
+    </tr>
+    ${prodRows}
+    <tr><td colspan="5" style="padding:3px;background:#fff;border:none;"></td></tr>`;
+  }
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Sales Per Customer — ${period}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a202c;padding:28px;}
+  h1{font-size:22px;font-weight:800;color:#0f2744;margin-bottom:3px;}.sub{font-size:13px;color:#718096;margin-bottom:20px;}
+  .pills{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}.pill{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:12px 18px;}
+  .pill-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:3px;}
+  .pill-value{font-size:20px;font-weight:800;color:#0f5f5a;}
+  .tbl-wrap{overflow-x:auto;background:#fff;border-radius:12px;border:1px solid #dde3ec;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
+  table{border-collapse:collapse;width:100%;font-size:12px;}</style></head><body>
+  <h1>👤 Sales Per Customer Report</h1>
+  <div class="sub">${period} &nbsp;·&nbsp; Generated ${new Date().toLocaleString()}</div>
+  <div class="pills">
+    <div class="pill"><div class="pill-label">Customers</div><div class="pill-value" style="color:#0f2744;">${sorted.length}</div></div>
+    <div class="pill"><div class="pill-label">Total Revenue (KSH)</div><div class="pill-value">KSH ${fmtN(grandTotalAmt)}</div></div>
+    <div class="pill"><div class="pill-label">Total Volume (Ltrs/Kgs)</div><div class="pill-value" style="color:#0f2744;">${fmtD(grandTotalLtrs)}</div></div>
+    <div class="pill"><div class="pill-label">Avg Revenue / Customer</div><div class="pill-value">KSH ${fmtN(grandTotalAmt/(sorted.length||1))}</div></div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr style="background:#0f2744;">
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:0.07em;border:1px solid rgba(255,255,255,0.08);">MAT CODE</th>
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:0.07em;border:1px solid rgba(255,255,255,0.08);">PRODUCT / CUSTOMER</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:0.07em;border:1px solid rgba(255,255,255,0.08);">QTY (UNITS)</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:0.07em;border:1px solid rgba(255,255,255,0.08);">VOLUME (LTRS/KGS)</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#f6ad2b;letter-spacing:0.07em;border:1px solid rgba(255,255,255,0.08);">REVENUE (KSH)</th>
+        </tr>
+      </thead>
+      <tbody>${custRows}
+        <tr style="background:#0f5f5a;">
+          <td colspan="2" style="padding:11px 14px;font-weight:800;font-size:13px;color:#fff;border:1px solid #0f5f5a;">GRAND TOTAL — ${sorted.length} Customers</td>
+          <td style="padding:11px 14px;text-align:right;color:#fff;font-weight:800;border:1px solid #0f5f5a;">—</td>
+          <td style="padding:11px 14px;text-align:right;color:#fff;font-weight:800;border:1px solid #0f5f5a;">${fmtD(grandTotalLtrs)}</td>
+          <td style="padding:11px 14px;text-align:right;color:#f6ad2b;font-weight:800;font-size:14px;border:1px solid #0f5f5a;">KSH ${fmtN(grandTotalAmt)}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div></body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `Sales_Per_Customer_${period.replace(/\s|–|\/|\./g,'_')}.html`; a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  showToast('HTML file downloaded ✓', 'ok');
+}
+
 let _spcData    = [];   // [{code, name, region, channel, type, totalLtrs, totalAmt, products:[]}]
 let _spcSort    = 'revenue';
 let _spcFilter  = '';
