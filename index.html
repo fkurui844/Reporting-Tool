@@ -5395,6 +5395,101 @@ function exportSpcExcel() {
   ws3['!freeze'] = { xSplit: 0, ySplit: 4 };
   XLSX.utils.book_append_sheet(wb, ws3, 'Category Per Customer');
 
+  /* ══════════════════════════════════════════════
+     SHEET 4 — Raw Data Per Customer
+     Columns: SAP CODE | CUSTOMER NAME | LOCATION | MATERIAL CODE | PRODUCT | CATEGORY | QTY (UNITS) | VOLUME (LTRS/KGS) | REVENUE (KSH) | % CONTRI TO TOTAL SALES
+  ══════════════════════════════════════════════ */
+  const s4rows = [];
+
+  // Title
+  s4rows.push([
+    { v: `Raw Data Per Customer — ${period}`, t: 's', s: { font: { bold, sz: 14, color: navy }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} }, alignment: { horizontal: 'left', vertical: 'center' } } },
+    ...Array(9).fill(emptyCell({rgb:'FFFFFF'}))
+  ]);
+  s4rows.push([
+    { v: `Generated: ${new Date().toLocaleString()}`, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: {rgb:'FFFFFF'} } } },
+    ...Array(9).fill(emptyCell({rgb:'FFFFFF'}))
+  ]);
+  s4rows.push(Array(10).fill(emptyCell({rgb:'FFFFFF'}))); // spacer
+
+  // Header row — matches image structure exactly
+  s4rows.push([
+    hdrCell('SAP CODE',              wh, navyFill, false),
+    hdrCell('CUSTOMER NAME',         wh, navyFill, false),
+    hdrCell('LOCATION',              wh, navyFill, true),
+    hdrCell('MATERIAL CODE',         wh, navyFill, false),
+    hdrCell('PRODUCT',               wh, navyFill, false),
+    hdrCell('CATEGORY',              wh, navyFill, true),
+    hdrCell('QTY (UNITS)',           wh, navyFill, true),
+    hdrCell('VOLUME (LTRS/KGS)',     wh, navyFill, true),
+    hdrCell('REVENUE (KSH)',         gold, navyFill, true),
+    hdrCell('% CONTRI TO TOTAL SALES', gold, navyFill, true),
+  ]);
+
+  // Data rows — one row per product line per customer
+  for (const c of sorted) {
+    const prods = Object.values(c.products).sort((a, b) => b.amount - a.amount);
+    prods.forEach((p, pi) => {
+      const bg = pi % 2 === 0 ? { rgb: 'FFFFFF' } : { rgb: 'F8FAFC' };
+      const contriShare = grandTotalAmt ? p.amount / grandTotalAmt : 0;
+      s4rows.push([
+        // SAP CODE — show on every row for easy filtering/sorting
+        { v: c.code, t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'left', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+        // CUSTOMER NAME
+        txtCell(c.name, navy, bg, pi === 0, 11),
+        // LOCATION (region)
+        { v: c.region || '—', t: 's', s: { font: { sz: 11, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+        // MATERIAL CODE
+        txtCell(p.matCode, muted, bg, false, 10),
+        // PRODUCT
+        txtCell(p.description || p.matCode, dark, bg, false, 11),
+        // CATEGORY
+        { v: p.category || '—', t: 's', s: { font: { sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+        // QTY (UNITS)
+        numCell(p.qty,    dark, bg, decFmt),
+        // VOLUME (LTRS/KGS)
+        numCell(p.ltrs,   dark, bg, decFmt),
+        // REVENUE (KSH)
+        numCell(p.amount, { rgb: '0F5F5A' }, bg),
+        // % CONTRI TO TOTAL SALES
+        pctCell(contriShare * 100, { rgb: '0F5F5A' }, bg),
+      ]);
+    });
+    // Thin spacer row between customers (white)
+    s4rows.push(Array(10).fill(emptyCell({rgb:'FFFFFF'})));
+  }
+
+  // Grand total row
+  s4rows.push([
+    hdrCell('GRAND TOTAL', wh, tealFill, false),
+    hdrCell(`${sorted.length} Customers`, wh, tealFill, false),
+    emptyCell({ rgb: '0F5F5A' }),
+    emptyCell({ rgb: '0F5F5A' }),
+    emptyCell({ rgb: '0F5F5A' }),
+    emptyCell({ rgb: '0F5F5A' }),
+    numCell(sorted.reduce((s,c)=>s+Object.values(c.products).reduce((a,p)=>a+p.qty,0),0), wh, tealFill, decFmt),
+    numCell(grandTotalLtrs, wh, tealFill, decFmt),
+    numCell(grandTotalAmt,  gold, tealFill),
+    { v: '100%', t: 's', s: { font: { bold, color: gold }, fill: { patternType:'solid', fgColor: tealFill.fgColor }, alignment: { horizontal: 'right', vertical: 'center' }, border: bdr(thin,thin,thin,thin) } },
+  ]);
+
+  const ws4 = XLSX.utils.aoa_to_sheet(s4rows);
+  ws4['!cols'] = [
+    { wch: 14 },  // SAP CODE
+    { wch: 36 },  // CUSTOMER NAME
+    { wch: 18 },  // LOCATION
+    { wch: 16 },  // MATERIAL CODE
+    { wch: 34 },  // PRODUCT
+    { wch: 14 },  // CATEGORY
+    { wch: 14 },  // QTY (UNITS)
+    { wch: 18 },  // VOLUME (LTRS/KGS)
+    { wch: 18 },  // REVENUE (KSH)
+    { wch: 20 },  // % CONTRI TO TOTAL SALES
+  ];
+  ws4['!rows'] = [{ hpt: 22 }, { hpt: 14 }, { hpt: 8 }, { hpt: 32 }];
+  ws4['!freeze'] = { xSplit: 0, ySplit: 4 };
+  XLSX.utils.book_append_sheet(wb, ws4, 'Raw Data Per Customer');
+
   // Write file
   const fname = `Sales_Per_Customer_${period.replace(/\s|–|\/|\./g, '_')}.xlsx`;
   XLSX.writeFile(wb, fname);
