@@ -347,6 +347,22 @@
       transition: background 0.15s;
     }
     .btn-pdf:hover { background: #c01f4e; }
+    .btn-export-html {
+      padding: 7px 16px;
+      border: 1px solid #0f2744;
+      background: #fff;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      color: #0f2744;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-export-html:hover { background: #0f2744; color: #fff; }
     @media print {
       .app-header, .upload-page, .sheet-status-bar, .report-topbar .btn-pdf,
       .btn-upload-again, .missing-head .btn-copy, .cov-toggle { display: none !important; }
@@ -1396,8 +1412,12 @@
       </div>
     </div>
 
-    <!-- Export PDF button -->
-    <div style="display:flex;justify-content:flex-end;margin-bottom:28px;">
+    <!-- Export buttons -->
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:28px;">
+      <button class="btn-export-html" onclick="exportUploadHTML()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Export HTML
+      </button>
       <button class="btn-pdf" onclick="exportPDF()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
         Export PDF
@@ -3471,6 +3491,128 @@ function exportPDF() {
   document.title = period;
   window.print();
   document.title = orig;
+}
+
+function exportUploadHTML() {
+  const reportEl = document.getElementById('report');
+  if (!reportEl || reportEl.style.display === 'none') {
+    showToast('No report to export — upload a SAP file first.', 'err');
+    return;
+  }
+
+  const period = document.getElementById('reportPeriod').textContent || 'Sales Report';
+
+  // Collect all <style> blocks from the current page
+  const styles = Array.from(document.querySelectorAll('style'))
+    .map(s => s.innerHTML).join('\n');
+
+  // Clone the report so we can make print-safe tweaks without affecting live view
+  const clone = reportEl.cloneNode(true);
+
+  // Remove interactive elements that don't make sense in a static export
+  clone.querySelectorAll('.btn-pdf, .btn-export-html, .btn-upload-again, .cov-toggle, .tgt-switch, #targetToggleWrap, .target-toggle-wrap').forEach(el => el.remove());
+
+  // Make all hidden breakdown sections visible in the export
+  clone.querySelectorAll('.cov-breakdown').forEach(el => el.style.display = 'block');
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${period}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #f0f2f5;
+  color: #1a202c;
+  min-height: 100vh;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ── Page header ── */
+.export-header {
+  background: #0f2744;
+  padding: 0 28px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 12px rgba(15,39,68,.3);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 32px; height: 32px; background: #E1245A; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff; font-weight: 800; }
+.logo-text { color: #fff; font-size: 16px; font-weight: 700; }
+.logo-text span { color: #f6ad2b; }
+.export-badge { background: rgba(255,255,255,.12); color: rgba(255,255,255,.8); font-size: 12px; font-weight: 600; padding: 4px 14px; border-radius: 99px; border: 1px solid rgba(255,255,255,.18); }
+
+/* ── Wrap ── */
+.export-wrap { max-width: 1320px; margin: 0 auto; padding: 28px 20px; }
+
+/* ── CSS variables (light mode defaults) ── */
+:root {
+  --bg: #f0f2f5;
+  --surface: #ffffff;
+  --border: #dde3ec;
+  --border2: #eef0f5;
+  --text: #1a202c;
+  --text-head: #0f2744;
+  --text-muted: #718096;
+  --th-bg: #f0f2f5;
+  --row-pct: #f8fafc;
+  --pill-bg: #f0f2f5;
+  --metric-bg: #fff;
+}
+
+/* ── Page-specific styles ── */
+${styles}
+
+/* ── Print styles ── */
+@media print {
+  .export-header { position: static; }
+  body { background: #fff; }
+}
+</style>
+</head>
+<body>
+
+<div class="export-header">
+  <div class="logo">
+    <div class="logo-icon">S</div>
+    <div class="logo-text">Sales<span>DB</span></div>
+  </div>
+  <div class="export-badge">&#128229; Exported Report &nbsp;·&nbsp; ${period.replace('Period: ', '')}</div>
+</div>
+
+<div class="export-wrap">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <div style="font-size:11px;color:#718096;">Generated: ${new Date().toLocaleString()}</div>
+    <button onclick="window.print()" style="padding:7px 16px;border:1px solid #0f2744;background:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;color:#0f2744;display:flex;align-items:center;gap:6px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print / Save PDF
+    </button>
+  </div>
+  ${clone.outerHTML}
+</div>
+
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `Sales_Report_${period.replace('Period: ','').replace(/\s|–|\/|\./g, '_')}.html`;
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  showToast('HTML report downloaded ✓', 'ok');
 }
 
 function resetUpload(){
@@ -5565,89 +5707,281 @@ function exportSpcHTML() {
   const period         = document.getElementById('spcPeriod').textContent.replace('Period: ', '');
   const grandTotalAmt  = _spcData.reduce((s, c) => s + c.totalAmt,  0);
   const grandTotalLtrs = _spcData.reduce((s, c) => s + c.totalLtrs, 0);
+  const grandTotalSkus = _spcData.reduce((s, c) => s + Object.keys(c.products).length, 0);
   const fmtN = v => Math.round(v).toLocaleString();
   const fmtD = v => parseFloat(v.toFixed(1)).toLocaleString();
+  const esc  = v => String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
   const sorted = [..._spcData].sort((a, b) => b.totalAmt - a.totalAmt);
 
-  let custRows = '';
-  for (const c of sorted) {
-    const prods   = Object.values(c.products).sort((a, b) => b.amount - a.amount);
-    const revShare= grandTotalAmt ? Math.round((c.totalAmt / grandTotalAmt) * 100) : 0;
-    const barW    = Math.min(revShare, 100);
+  // Embed all data as JSON so the exported file is fully interactive
+  const dataJson = JSON.stringify(_spcData.map(c => ({
+    code: c.code, name: c.name, region: c.region, channel: c.channel, type: c.type,
+    totalAmt: c.totalAmt, totalLtrs: c.totalLtrs,
+    products: Object.values(c.products).map(p => ({
+      matCode: p.matCode, description: p.description, category: p.category,
+      qty: p.qty, ltrs: p.ltrs, amount: p.amount
+    }))
+  })));
 
-    let prodRows = prods.map(p => {
-      const ps = c.totalAmt ? Math.round((p.amount / c.totalAmt) * 100) : 0;
-      return `<tr style="background:#fafbfd;">
-        <td style="padding:6px 12px 6px 36px;font-size:11px;font-family:monospace;color:#718096;border:1px solid #eef0f5;">${p.matCode}</td>
-        <td style="padding:6px 12px;font-size:12px;color:#1a202c;border:1px solid #eef0f5;">${p.description||p.matCode} <span style="display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;background:#f0f2f5;color:#718096;margin-left:4px;">${p.category}</span></td>
-        <td style="padding:6px 12px;text-align:right;font-size:12px;color:#718096;border:1px solid #eef0f5;">${fmtD(p.qty)}</td>
-        <td style="padding:6px 12px;text-align:right;font-size:12px;border:1px solid #eef0f5;">${fmtD(p.ltrs)}</td>
-        <td style="padding:6px 12px;text-align:right;font-size:12px;font-weight:700;color:#0f5f5a;border:1px solid #eef0f5;">KSH ${fmtN(p.amount)} <span style="font-size:10px;font-weight:600;color:#718096;">(${ps}%)</span></td>
-      </tr>`;
-    }).join('');
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Per Customer \u2014 ${esc(period)}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f0f2f5;color:#1a202c;min-height:100vh;}
 
-    custRows += `
-    <tr style="background:#f0f4f8;">
-      <td colspan="5" style="padding:8px 14px;border:1px solid #dde3ec;">
-        <span style="font-size:11px;font-family:monospace;color:#718096;">${c.code}</span>
-        <strong style="font-size:13px;color:#0f2744;margin-left:8px;">${c.name}</strong>
-        <span style="font-size:11px;color:#718096;margin-left:8px;">${c.region} · ${c.channel}${c.type?' · '+c.type:''}</span>
-        <span style="float:right;font-size:12px;font-weight:700;color:#0f5f5a;">KSH ${fmtN(c.totalAmt)} &nbsp;|&nbsp; ${fmtD(c.totalLtrs)} Ltrs/Kgs &nbsp;|&nbsp; ${prods.length} SKU${prods.length!==1?'s':''}</span>
-        <div style="height:4px;background:#dde3ec;border-radius:99px;margin-top:6px;"><div style="height:4px;background:#0f2744;border-radius:99px;width:${barW}%;"></div></div>
-        <div style="font-size:10px;color:#718096;margin-top:2px;">${revShare}% of total revenue</div>
-      </td>
-    </tr>
-    ${prodRows}
-    <tr><td colspan="5" style="padding:3px;background:#fff;border:none;"></td></tr>`;
-  }
+/* Header */
+.app-header{background:#0f2744;padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(15,39,68,.3);position:sticky;top:0;z-index:50;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:32px;height:32px;background:#E1245A;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:800;}
+.logo-text{color:#fff;font-size:16px;font-weight:700;letter-spacing:-.3px;}
+.logo-text span{color:#f6ad2b;}
+.header-badge{background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);font-size:12px;font-weight:600;padding:4px 14px;border-radius:99px;border:1px solid rgba(255,255,255,.18);}
 
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Sales Per Customer — ${period}</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a202c;padding:28px;}
-  h1{font-size:22px;font-weight:800;color:#0f2744;margin-bottom:3px;}.sub{font-size:13px;color:#718096;margin-bottom:20px;}
-  .pills{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}.pill{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:12px 18px;}
-  .pill-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:3px;}
-  .pill-value{font-size:20px;font-weight:800;color:#0f5f5a;}
-  .tbl-wrap{overflow-x:auto;background:#fff;border-radius:12px;border:1px solid #dde3ec;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
-  table{border-collapse:collapse;width:100%;font-size:12px;}</style></head><body>
-  <h1>👤 Sales Per Customer Report</h1>
-  <div class="sub">${period} &nbsp;·&nbsp; Generated ${new Date().toLocaleString()}</div>
-  <div class="pills">
-    <div class="pill"><div class="pill-label">Customers</div><div class="pill-value" style="color:#0f2744;">${sorted.length}</div></div>
-    <div class="pill"><div class="pill-label">Total Revenue (KSH)</div><div class="pill-value">KSH ${fmtN(grandTotalAmt)}</div></div>
-    <div class="pill"><div class="pill-label">Total Volume (Ltrs/Kgs)</div><div class="pill-value" style="color:#0f2744;">${fmtD(grandTotalLtrs)}</div></div>
-    <div class="pill"><div class="pill-label">Avg Revenue / Customer</div><div class="pill-value">KSH ${fmtN(grandTotalAmt/(sorted.length||1))}</div></div>
+/* Page */
+.page-wrap{max-width:1320px;margin:0 auto;padding:28px 20px;}
+
+/* Topbar */
+.spc-topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;gap:12px;flex-wrap:wrap;}
+.spc-title{font-size:22px;font-weight:800;color:#0f2744;}
+.spc-period{font-size:13px;color:#718096;margin-top:3px;}
+.export-note{font-size:11px;color:#718096;background:#fff;border:1px solid #dde3ec;border-radius:8px;padding:6px 14px;}
+
+/* Summary pills */
+.spc-pills{display:flex;gap:14px;margin-bottom:22px;flex-wrap:wrap;}
+.spc-pill{background:#fff;border:1px solid #dde3ec;border-radius:12px;padding:14px 20px;min-width:165px;flex:1;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+.pill-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#718096;margin-bottom:5px;}
+.pill-val{font-size:22px;font-weight:800;color:#1a202c;}
+.pill-val.green{color:#0f5f5a;}
+
+/* Search & sort */
+.search-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+.spc-search{flex:1;min-width:240px;padding:9px 14px 9px 38px;border:1px solid #dde3ec;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%23a0aec0' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 11px center;color:#1a202c;outline:none;transition:border-color .15s;}
+.spc-search:focus{border-color:#0f2744;box-shadow:0 0 0 3px rgba(15,39,68,.08);}
+.sort-label{font-size:12px;color:#718096;font-weight:600;white-space:nowrap;}
+.sort-btn{padding:7px 14px;border:1px solid #dde3ec;background:#fff;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;color:#718096;transition:all .15s;}
+.sort-btn:hover{background:#f0f2f5;border-color:#c0cad8;}
+.sort-btn.active{background:#0f2744;color:#fff;border-color:#0f2744;}
+.count-note{font-size:12px;color:#718096;font-weight:600;margin-left:auto;white-space:nowrap;}
+
+/* Table */
+.tbl-wrap{background:#fff;border:1px solid #dde3ec;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.07);}
+.spc-table{border-collapse:collapse;width:100%;font-size:13px;}
+.spc-table thead tr{background:#0f2744;}
+.spc-table thead th{padding:11px 14px;text-align:left;font-size:10px;font-weight:700;color:rgba(255,255,255,.7);letter-spacing:.07em;border:1px solid rgba(255,255,255,.08);white-space:nowrap;}
+.spc-table thead th.num{text-align:right;}
+.spc-table thead th.gold{color:#f6ad2b;}
+
+/* Customer rows */
+.cust-row{cursor:pointer;transition:background .12s;}
+.cust-row:hover td{background:#e8f0fb!important;}
+.cust-row td{padding:11px 14px;border:1px solid #eef0f5;vertical-align:middle;}
+.cust-code{font-size:11px;font-family:'DM Mono',monospace;color:#a0aec0;}
+.cust-name{font-weight:700;font-size:13px;color:#0f2744;margin:2px 0;}
+.cust-meta{font-size:11px;color:#718096;}
+.toggle-icon{font-size:11px;color:#a0aec0;transition:transform .2s;display:inline-block;}
+.cust-row.open .toggle-icon{transform:rotate(90deg);}
+.spc-num{text-align:right;font-weight:700;color:#1a202c;}
+.spc-num.rev{color:#0f5f5a;font-size:14px;}
+.bar-wrap{height:4px;background:#eef0f5;border-radius:99px;margin-top:5px;min-width:70px;}
+.bar{height:4px;background:#0f2744;border-radius:99px;}
+.share-pct{font-size:10px;color:#a0aec0;font-weight:600;margin-top:2px;}
+
+/* Product rows */
+.prod-section{display:none;}
+.prod-section.open{display:table-row-group;}
+.prod-header-row td{background:#f0f4f8;padding:6px 14px;border:1px solid #eef0f5;}
+.prod-head-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#0f2744;}
+.prod-row td{padding:8px 14px;border:1px solid #eef0f5;background:#fafbfd;font-size:12px;}
+.prod-matcode{font-family:'DM Mono',monospace;font-size:11px;color:#a0aec0;}
+.prod-name{font-weight:600;color:#1a202c;margin:2px 0;}
+.prod-cat{display:inline-block;font-size:10px;font-weight:700;padding:1px 8px;border-radius:99px;background:#f0f2f5;color:#718096;}
+.prod-num{text-align:right;font-size:12px;color:#1a202c;}
+.prod-num.rev{color:#0f5f5a;font-weight:700;}
+.prod-subtotal td{background:#e8f4f0;padding:8px 14px;border:1px solid #c8e6de;font-size:12px;font-weight:700;}
+
+/* Grand total */
+.grand-row td{background:#0f2744;color:#fff;padding:12px 14px;font-weight:800;font-size:13px;border:1px solid #0a1e38;}
+.grand-row td.num{text-align:right;}
+.grand-row td.gold{color:#f6ad2b;text-align:right;}
+
+/* Footer */
+.footer{text-align:center;margin-top:24px;font-size:11px;color:#a0aec0;padding-bottom:20px;}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="logo">
+    <div class="logo-icon">S</div>
+    <div class="logo-text">Sales<span>DB</span></div>
   </div>
+  <div class="header-badge">&#128229; Exported Report</div>
+</div>
+
+<div class="page-wrap">
+
+  <div class="spc-topbar">
+    <div>
+      <div class="spc-title">&#128100; Sales Per Customer</div>
+      <div class="spc-period">Period: ${esc(period)}</div>
+    </div>
+    <div class="export-note">Generated: ${new Date().toLocaleString()}</div>
+  </div>
+
+  <div class="spc-pills">
+    <div class="spc-pill"><div class="pill-label">Customers</div><div class="pill-val" id="pillCust">${sorted.length}</div></div>
+    <div class="spc-pill"><div class="pill-label">Total Revenue (KSH)</div><div class="pill-val green">KSH ${fmtN(grandTotalAmt)}</div></div>
+    <div class="spc-pill"><div class="pill-label">Total Volume (Ltrs/Kgs)</div><div class="pill-val">${fmtD(grandTotalLtrs)}</div></div>
+    <div class="spc-pill"><div class="pill-label">Avg Revenue / Customer</div><div class="pill-val green">KSH ${fmtN(grandTotalAmt / (sorted.length || 1))}</div></div>
+  </div>
+
+  <div class="search-row">
+    <input class="spc-search" id="srch" type="text" placeholder="&#128269;  Search customer name or SAP code\u2026" oninput="go()">
+    <span class="sort-label">Sort:</span>
+    <button class="sort-btn active" id="bRev"  onclick="srt('revenue')">Revenue &#8595;</button>
+    <button class="sort-btn"        id="bVol"  onclick="srt('volume')">Volume &#8595;</button>
+    <button class="sort-btn"        id="bName" onclick="srt('name')">Name A\u2013Z</button>
+    <span class="count-note" id="cnt">${sorted.length} customers</span>
+  </div>
+
   <div class="tbl-wrap">
-    <table>
+    <table class="spc-table">
       <thead>
-        <tr style="background:#0f2744;">
-          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:0.07em;border:1px solid rgba(255,255,255,0.08);">MAT CODE</th>
-          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:0.07em;border:1px solid rgba(255,255,255,0.08);">PRODUCT / CUSTOMER</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:0.07em;border:1px solid rgba(255,255,255,0.08);">QTY (UNITS)</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:0.07em;border:1px solid rgba(255,255,255,0.08);">VOLUME (LTRS/KGS)</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#f6ad2b;letter-spacing:0.07em;border:1px solid rgba(255,255,255,0.08);">REVENUE (KSH)</th>
+        <tr>
+          <th style="width:32px;"></th>
+          <th>CUSTOMER</th>
+          <th class="num">SKUs</th>
+          <th class="num">VOLUME (LTRS/KGS)</th>
+          <th class="num gold">REVENUE (KSH)</th>
         </tr>
       </thead>
-      <tbody>${custRows}
-        <tr style="background:#0f5f5a;">
-          <td colspan="2" style="padding:11px 14px;font-weight:800;font-size:13px;color:#fff;border:1px solid #0f5f5a;">GRAND TOTAL — ${sorted.length} Customers</td>
-          <td style="padding:11px 14px;text-align:right;color:#fff;font-weight:800;border:1px solid #0f5f5a;">—</td>
-          <td style="padding:11px 14px;text-align:right;color:#fff;font-weight:800;border:1px solid #0f5f5a;">${fmtD(grandTotalLtrs)}</td>
-          <td style="padding:11px 14px;text-align:right;color:#f6ad2b;font-weight:800;font-size:14px;border:1px solid #0f5f5a;">KSH ${fmtN(grandTotalAmt)}</td>
-        </tr>
-      </tbody>
+      <tbody id="body"></tbody>
     </table>
-  </div></body></html>`;
+  </div>
+
+  <div class="footer">Sales Per Customer &nbsp;&middot;&nbsp; ${esc(period)} &nbsp;&middot;&nbsp; Exported ${new Date().toLocaleString()}</div>
+</div>
+
+<script>
+const RAW     = ${dataJson};
+const GT_AMT  = ${grandTotalAmt};
+let   _sort   = 'revenue';
+let   _filter = '';
+
+const fN = v => Math.round(v).toLocaleString();
+const fD = v => parseFloat(v.toFixed(1)).toLocaleString();
+
+function srt(s) {
+  _sort = s;
+  ['Rev','Vol','Name'].forEach(k => document.getElementById('b'+k).classList.remove('active'));
+  document.getElementById(s==='revenue'?'bRev':s==='volume'?'bVol':'bName').classList.add('active');
+  render();
+}
+function go() { _filter = document.getElementById('srch').value.toLowerCase(); render(); }
+
+function tog(code) {
+  const cr = document.getElementById('cr_'+code);
+  const ps = document.getElementById('ps_'+code);
+  if (!cr||!ps) return;
+  const open = cr.classList.toggle('open');
+  ps.classList.toggle('open', open);
+}
+
+function render() {
+  let rows = RAW.filter(c => !_filter || c.name.toLowerCase().includes(_filter) || c.code.toLowerCase().includes(_filter));
+  if (_sort==='revenue')      rows.sort((a,b)=>b.totalAmt-a.totalAmt);
+  else if (_sort==='volume')  rows.sort((a,b)=>b.totalLtrs-a.totalLtrs);
+  else                        rows.sort((a,b)=>a.name.localeCompare(b.name));
+
+  document.getElementById('cnt').textContent =
+    rows.length===RAW.length ? rows.length+' customer'+(rows.length!==1?'s':'')
+                             : rows.length+' of '+RAW.length+' customers';
+
+  const gAmt  = rows.reduce((s,c)=>s+c.totalAmt,0);
+  const gLtrs = rows.reduce((s,c)=>s+c.totalLtrs,0);
+  const gSkus = rows.reduce((s,c)=>s+c.products.length,0);
+
+  let h = '';
+  rows.forEach((c,i) => {
+    const bg   = i%2===0?'#ffffff':'#f8fafc';
+    const rs   = GT_AMT ? Math.round((c.totalAmt/GT_AMT)*100) : 0;
+    const prods = [...c.products].sort((a,b)=>b.amount-a.amount);
+
+    h += \`<tr class="cust-row" id="cr_\${c.code}" onclick="tog('\${c.code}')">
+      <td style="background:\${bg}"><span class="toggle-icon">\u25b6</span></td>
+      <td style="background:\${bg}">
+        <div class="cust-code">\${c.code}</div>
+        <div class="cust-name">\${c.name}</div>
+        <div class="cust-meta">\${c.region||'\u2014'} \u00b7 \${c.channel||'\u2014'}\${c.type?' \u00b7 '+c.type:''}</div>
+      </td>
+      <td class="spc-num" style="background:\${bg}">\${prods.length}</td>
+      <td class="spc-num" style="background:\${bg}">\${fD(c.totalLtrs)}</td>
+      <td class="spc-num rev" style="background:\${bg}">KSH \${fN(c.totalAmt)}
+        <div class="bar-wrap"><div class="bar" style="width:\${Math.min(rs,100)}%"></div></div>
+        <div class="share-pct">\${rs}% of total</div>
+      </td>
+    </tr>\`;
+
+    let ph = '';
+    prods.forEach(p => {
+      const ps = c.totalAmt ? Math.round((p.amount/c.totalAmt)*100) : 0;
+      ph += \`<tr class="prod-row">
+        <td></td>
+        <td>
+          <div class="prod-matcode">\${p.matCode}</div>
+          <div class="prod-name">\${p.description||p.matCode}</div>
+          <span class="prod-cat">\${p.category}</span>
+        </td>
+        <td class="prod-num" style="color:#718096">\${fD(p.qty)} units</td>
+        <td class="prod-num">\${fD(p.ltrs)}</td>
+        <td class="prod-num rev">KSH \${fN(p.amount)}
+          <div class="bar-wrap"><div class="bar" style="width:\${Math.min(ps,100)}%;background:#0f5f5a"></div></div>
+          <div class="share-pct">\${ps}% of customer</div>
+        </td>
+      </tr>\`;
+    });
+
+    h += \`<tbody class="prod-section" id="ps_\${c.code}">
+      <tr class="prod-header-row"><td colspan="5"><span class="prod-head-label">\u{1F4E6} Products sold to \${c.name} (\${prods.length} SKU\${prods.length!==1?'s':''})</span></td></tr>
+      \${ph}
+      <tr class="prod-subtotal">
+        <td colspan="2" style="color:#0f5f5a">Customer Subtotal</td>
+        <td class="prod-num">\${prods.length} SKU\${prods.length!==1?'s':''}</td>
+        <td class="prod-num">\${fD(c.totalLtrs)}</td>
+        <td class="prod-num rev">KSH \${fN(c.totalAmt)}</td>
+      </tr>
+    </tbody>\`;
+  });
+
+  h += \`<tr class="grand-row">
+    <td colspan="2">GRAND TOTAL \u2014 \${rows.length} Customer\${rows.length!==1?'s':''}</td>
+    <td class="num">\${gSkus} SKUs</td>
+    <td class="num">\${fD(gLtrs)}</td>
+    <td class="gold">KSH \${fN(gAmt)}</td>
+  </tr>\`;
+
+  document.getElementById('body').innerHTML = h;
+}
+
+render();
+<\/script>
+</body>
+</html>`;
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url; a.download = `Sales_Per_Customer_${period.replace(/\s|–|\/|\./g,'_')}.html`; a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
-  showToast('HTML file downloaded ✓', 'ok');
+  showToast('HTML report downloaded \u2713', 'ok');
 }
+
 
 let _spcData    = [];   // [{code, name, region, channel, type, totalLtrs, totalAmt, products:[]}]
 let _spcSort    = 'revenue';
