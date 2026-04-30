@@ -2295,9 +2295,10 @@ function parseSAP(text){
       continue;
     }
     if(line.includes('GRAND TOTAL')||line.includes('TOTALS'))continue;
-    const sapCol=cols.find(c=>/^(440|330)\d{8}$/.test(c));
-    if(sapCol&&curCust){
-      const matCode=sapCol.replace(/^0+/,'');
+    // Match standard 440/330 codes AND zero-padded variants (e.g. 00000000332 = packaging service codes)
+    const sapColFinal=cols.find(c=>/^0*(440|330)\d{8}$/.test(c)||/^0{6,}\d{1,5}$/.test(c));
+    if(sapColFinal&&curCust){
+      const matCode=sapColFinal.replace(/^0+/,'')||sapColFinal;
       const nums=cols.filter(c=>/^-?[\d,]+\.?\d*$/.test(c.replace(/\s/,'')));
       const qty=nums.length>=2?parseFloat(nums[nums.length-2].replace(/,/g,'')):0;
       const amount=nums.length>=1?parseFloat(nums[nums.length-1].replace(/,/g,'')):0;
