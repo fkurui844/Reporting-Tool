@@ -1507,6 +1507,43 @@
         Add these to the <strong>Customers</strong> sheet then click <strong>↻ Reload</strong> and re-upload.
       </div>
     </div>
+
+    <!-- Missing products (in SAP but not in Product sheet) -->
+    <div class="missing-card" id="missingProductsCard" style="display:none;border-color:#0891b2;margin-top:0;">
+      <div class="missing-head" style="background:#e0f7fa;border-bottom-color:#0891b2;">
+        <h3 id="missingProductsTitle" style="color:#0c5464;">📦 Products in SAP not found in Product sheet</h3>
+        <div class="missing-head-right">
+          <span class="badge-warn" id="missingProductsBadge" style="background:#b2ebf2;color:#0c5464;border-color:#0891b2;"></span>
+          <button class="btn-copy" onclick="copyMissingProducts()" style="border-color:#0891b2;color:#0c5464;">Copy list</button>
+        </div>
+      </div>
+      <div style="padding:8px 16px 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f0fbfd;border-bottom:1px solid #b2ebf2;">
+        <input type="text" id="missingProductsSearch" placeholder="🔍 Search material code or description…"
+          oninput="filterMissingProducts()"
+          style="flex:1;min-width:200px;max-width:360px;padding:6px 11px;border:1.5px solid #b2ebf2;border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:#fff;color:var(--text);outline:none;">
+        <span id="missingProductsCountNote" style="font-size:12px;color:#0c5464;font-weight:600;"></span>
+      </div>
+      <div class="missing-table-wrap" style="max-height:320px;">
+        <table>
+          <colgroup><col style="width:4%"><col style="width:18%"><col style="width:34%"><col style="width:14%"><col style="width:10%"><col style="width:10%"><col style="width:10%"></colgroup>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Material Code</th>
+              <th>Description (from SAP)</th>
+              <th>Inferred Category</th>
+              <th style="text-align:right;">Qty (Units)</th>
+              <th style="text-align:right;">Ltrs/Kgs</th>
+              <th style="text-align:right;">Amt KSH</th>
+            </tr>
+          </thead>
+          <tbody id="missingProductsTbody"></tbody>
+        </table>
+      </div>
+      <div class="missing-hint" style="border-color:#0891b2;background:#e0f7fa;color:#0c5464;">
+        These material codes appear in the uploaded SAP file but are <strong>not in the Product sheet</strong>. Add them to the <strong>Product</strong> sheet (with correct category, Ltrs/Kgs conversion) then click <strong>↻ Reload</strong> and re-upload so they are correctly classified.
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2263,7 +2300,7 @@ function setProgress(show,pct,msg){
 
 function parseSAP(text){
   const lines=text.split(/\r?\n/);
-  const result={period:'',transactions:[],missingCustomers:{},incompleteCustomers:{}};
+  const result={period:'',transactions:[],missingCustomers:{},incompleteCustomers:{},missingProducts:{}};
   const pm=(lines[0]||'').match(/(\d{2}\.\d{2}\.\d{4})\s+TO\s+(\d{2}\.\d{2}\.\d{4})/);
   if(pm){
     result.period=`${pm[1]} – ${pm[2]}`;
@@ -2305,6 +2342,16 @@ function parseSAP(text){
       const prod=refData.products[matCode]||{};
       const category=prod.category||inferCategory(cols.join(' '));
       const ltrs=qty*(prod.ltrs||inferLtrs(cols.join(' ')));
+      // Detect products in SAP not found in Product sheet
+      if(!refData.products[matCode]){
+        const descCol=cols.find(c=>c.length>4&&!/^-?[\d,]+\.?\d*$/.test(c.replace(/\s/,''))&&c!==matCode&&c!==sapColFinal)||'';
+        if(!result.missingProducts[matCode])
+          result.missingProducts[matCode]={matCode,description:descCol||matCode,category,qty:0,ltrs:0,amount:0,custCount:new Set()};
+        result.missingProducts[matCode].qty+=qty;
+        result.missingProducts[matCode].ltrs+=ltrs;
+        result.missingProducts[matCode].amount+=amount;
+        result.missingProducts[matCode].custCount.add(curCust.code);
+      }
       result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,category,ltrs});
       if(!curCust.found&&result.missingCustomers[curCust.code]){
         result.missingCustomers[curCust.code].ltrs+=ltrs;
@@ -2786,6 +2833,23 @@ function renderReport(data){
         <td>${c.name}</td><td>${fmt(c.ltrs)}</td><td>${fmt(c.amount)}</td>
       </tr>`).join('');
   } else { mc.style.display='none'; }
+
+  // Missing Products
+  const missingProdsArr = Object.values(data.missingProducts||{})
+    .map(p => ({...p, custCount: p.custCount instanceof Set ? p.custCount.size : (p.custCount||0)}))
+    .sort((a,b)=>b.amount-a.amount);
+  window._missingProductsAll = missingProdsArr;
+  const mpc = document.getElementById('missingProductsCard');
+  if(missingProdsArr.length){
+    mpc.style.display='block';
+    document.getElementById('missingProductsTitle').textContent=
+      `📦 ${missingProdsArr.length} product${missingProdsArr.length>1?'s':''} in SAP not found in Product sheet`;
+    document.getElementById('missingProductsBadge').textContent=
+      `${missingProdsArr.length} unregistered SKU${missingProdsArr.length>1?'s':''}`;
+    document.getElementById('missingProductsCountNote').textContent=
+      `Showing ${missingProdsArr.length} product${missingProdsArr.length>1?'s':''}`;
+    renderMissingProducts(missingProdsArr);
+  } else { mpc.style.display='none'; }
 
   // Render charts on the Customers tab
   renderCharts(data);
@@ -6172,6 +6236,48 @@ function spcRender(grandTotalAmt, grandTotalLtrs) {
         <tbody>${tbody}</tbody>
       </table>
     </div>`;
+}
+
+// ── Missing Products helpers ─────────────────────────────
+function renderMissingProducts(list) {
+  const tbody = document.getElementById('missingProductsTbody');
+  document.getElementById('missingProductsCountNote').textContent =
+    `Showing ${list.length} product${list.length !== 1 ? 's' : ''}`;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">No products match your search.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map((p, i) => `
+    <tr>
+      <td style="text-align:center;font-size:12px;font-weight:700;color:var(--text-muted);">${i+1}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;color:#0c5464;font-weight:700;">${p.matCode}</td>
+      <td style="font-size:12px;color:var(--text);">${p.description || p.matCode}</td>
+      <td><span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:#e0f7fa;color:#0c5464;border:1px solid #b2ebf2;">${p.category||'—'}</span></td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-size:12px;">${fmt(p.qty)}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-size:12px;">${fmt(p.ltrs)}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:var(--text-head);">${fmt(p.amount)}</td>
+    </tr>`).join('');
+}
+
+function filterMissingProducts() {
+  const q = (document.getElementById('missingProductsSearch').value||'').toLowerCase().trim();
+  const all = window._missingProductsAll || [];
+  const filtered = q ? all.filter(p =>
+    p.matCode.toLowerCase().includes(q) ||
+    (p.description||'').toLowerCase().includes(q) ||
+    (p.category||'').toLowerCase().includes(q)
+  ) : all;
+  renderMissingProducts(filtered);
+}
+
+function copyMissingProducts() {
+  const all = window._missingProductsAll || [];
+  const lines = ['Material Code\tDescription\tCategory\tQty\tLtrs/Kgs\tAmt KSH'];
+  all.forEach(p => lines.push(`${p.matCode}\t${p.description||p.matCode}\t${p.category||'—'}\t${Math.round(p.qty)}\t${Math.round(p.ltrs)}\t${Math.round(p.amount)}`));
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const b = document.querySelector('#missingProductsCard .btn-copy');
+    if (b) { b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy list', 2000); }
+  });
 }
 
 // ── Target Toggle ──────────────────────────────────────
