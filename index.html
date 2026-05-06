@@ -1571,11 +1571,12 @@
         </select>
         <div style="position:relative;display:inline-block;" id="exportDropWrap">
           <div style="display:flex;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.2);">
-            <button class="locsales-export-btn" style="border-radius:0;border-right:1px solid rgba(255,255,255,0.2);" onclick="exportLocSalesCSV()">⬇ Export CSV</button>
+            <button class="locsales-export-btn" style="border-radius:0;border-right:1px solid rgba(255,255,255,0.2);" onclick="exportLocSalesXLSX()">⬇ Export Excel</button>
             <button class="locsales-export-btn" style="border-radius:0;padding:8px 10px;" onclick="toggleExportMenu()" title="More export options">▾</button>
           </div>
           <div id="exportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;min-width:160px;overflow:hidden;">
-            <button onclick="exportLocSalesCSV();toggleExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📊 Download CSV</button>
+            <button onclick="exportLocSalesXLSX();toggleExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📗 Download Excel (per region)</button>
+            <button onclick="exportLocSalesCSV();toggleExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;border-top:1px solid var(--border2);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📊 Download CSV (single sheet)</button>
             <button onclick="exportLocSalesPDF();toggleExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;border-top:1px solid var(--border2);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📄 Download PDF</button>
             <button onclick="exportLocSalesHTML();toggleExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;border-top:1px solid var(--border2);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">🌐 Download HTML</button>
           </div>
@@ -4290,6 +4291,225 @@ document.addEventListener('click', function(e) {
   if (!document.getElementById('exportDropWrap')?.contains(e.target))
     document.getElementById('exportMenu').style.display = 'none';
 });
+
+function exportLocSalesXLSX() {
+  if (!_locSalesData) { showToast('No data to export — upload a SAP file first.', 'err'); return; }
+  const { regions, categories, pivot } = _locSalesData;
+  const q     = (document.getElementById('locSearch').value || '').toLowerCase().trim();
+  const cat   = document.getElementById('locCatFilter').value;
+  const visR  = q   ? regions.filter(r => r.toLowerCase().includes(q)) : regions;
+  const visC  = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
+  const period = document.getElementById('locSalesPeriod').textContent.replace('Period: ','') || '';
+
+  const locCatTgts = _locShowTargets ? (refData.locationCategoryTargets || {}) : {};
+  const regionTgts = _locShowTargets ? (refData.targets || {}) : {};
+  const hasCatTgts = _locShowTargets && Object.keys(locCatTgts).length > 0;
+  const hasAnyTgts = _locShowTargets && (hasCatTgts || Object.keys(regionTgts).length > 0);
+
+  function getLocCatTgt(r, c) {
+    const rU = r.toUpperCase(), cU = normalizeCat(c);
+    if (locCatTgts[rU]) return locCatTgts[rU][cU] || locCatTgts[rU][c.toUpperCase()] || null;
+    for (const k of Object.keys(locCatTgts))
+      if (rU.includes(k) || k.includes(rU)) return locCatTgts[k][cU] || locCatTgts[k][c.toUpperCase()] || null;
+    return null;
+  }
+  function getRegTgt(r) {
+    const rU = r.toUpperCase();
+    if (regionTgts[rU]) return regionTgts[rU];
+    for (const k of Object.keys(regionTgts))
+      if (rU.includes(k) || k.includes(rU)) return regionTgts[k];
+    return null;
+  }
+
+  // ── Style helpers ──
+  const FONT = 'Calibri';
+  const navy   = { rgb: '0F2744' };
+  const teal   = { rgb: '0F5F5A' };
+  const gold   = { rgb: 'D97706' };
+  const wh     = { rgb: 'FFFFFF' };
+  const dark   = { rgb: '1A202C' };
+  const muted  = { rgb: '718096' };
+  const green  = { rgb: '0D9E63' };
+  const amber  = { rgb: 'B45309' };
+  const red    = { rgb: 'C01048' };
+  const navyFill  = { patternType: 'solid', fgColor: { rgb: '0F2744' } };
+  const tealFill  = { patternType: 'solid', fgColor: { rgb: '0F5F5A' } };
+  const evenFill  = { patternType: 'solid', fgColor: { rgb: 'F8FAFC' } };
+  const oddFill   = { patternType: 'solid', fgColor: { rgb: 'FFFFFF' } };
+  const totFill   = { patternType: 'solid', fgColor: { rgb: '0F2744' } };
+  const tgtFill   = { patternType: 'solid', fgColor: { rgb: 'F0F2F5' } };
+  const bdrLine   = { style: 'thin', color: { rgb: 'DDE3EC' } };
+  const bdrNone   = { style: 'none' };
+  const gridBdr   = { top: bdrLine, bottom: bdrLine, left: bdrLine, right: bdrLine };
+  const totBdr    = { top: { style: 'medium', color: { rgb: 'FFFFFF' } }, bottom: bdrLine, left: bdrLine, right: bdrLine };
+  const noBdr     = { top: bdrNone, bottom: bdrNone, left: bdrNone, right: bdrNone };
+
+  function cell(v, t, fgColor, fontColor, bold, sz, hAlign, border, numFmt, italic) {
+    return { v, t: t||'s', s: { font: { name: FONT, bold: !!bold, italic: !!italic, color: fontColor||dark, sz: sz||10 }, fill: { patternType:'solid', fgColor: fgColor||{rgb:'FFFFFF'} }, alignment: { horizontal: hAlign||'left', vertical:'center', wrapText: false }, border: border||gridBdr, numFmt: numFmt||'' } };
+  }
+  function hdr(v, fColor, centered) { return cell(v,'s',{rgb:'0F2744'},wh,true,10,centered?'center':'left',gridBdr); }
+  function txt(v, fg, fColor, bold)  { return cell(v,'s',fg,fColor||dark,bold,10,'left',gridBdr); }
+  function num(v, fg, fColor, bold)  { return cell(v,'n',fg,fColor||dark,bold,10,'right',gridBdr,'#,##0'); }
+  function pctCell(v, fg, fColor)    { return cell(v===null?'—':'','s',fg,fColor||(v===null?muted:v>=100?green:v>=70?amber:red),true,10,'center',gridBdr); }
+  function pctNum(v, fg)             {
+    if (v === null) return cell('—','s',fg,muted,false,10,'center',gridBdr);
+    const col = v>=100?green:v>=70?amber:red;
+    return cell(v/100,'n',fg,col,true,10,'center',gridBdr,'0%');
+  }
+  function totTxt(v, fg) { return cell(v,'s',fg.fgColor||{rgb:'0F2744'},wh,true,10,'left',totBdr); }
+  function totNum(v, fg, fColor) { return cell(v,'n',fg.fgColor||{rgb:'0F2744'},fColor||wh,true,10,'right',totBdr,'#,##0'); }
+  function totPct(v, fg) {
+    if (!v && v!==0) return cell('—','s',fg.fgColor||{rgb:'0F2744'},wh,true,10,'center',totBdr);
+    const col = v>=100?{rgb:'6EE7B7'}:v>=70?{rgb:'FDE68A'}:{rgb:'FCA5A5'};
+    return cell(v/100,'n',fg.fgColor||{rgb:'0F2744'},col,true,10,'center',totBdr,'0%');
+  }
+  function titleCell(v, fg, sz) { return cell(v,'s',fg||{rgb:'0F2744'},wh,true,sz||14,'left',noBdr); }
+  function metaCell(v)  { return cell(v,'s',{rgb:'FFFFFF'},muted,false,9,'left',noBdr); }
+  function emptyC(fg)   { return cell('','s',fg||{rgb:'FFFFFF'},dark,false,10,'left',noBdr); }
+  function tgtTxt(v, fg)  { return cell(v,'s',fg||{rgb:'F0F2F5'},muted,false,10,'right',gridBdr,'#,##0'); }
+  function tgtNum(v, fg)  { return cell(v,'n',fg||{rgb:'F0F2F5'},muted,false,10,'right',gridBdr,'#,##0'); }
+
+  // Build workbook
+  const wb = XLSX.utils.book_new();
+
+  // ── Helper: build rows for one location's sheet ──
+  function buildLocationSheet(regionName, sheetVisC) {
+    const rows = [];
+    const isAll = regionName === '__ALL__';
+    const label = isAll ? 'All Locations Summary' : regionName;
+    const regList = isAll ? visR : [regionName];
+
+    rows.push([ titleCell(`📍 Location Sales — ${label}`, {rgb:'0F2744'}, 14), ...Array(hasAnyTgts ? 5 : 2).fill(emptyC()) ]);
+    rows.push([ metaCell(`Period: ${period}   |   Generated: ${new Date().toLocaleString()}`), ...Array(hasAnyTgts ? 5 : 2).fill(emptyC()) ]);
+    rows.push(Array(hasAnyTgts ? 6 : 3).fill(emptyC()));
+
+    // Header
+    const hdrRow = [hdr('CATEGORY')];
+    if (isAll) {
+      for (const r of regList) {
+        if (hasAnyTgts) {
+          hdrRow.push(hdr(`${r} — Vol (L/Kg)`,{rgb:'0F2744'},false));
+          hdrRow.push(hdr('Vol Target',{rgb:'0F2744'},true));
+          hdrRow.push(hdr('Vol %',{rgb:'0F2744'},true));
+          hdrRow.push(hdr(`${r} — Rev (KSH)`,{rgb:'0F2744'},false));
+          hdrRow.push(hdr('Rev Target',{rgb:'0F2744'},true));
+          hdrRow.push(hdr('Rev %',{rgb:'0F2744'},true));
+        } else {
+          hdrRow.push(hdr(`${r} — Vol (L/Kg)`,{rgb:'0F2744'},false));
+          hdrRow.push(hdr(`${r} — Rev (KSH)`,{rgb:'0F2744'},false));
+        }
+      }
+    } else {
+      if (hasAnyTgts) {
+        hdrRow.push(hdr('Vol (Ltrs/Kgs)')); hdrRow.push(hdr('Vol Target',null,true)); hdrRow.push(hdr('Vol %',null,true));
+        hdrRow.push(hdr('Revenue (KSH)')); hdrRow.push(hdr('Rev Target',null,true)); hdrRow.push(hdr('Rev %',null,true));
+      } else {
+        hdrRow.push(hdr('Vol (Ltrs/Kgs)')); hdrRow.push(hdr('Revenue (KSH)'));
+      }
+    }
+    rows.push(hdrRow);
+
+    // Category data rows
+    let grandTotL=0, grandTotA=0, grandTgtL=0, grandTgtK=0;
+    const evenBg={rgb:'F8FAFC'}, oddBg={rgb:'FFFFFF'};
+
+    for (let ci=0; ci<sheetVisC.length; ci++) {
+      const c = sheetVisC[ci];
+      const bg = ci%2===0 ? evenBg : oddBg;
+      const row = [txt(c, bg, dark, true)];
+      let rowTotL=0, rowTotA=0, rowTgtL=0, rowTgtK=0;
+
+      for (const r of regList) {
+        const ltrs   = pivot[r]?.[c]?.ltrs   || 0;
+        const amount = pivot[r]?.[c]?.amount  || 0;
+        const tgt    = hasCatTgts ? getLocCatTgt(r,c) : null;
+        const tgtL   = tgt?.ltrs || 0;
+        const tgtK   = tgt?.ksh  || 0;
+        rowTotL += ltrs; rowTotA += amount; rowTgtL += tgtL; rowTgtK += tgtK;
+        const pL = tgtL > 0 ? Math.round((ltrs/tgtL)*100) : null;
+        const pK = tgtK > 0 ? Math.round((amount/tgtK)*100) : null;
+        if (hasAnyTgts) {
+          row.push(num(Math.round(ltrs),   bg, dark));
+          row.push(tgtNum(tgtL?Math.round(tgtL):0, bg));
+          row.push(pctNum(pL, bg));
+          row.push(num(Math.round(amount), bg, teal));
+          row.push(tgtNum(tgtK?Math.round(tgtK):0, bg));
+          row.push(pctNum(pK, bg));
+        } else {
+          row.push(num(Math.round(ltrs),   bg, dark));
+          row.push(num(Math.round(amount), bg, teal));
+        }
+      }
+
+      // Totals column (only for single-region sheets)
+      if (!isAll && regList.length === 1) {
+        // already only one col group, totals === the single region
+      }
+
+      grandTotL += rowTotL; grandTotA += rowTotA; grandTgtL += rowTgtL; grandTgtK += rowTgtK;
+      rows.push(row);
+    }
+
+    // Grand total row
+    const totRow = [totTxt('GRAND TOTAL', totFill)];
+    let gtL=0, gtA=0, gtTL=0, gtTK=0;
+    for (const r of regList) {
+      const ltrs   = sheetVisC.reduce((s,c)=>s+(pivot[r]?.[c]?.ltrs||0),0);
+      const amount = sheetVisC.reduce((s,c)=>s+(pivot[r]?.[c]?.amount||0),0);
+      let rTgtL=0, rTgtK=0;
+      if (hasCatTgts) {
+        for (const c of sheetVisC) { const t=getLocCatTgt(r,c); rTgtL+=t?.ltrs||0; rTgtK+=t?.ksh||0; }
+      } else { const rt=getRegTgt(r); rTgtL=rt?.ltrs||0; rTgtK=rt?.ksh||0; }
+      gtL+=ltrs; gtA+=amount; gtTL+=rTgtL; gtTK+=rTgtK;
+      const pL = rTgtL>0 ? Math.round((ltrs/rTgtL)*100) : null;
+      const pK = rTgtK>0 ? Math.round((amount/rTgtK)*100) : null;
+      if (hasAnyTgts) {
+        totRow.push(totNum(Math.round(ltrs),totFill,wh));
+        totRow.push(totNum(rTgtL?Math.round(rTgtL):0,totFill,{rgb:'8B9BB4'}));
+        totRow.push(totPct(pL,totFill));
+        totRow.push(totNum(Math.round(amount),totFill,gold));
+        totRow.push(totNum(rTgtK?Math.round(rTgtK):0,totFill,{rgb:'8B9BB4'}));
+        totRow.push(totPct(pK,totFill));
+      } else {
+        totRow.push(totNum(Math.round(ltrs),totFill,wh));
+        totRow.push(totNum(Math.round(amount),totFill,gold));
+      }
+    }
+    rows.push(totRow);
+    return rows;
+  }
+
+  // ── Sheet: Summary (all regions side-by-side) ──
+  const summaryRows = buildLocationSheet('__ALL__', visC);
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+  const summaryColW = [{ wch: 20 }];
+  for (let i=0; i<visR.length; i++) {
+    if (hasAnyTgts) summaryColW.push({wch:14},{wch:13},{wch:8},{wch:16},{wch:14},{wch:8});
+    else            summaryColW.push({wch:14},{wch:16});
+  }
+  wsSummary['!cols'] = summaryColW;
+  wsSummary['!rows'] = [{ hpt: 22 }, { hpt: 14 }, { hpt: 6 }, { hpt: 28 }];
+  wsSummary['!freeze'] = { xSplit: 1, ySplit: 4 };
+  XLSX.utils.book_append_sheet(wb, wsSummary, '📊 Summary');
+
+  // ── One sheet per region ──
+  for (const r of visR) {
+    const sheetRows = buildLocationSheet(r, visC);
+    const ws = XLSX.utils.aoa_to_sheet(sheetRows);
+    ws['!cols'] = hasAnyTgts
+      ? [{ wch: 20 }, { wch: 16 }, { wch: 14 }, { wch: 8 }, { wch: 16 }, { wch: 14 }, { wch: 8 }]
+      : [{ wch: 20 }, { wch: 16 }, { wch: 16 }];
+    ws['!rows'] = [{ hpt: 22 }, { hpt: 14 }, { hpt: 6 }, { hpt: 28 }];
+    ws['!freeze'] = { xSplit: 1, ySplit: 4 };
+    // Sheet names: Excel max 31 chars, strip special chars
+    const sheetName = r.replace(/[:\\\/\?\*\[\]]/g, '').substring(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  }
+
+  const fname = `Location_Sales_${period.replace(/\s|–|\/|\./g, '_')}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  showToast(`Excel exported — ${visR.length + 1} sheets ✓`, 'ok');
+}
 
 function exportLocSalesCSV() {
   if (!_locSalesData) { showToast('No data to export — upload a SAP file first.', 'err'); return; }
