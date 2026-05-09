@@ -2204,7 +2204,7 @@
            onclick="document.getElementById('scInput1').click()">
         <input type="file" id="scInput1" accept=".xls,.txt,.csv" onchange="scFileChosen(this,'1')">
         <div class="sc-drop-icon">📂</div>
-        <div class="sc-drop-label"><span class="sc-p1-tag">Period 1</span> &nbsp;Previous Period</div>
+        <div class="sc-drop-label"><span class="sc-p2-tag">Current</span> &nbsp;Current Period</div>
         <div class="sc-drop-sub">SAP "Sales per Customer by Product" export (.xls / .txt / .csv)</div>
         <button class="sc-drop-btn" onclick="event.stopPropagation();document.getElementById('scInput1').click()">Choose File</button>
         <div class="sc-file-info" id="scInfo1">
@@ -2223,7 +2223,7 @@
            onclick="document.getElementById('scInput2').click()">
         <input type="file" id="scInput2" accept=".xls,.txt,.csv" onchange="scFileChosen(this,'2')">
         <div class="sc-drop-icon">📂</div>
-        <div class="sc-drop-label"><span class="sc-p2-tag">Period 2</span> &nbsp;Current Period</div>
+        <div class="sc-drop-label"><span class="sc-p1-tag">Previous</span> &nbsp;Previous Period</div>
         <div class="sc-drop-sub">SAP "Sales per Customer by Product" export (.xls / .txt / .csv)</div>
         <button class="sc-drop-btn" onclick="event.stopPropagation();document.getElementById('scInput2').click()">Choose File</button>
         <div class="sc-file-info" id="scInfo2">
@@ -7089,6 +7089,50 @@ function scLoadFile(file, n) {
   reader.readAsText(file, 'utf-8');
 }
 
+function scRenderMovement(list) {
+  const p1Lbl = window._scP1Lbl || "Period 1";
+  const p2Lbl = window._scP2Lbl || "Period 2";
+  const newCount  = list.filter(c => c.status === "NEW").length;
+  const lostCount = list.filter(c => c.status === "LOST").length;
+  const rows = list.map(c => {
+    const isNew = c.status === "NEW";
+    const p1Rev = isNew ? "—" : fmt(c.amount);
+    const p2Rev = isNew ? fmt(c.amount) : "—";
+    const pill = (v) => `<span style="display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;background:var(--pill-bg);color:var(--text-muted);margin-right:4px;">${esc(v||"—")}</span>`;
+    const typePill = c.type ? pill(c.type) : "";
+    return `<tr>
+      <td><span class="sc-cust-badge ${isNew?"new":"lost"}">${c.status}</span></td>
+      <td>
+        <div style="font-weight:700;font-size:12px;margin-bottom:3px;">${esc(c.name || c.code)}</div>
+        <div>${pill(c.region)}${pill(c.channel)}${typePill}</div>
+      </td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;">${c.code}</td>
+      <td class="num">${p1Rev}</td>
+      <td class="num">${p2Rev}</td>
+    </tr>`;
+  }).join("");
+
+  const countEl = document.getElementById("scMovCount");
+  if (countEl) countEl.innerHTML = `<strong>${list.length}</strong> customer${list.length!==1?"s":""} &nbsp;(<strong style="color:#1db87a;">${newCount} new</strong> / <strong style="color:#E1245A;">${lostCount} lost</strong>)`;
+
+  const tbl = document.getElementById("scTableMovement");
+  if (!tbl) return;
+  tbl.innerHTML = `
+    <thead><tr>
+      <th>Status</th>
+      <th>Customer</th>
+      <th>SAP Code</th>
+      <th class="num p2h">${p1Lbl}<br>(Current)</th>
+      <th class="num p1h">${p2Lbl}<br>(Previous)</th>
+    </tr></thead>
+    <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">No customers match the selected filters.</td></tr>'}</tbody>
+    <tfoot><tr>
+      <td colspan="5" style="color:rgba(255,255,255,0.7);font-size:11px;">
+        ${newCount} new customer${newCount!==1?"s":""} &nbsp;|&nbsp; ${lostCount} lost customer${lostCount!==1?"s":""}
+      </td>
+    </tr></tfoot>`;
+}
+
 function scFilterMovement() {
   const all     = window._scMovementAll || [];
   const status  = document.getElementById("scMovFilterStatus").value;
@@ -7124,9 +7168,9 @@ function scCheckBothReady() {
   const ready = _scData['1'] && _scData['2'];
   if (ready) {
     bar.classList.add('visible');
-    const p1 = _scData['1'].period || 'Period 1';
-    const p2 = _scData['2'].period || 'Period 2';
-    document.getElementById('scCompareBarLabel').textContent = `"${p1}" vs "${p2}"`;
+    const p1 = _scData['1'].period || 'Current Period';
+    const p2 = _scData['2'].period || 'Previous Period';
+    document.getElementById('scCompareBarLabel').textContent = `"${p1}" (current) vs "${p2}" (previous)`;
   } else {
     bar.classList.remove('visible');
   }
@@ -7153,8 +7197,8 @@ function scRunComparison() {
   document.getElementById('scResults').classList.remove('visible');
 
   setTimeout(() => {
-    const d1 = _scData['1'];
-    const d2 = _scData['2'];
+    const d1 = _scData['1']; // Current period
+    const d2 = _scData['2']; // Previous period
 
     // ── Aggregate helpers ──
     function sumBy(txns, key) {
@@ -7190,24 +7234,27 @@ function scRunComparison() {
     const txn1     = d1.transactions.length;
     const txn2     = d2.transactions.length;
 
-    // ── Badges ──
-    const p1Lbl = d1.period || 'Period 1';
-    const p2Lbl = d2.period || 'Period 2';
-    document.getElementById('scBadge1').textContent = p1Lbl;
-    document.getElementById('scBadge2').textContent = p2Lbl;
+    // ── Badges: p1 = current (zone 1), p2 = previous (zone 2) ──
+    const p1Lbl = d1.period || 'Current Period';
+    const p2Lbl = d2.period || 'Previous Period';
+    window._scP1Lbl = p1Lbl;
+    window._scP2Lbl = p2Lbl;
+    document.getElementById('scBadge1').textContent = p1Lbl + ' (current)';
+    document.getElementById('scBadge2').textContent = p2Lbl + ' (previous)';
 
     // ── KPI Cards ──
+    // v1 = current, v2 = previous; delta = current - previous
     function kpiCard(label, v1, v2, fmtFn) {
-      const diff = v2 - v1;
-      const pct  = v1 !== 0 ? Math.round((diff / Math.abs(v1)) * 100) : (v2 > 0 ? 100 : 0);
+      const diff = v1 - v2;
+      const pct  = v2 !== 0 ? Math.round((diff / Math.abs(v2)) * 100) : (v1 > 0 ? 100 : 0);
       const cls  = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
       const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '●';
       const sign  = diff > 0 ? '+' : '';
       return `<div class="sc-kpi-card">
         <div class="sc-kpi-label">${label}</div>
         <div class="sc-kpi-vals">
-          <div class="sc-kpi-row"><span class="sc-kpi-dot p1"></span><span class="sc-kpi-val">${fmtFn(v1)}</span><span class="sc-kpi-period-lbl">${p1Lbl}</span></div>
-          <div class="sc-kpi-row"><span class="sc-kpi-dot p2"></span><span class="sc-kpi-val">${fmtFn(v2)}</span><span class="sc-kpi-period-lbl">${p2Lbl}</span></div>
+          <div class="sc-kpi-row"><span class="sc-kpi-dot p2"></span><span class="sc-kpi-val">${fmtFn(v1)}</span><span class="sc-kpi-period-lbl">${p1Lbl} <span style="font-size:9px;opacity:.7;">(current)</span></span></div>
+          <div class="sc-kpi-row"><span class="sc-kpi-dot p1"></span><span class="sc-kpi-val">${fmtFn(v2)}</span><span class="sc-kpi-period-lbl">${p2Lbl} <span style="font-size:9px;opacity:.7;">(prev)</span></span></div>
         </div>
         <div class="sc-kpi-delta ${cls}">${arrow} ${sign}${fmtFn(Math.abs(diff))} &nbsp;<span style="opacity:.7;font-size:11px;">(${sign}${pct}%)</span></div>
       </div>`;
@@ -7223,9 +7270,10 @@ function scRunComparison() {
       kpiCard('Transactions', txn1, txn2, fmtN);
 
     // ── Delta pill helper ──
+    // deltaPill(cur, prev): positive = current grew vs previous
     function deltaPill(v1, v2) {
-      const diff = v2 - v1;
-      const p    = v1 !== 0 ? Math.round((diff / Math.abs(v1)) * 100) : (v2 > 0 ? 100 : 0);
+      const diff = v1 - v2;
+      const p    = v2 !== 0 ? Math.round((diff / Math.abs(v2)) * 100) : (v1 > 0 ? 100 : 0);
       const cls  = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
       const arrow= diff > 0 ? '▲' : diff < 0 ? '▼' : '—';
       return `<span class="sc-delta-pill ${cls}">${arrow} ${(diff > 0 ? '+' : '')}${p}%</span>`;
@@ -7237,8 +7285,8 @@ function scRunComparison() {
       const m2 = sumBy(d2.transactions, dim);
       const keys = [...new Set([...Object.keys(m1), ...Object.keys(m2)])];
       keys.sort((a, b) => {
-        const a2 = (m2[a]?.amount || 0); const b2 = (m2[b]?.amount || 0);
-        return b2 - a2;
+        const a1 = (m1[a]?.amount || 0); const b1 = (m1[b]?.amount || 0);
+        return b1 - a1; // sort by current period (d1) revenue desc
       });
 
       const tot1a = keys.reduce((s, k) => s + (m1[k]?.amount || 0), 0);
@@ -7270,12 +7318,12 @@ function scRunComparison() {
       document.getElementById(tableId).innerHTML = `
         <thead><tr>
           <th>${label}</th>
-          <th class="num p1h">Rev<br>${p1Lbl}<br>(KSH)</th>
-          <th class="num p2h">Rev<br>${p2Lbl}<br>(KSH)</th>
-          <th class="num">Δ Rev</th>
-          <th class="num p1h">Vol<br>${p1Lbl}<br>(L)</th>
-          <th class="num p2h">Vol<br>${p2Lbl}<br>(L)</th>
-          <th class="num">Δ Vol</th>
+          <th class="num p2h">Rev (Current)<br>${p1Lbl}<br>(KSH)</th>
+          <th class="num p1h">Rev (Previous)<br>${p2Lbl}<br>(KSH)</th>
+          <th class="num">Δ vs Prev</th>
+          <th class="num p2h">Vol (Current)<br>${p1Lbl}<br>(L)</th>
+          <th class="num p1h">Vol (Previous)<br>${p2Lbl}<br>(L)</th>
+          <th class="num">Δ vs Prev</th>
         </tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr>
@@ -7324,8 +7372,8 @@ function scRunComparison() {
       let thead = '<thead><tr>';
       thead += '<th style="min-width:130px;">Region</th>';
       thead += '<th style="min-width:120px;">Category</th>';
-      thead += `<th class="num p1h">Rev<br>${p1Lbl}<br>(KSH)</th>`;
-      thead += `<th class="num p2h">Rev<br>${p2Lbl}<br>(KSH)</th>`;
+      thead += `<th class="num p2h">Rev (Current)<br>${p1Lbl}<br>(KSH)</th>`;
+      thead += `<th class="num p1h">Rev (Previous)<br>${p2Lbl}<br>(KSH)</th>`;
       thead += '<th class="num">Δ Rev</th>';
       thead += '<th class="num" style="width:90px;">Share P1</th>';
       thead += '<th class="num" style="width:90px;">Share P2</th>';
@@ -7424,8 +7472,8 @@ function scRunComparison() {
         <thead><tr>
           <th style="width:32px;">#</th>
           <th>Customer</th>
-          <th class="num p1h">${p1Lbl}</th>
-          <th class="num p2h">${p2Lbl}</th>
+          <th class="num p2h">${p1Lbl} (current)</th>
+          <th class="num p1h">${p2Lbl} (prev)</th>
           <th class="num">Δ</th>
         </tr></thead>
         <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text-muted);">No data</td></tr>'}</tbody>`;
@@ -7451,11 +7499,14 @@ function scRunComparison() {
       const custMap1 = richCustMap(d1.transactions);
       const custMap2 = richCustMap(d2.transactions);
 
-      // Build full movement list with status + dimensions
-      const movList = [
-        ...[...set2].filter(c => !set1.has(c)).map(code => ({ status: "NEW",  code, ...custMap2[code] })),
-        ...[...set1].filter(c => !set2.has(c)).map(code => ({ status: "LOST", code, ...custMap1[code] }))
-      ];
+      // Build full movement list — NEW (in current d1, not in previous d2) first
+      const newCusts  = [...set1].filter(c => !set2.has(c))
+        .map(code => ({ status: "NEW",  code, ...custMap1[code] }))
+        .sort((a, b) => (b.amount || 0) - (a.amount || 0));
+      const lostCusts = [...set2].filter(c => !set1.has(c))
+        .map(code => ({ status: "LOST", code, ...custMap2[code] }))
+        .sort((a, b) => (b.amount || 0) - (a.amount || 0));
+      const movList = [...newCusts, ...lostCusts];
       window._scMovementAll = movList;
 
       // Populate filter dropdowns with unique values
@@ -7473,46 +7524,6 @@ function scRunComparison() {
       scRenderMovement(movList);
     }
     buildMovementTable();
-
-    function scRenderMovement(list) {
-      const newCount  = list.filter(c => c.status === "NEW").length;
-      const lostCount = list.filter(c => c.status === "LOST").length;
-      const rows = list.map(c => {
-        const isNew = c.status === "NEW";
-        const p1Rev = isNew ? "—" : fmt(c.amount);
-        const p2Rev = isNew ? fmt(c.amount) : "—";
-        const regionPill = `<span style="display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;background:var(--pill-bg);color:var(--text-muted);margin-right:4px;">${esc(c.region||"—")}</span>`;
-        const chanPill   = `<span style="display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;background:var(--pill-bg);color:var(--text-muted);margin-right:4px;">${esc(c.channel||"—")}</span>`;
-        const typePill   = c.type ? `<span style="display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;background:var(--pill-bg);color:var(--text-muted);">${esc(c.type)}</span>` : "";
-        return `<tr>
-            <td><span class="sc-cust-badge ${isNew?"new":"lost"}">${c.status}</span></td>
-            <td>
-              <div style="font-weight:700;font-size:12px;margin-bottom:3px;">${esc(c.name || c.code)}</div>
-              <div>${regionPill}${chanPill}${typePill}</div>
-            </td>
-            <td style="font-family:'DM Mono',monospace;font-size:12px;">${c.code}</td>
-            <td class="num">${p1Rev}</td>
-            <td class="num">${p2Rev}</td>
-          </tr>`;
-      }).join('');
-
-      document.getElementById('scMovCount').innerHTML = `<strong>${list.length}</strong> customer${list.length!==1?"s":""} &nbsp;(<strong style="color:#1db87a;">${newCount} new</strong> / <strong style="color:#E1245A;">${lostCount} lost</strong>)`;
-
-      document.getElementById('scTableMovement').innerHTML = `
-        <thead><tr>
-          <th>Status</th>
-          <th>Customer</th>
-          <th>SAP Code</th>
-          <th class="num p1h">${p1Lbl}<br>Revenue</th>
-          <th class="num p2h">${p2Lbl}<br>Revenue</th>
-        </tr></thead>
-        <tbody>${rows || `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">No customers match the selected filters.</td></tr>`}</tbody>
-        <tfoot><tr>
-          <td colspan="5" style="color:rgba(255,255,255,0.7);font-size:11px;">
-            ${newCount} new customer${newCount !== 1 ? "s" : ""} &nbsp;|&nbsp; ${lostCount} lost customer${lostCount !== 1 ? "s" : ""}
-          </td>
-        </tr></tfoot>`;
-    }
 
     // ── Charts ──
     function scDestroyChart(id) {
