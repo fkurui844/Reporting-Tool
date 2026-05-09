@@ -7450,8 +7450,9 @@ function scRunComparison() {
       const changes = allCodes
         .filter(code => c1[code] && c2[code]) // only customers in BOTH periods
         .map(code => {
-          const a1 = c1[code].amount, a2 = c2[code].amount;
-          return { code, name: c2[code]?.name || c1[code]?.name || code, a1, a2, diff: a2 - a1 };
+          const a1 = c1[code].amount; // current
+          const a2 = c2[code].amount; // previous
+          return { code, name: c1[code]?.name || c2[code]?.name || code, a1, a2, diff: a1 - a2 };
         });
 
       const sorted = type === 'gain'
