@@ -2261,6 +2261,18 @@
         <div class="sc-table-wrap"><table class="sc-table" id="scTableRegion"></table></div>
       </div>
 
+      <!-- By Region x Category breakdown -->
+      <div class="sc-section" id="scSecRegionCat">
+        <div class="sc-section-head" style="cursor:pointer;" onclick="scToggleRegionCat()">
+          <span class="sc-section-title">🗺️ By Location &amp; Product Category</span>
+          <span class="sc-section-sub">Revenue per region broken down by category</span>
+          <span id="scRegionCatChevron" style="margin-left:auto;font-size:13px;color:var(--text-muted);transition:transform 0.2s;">▼</span>
+        </div>
+        <div id="scRegionCatBody" style="display:none;">
+          <div class="sc-table-wrap"><table class="sc-table" id="scTableRegionCat"></table></div>
+        </div>
+      </div>
+
       <!-- By Channel table -->
       <div class="sc-section" id="scSecChannel">
         <div class="sc-section-head">
@@ -7012,6 +7024,15 @@ function scLoadFile(file, n) {
   reader.readAsText(file, 'utf-8');
 }
 
+function scToggleRegionCat() {
+  const body = document.getElementById('scRegionCatBody');
+  const chev = document.getElementById('scRegionCatChevron');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  chev.style.transform = open ? '' : 'rotate(180deg)';
+}
+
 function scCheckBothReady() {
   const bar = document.getElementById('scCompareBar');
   const ready = _scData['1'] && _scData['2'];
@@ -7186,6 +7207,107 @@ function scRunComparison() {
     buildDimTable('scTableRegion',   'region',   'Region');
     buildDimTable('scTableChannel',  'channel',  'Channel');
 
+    // ── By Region × Category ──
+    (function buildRegionCatTable() {
+      // Get sorted regions (by combined P1+P2 revenue desc)
+      const rMap1 = sumBy(d1.transactions, 'region');
+      const rMap2 = sumBy(d2.transactions, 'region');
+      const regions = [...new Set([...Object.keys(rMap1), ...Object.keys(rMap2)])]
+        .sort((a, b) => ((rMap2[b]?.amount||0)+(rMap1[b]?.amount||0)) - ((rMap2[a]?.amount||0)+(rMap1[a]?.amount||0)));
+
+      // Get all categories
+      const allCats = [...new Set([...d1.transactions.map(t=>t.category), ...d2.transactions.map(t=>t.category)])].sort();
+
+      // Build nested map: region → category → {a1, a2}
+      function buildMatrix(txns, period) {
+        const m = {};
+        for (const t of txns) {
+          const r = (t.region  || 'UNKNOWN').toUpperCase();
+          const c = (t.category|| 'OTHER'  ).toUpperCase();
+          if (!m[r]) m[r] = {};
+          if (!m[r][c]) m[r][c] = 0;
+          m[r][c] += t.amount;
+        }
+        return m;
+      }
+      const mat1 = buildMatrix(d1.transactions);
+      const mat2 = buildMatrix(d2.transactions);
+
+      // Build header — region cols + delta
+      // Layout: Region | Category | P1 Rev | P2 Rev | Δ
+      let thead = '<thead><tr>';
+      thead += '<th style="min-width:130px;">Region</th>';
+      thead += '<th style="min-width:120px;">Category</th>';
+      thead += '<th class="num p1h">Rev P1 (KSH)</th>';
+      thead += '<th class="num p2h">Rev P2 (KSH)</th>';
+      thead += '<th class="num">Δ Rev</th>';
+      thead += '<th class="num" style="width:90px;">Share P1</th>';
+      thead += '<th class="num" style="width:90px;">Share P2</th>';
+      thead += '</tr></thead>';
+
+      // Grand totals for share %
+      const grandTot1 = d1.transactions.reduce((s,t)=>s+t.amount, 0);
+      const grandTot2 = d2.transactions.reduce((s,t)=>s+t.amount, 0);
+
+      let tbody = '<tbody>';
+      for (const reg of regions) {
+        const cats1 = mat1[reg] || {};
+        const cats2 = mat2[reg] || {};
+        const regCats = [...new Set([...Object.keys(cats1), ...Object.keys(cats2)])]
+          .sort((a,b) => ((cats2[b]||0)+(cats1[b]||0)) - ((cats2[a]||0)+(cats1[a]||0)));
+
+        // Region subtotal row
+        const rTot1 = rMap1[reg]?.amount || 0;
+        const rTot2 = rMap2[reg]?.amount || 0;
+        const rDiff = rTot2 - rTot1;
+        const rPct  = rTot1 ? Math.round((rDiff/Math.abs(rTot1))*100) : (rTot2>0?100:0);
+        const rCls  = rDiff>0?'up':rDiff<0?'down':'flat';
+        const rArrow= rDiff>0?'▲':rDiff<0?'▼':'—';
+        const rSign = rDiff>0?'+':'';
+        const sh1r  = grandTot1 ? ((rTot1/grandTot1)*100).toFixed(1)+'%' : '—';
+        const sh2r  = grandTot2 ? ((rTot2/grandTot2)*100).toFixed(1)+'%' : '—';
+        tbody += `<tr style="background:var(--th-bg);">`;
+        tbody += `<td rowspan="${regCats.length+1}" style="font-weight:700;font-size:12px;color:var(--text-head);border-right:2px solid var(--border);vertical-align:top;padding-top:12px;">${reg}</td>`;
+        tbody += `<td style="font-style:italic;font-size:11px;color:var(--text-muted);">ALL CATEGORIES</td>`;
+        tbody += `<td class="num" style="font-weight:700;">${fmt(rTot1)}</td>`;
+        tbody += `<td class="num" style="font-weight:700;">${fmt(rTot2)}</td>`;
+        tbody += `<td class="num"><span class="sc-delta-pill ${rCls}">${rArrow} ${rSign}${rPct}%</span></td>`;
+        tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${sh1r}</td>`;
+        tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${sh2r}</td>`;
+        tbody += '</tr>';
+
+        for (const cat of regCats) {
+          const a1 = cats1[cat] || 0;
+          const a2 = cats2[cat] || 0;
+          const diff = a2 - a1;
+          const pct2 = a1 ? Math.round((diff/Math.abs(a1))*100) : (a2>0?100:0);
+          const cls  = diff>0?'up':diff<0?'down':'flat';
+          const arr  = diff>0?'▲':diff<0?'▼':'—';
+          const sgn  = diff>0?'+':'';
+          const catSh1 = rTot1 ? ((a1/rTot1)*100).toFixed(1)+'%' : '—';
+          const catSh2 = rTot2 ? ((a2/rTot2)*100).toFixed(1)+'%' : '—';
+          tbody += '<tr>';
+          tbody += `<td style="padding-left:14px;font-size:12px;"><span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:#e0f7fa;color:#0c5464;">${esc(cat)}</span></td>`;
+          tbody += `<td class="num">${fmt(a1)}</td>`;
+          tbody += `<td class="num">${fmt(a2)}</td>`;
+          tbody += `<td class="num"><span class="sc-delta-pill ${cls}">${arr} ${sgn}${pct2}%</span></td>`;
+          tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${catSh1}</td>`;
+          tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${catSh2}</td>`;
+          tbody += '</tr>';
+        }
+      }
+      tbody += '</tbody>';
+
+      // Grand total footer
+      const gtDiff = grandTot2 - grandTot1;
+      const gtPct  = grandTot1 ? Math.round((gtDiff/Math.abs(grandTot1))*100) : 0;
+      const gtCls  = gtDiff>0?'up':gtDiff<0?'down':'flat';
+      const gtArr  = gtDiff>0?'▲':gtDiff<0?'▼':'—';
+      const tfoot  = `<tfoot><tr><td colspan="2">GRAND TOTAL</td><td class="num">${fmt(grandTot1)}</td><td class="num">${fmt(grandTot2)}</td><td class="num"><span class="sc-delta-pill ${gtCls}">${gtArr} ${gtDiff>0?'+':''}${gtPct}%</span></td><td class="num">100%</td><td class="num">100%</td></tr></tfoot>`;
+
+      document.getElementById('scTableRegionCat').innerHTML = thead + tbody + tfoot;
+    })();
+
     // ── Top Gainers / Decliners ──
     function buildMoversTable(tableId, type) {
       const c1 = sumByCust(d1.transactions);
@@ -7326,11 +7448,26 @@ function scRunComparison() {
               borderColor: gc, borderWidth: 1, padding: 10,
               callbacks: { label: ctx => ' KSH ' + Number(ctx.raw).toLocaleString() }
             },
-            datalabels: { display: false }
+            datalabels: {
+              display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+              anchor: 'end',
+              align: 'end',
+              offset: 2,
+              rotation: -90,
+              color: tc,
+              font: { family: "'DM Mono', monospace", size: 9, weight: '700' },
+              formatter: v => v >= 1e6 ? (v/1e6).toFixed(2)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v,
+              clip: false
+            }
           },
+          layout: { padding: { top: 6 } },
           scales: {
             x: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 10 } }, grid: { color: gc } },
-            y: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 10 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { color: gc } }
+            y: {
+              ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 10 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v },
+              grid: { color: gc },
+              grace: '18%'
+            }
           }
         }
       });
