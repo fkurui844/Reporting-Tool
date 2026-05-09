@@ -7110,14 +7110,17 @@ function scRenderMovement(list) {
     const curCell  = c.curAmt  ? `<strong>${fmt(c.curAmt)}</strong>`  : `<span style="color:var(--text-muted);">—</span>`;
     const prevCell = c.prevAmt ? `<strong>${fmt(c.prevAmt)}</strong>` : `<span style="color:var(--text-muted);">—</span>`;
 
+    // (Current - Previous) / Previous × 100
     let changePill;
     if (c.status === "NEW") {
-      changePill = `<span class="sc-delta-pill up">▲ NEW</span>`;
+      // Previous = 0 → no base to divide by; show +100% as fully new revenue
+      changePill = `<span class="sc-delta-pill up">▲ +100%</span>`;
     } else if (c.status === "LOST") {
-      changePill = `<span class="sc-delta-pill down">▼ LOST</span>`;
+      // Current = 0 → (0 - prev) / prev = -100%
+      changePill = `<span class="sc-delta-pill down">▼ -100%</span>`;
     } else {
-      // RETAINED — show real % change
-      const pct  = c.pctChg;
+      // RETAINED — exact formula
+      const pct  = c.prevAmt !== 0 ? Math.round(((c.curAmt - c.prevAmt) / Math.abs(c.prevAmt)) * 100) : 0;
       const cls  = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
       const arr  = pct > 0 ? "▲" : pct < 0 ? "▼" : "—";
       const sign = pct > 0 ? "+" : "";
