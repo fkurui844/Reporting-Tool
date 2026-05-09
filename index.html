@@ -2356,8 +2356,9 @@
         <div class="sc-mov-filters">
           <span class="sc-mov-filter-label">Filter:</span>
           <select class="sc-mov-select" id="scMovFilterStatus" onchange="scFilterMovement()">
-            <option value="">All (New &amp; Lost)</option>
+            <option value="">All Customers</option>
             <option value="NEW">New only</option>
+            <option value="RETAINED">Retained only</option>
             <option value="LOST">Lost only</option>
           </select>
           <select class="sc-mov-select" id="scMovFilterRegion" onchange="scFilterMovement()">
@@ -7092,29 +7093,40 @@ function scLoadFile(file, n) {
 function scRenderMovement(list) {
   const p1Lbl = window._scP1Lbl || "Period 1";
   const p2Lbl = window._scP2Lbl || "Period 2";
-  const newCount  = list.filter(c => c.status === "NEW").length;
-  const lostCount = list.filter(c => c.status === "LOST").length;
-  const rows = list.map(c => {
-    const isNew = c.status === "NEW";
-    // For NEW: current = c.amount, previous = 0 (didn't exist)
-    // For LOST: current = 0 (no longer exists), previous = c.amount
-    const curRev  = isNew ? c.amount : 0;
-    const prevRev = isNew ? 0 : c.amount;
-    const curCell  = isNew ? `<span style="font-weight:700;">${fmt(curRev)}</span>` : `<span style="color:var(--text-muted);">—</span>`;
-    const prevCell = isNew ? `<span style="color:var(--text-muted);">—</span>` : `<span style="font-weight:700;">${fmt(prevRev)}</span>`;
+  const newCount      = list.filter(c => c.status === "NEW").length;
+  const retainedCount = list.filter(c => c.status === "RETAINED").length;
+  const lostCount     = list.filter(c => c.status === "LOST").length;
 
-    // % Change pill
+  const pill = (v) => `<span style="display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;background:var(--pill-bg);color:var(--text-muted);margin-right:4px;">${esc(v||"—")}</span>`;
+
+  const statusBadge = { NEW: "new", RETAINED: "retained", LOST: "lost" };
+  const statusCSS   = {
+    NEW:      "display:inline-block;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;background:#d1fae5;color:#065f46;",
+    RETAINED: "display:inline-block;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af;",
+    LOST:     "display:inline-block;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;background:#fee2e2;color:#991b1b;"
+  };
+
+  const rows = list.map(c => {
+    const curCell  = c.curAmt  ? `<strong>${fmt(c.curAmt)}</strong>`  : `<span style="color:var(--text-muted);">—</span>`;
+    const prevCell = c.prevAmt ? `<strong>${fmt(c.prevAmt)}</strong>` : `<span style="color:var(--text-muted);">—</span>`;
+
     let changePill;
-    if (isNew) {
+    if (c.status === "NEW") {
       changePill = `<span class="sc-delta-pill up">▲ NEW</span>`;
-    } else {
+    } else if (c.status === "LOST") {
       changePill = `<span class="sc-delta-pill down">▼ LOST</span>`;
+    } else {
+      // RETAINED — show real % change
+      const pct  = c.pctChg;
+      const cls  = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+      const arr  = pct > 0 ? "▲" : pct < 0 ? "▼" : "—";
+      const sign = pct > 0 ? "+" : "";
+      changePill = `<span class="sc-delta-pill ${cls}">${arr} ${sign}${pct}%</span>`;
     }
 
-    const pill = (v) => `<span style="display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;background:var(--pill-bg);color:var(--text-muted);margin-right:4px;">${esc(v||"—")}</span>`;
     const typePill = c.type ? pill(c.type) : "";
     return `<tr>
-      <td><span class="sc-cust-badge ${isNew?"new":"lost"}">${c.status}</span></td>
+      <td><span style="${statusCSS[c.status]}">${c.status}</span></td>
       <td>
         <div style="font-weight:700;font-size:12px;margin-bottom:3px;">${esc(c.name || c.code)}</div>
         <div>${pill(c.region)}${pill(c.channel)}${typePill}</div>
@@ -7126,7 +7138,11 @@ function scRenderMovement(list) {
   }).join("");
 
   const countEl = document.getElementById("scMovCount");
-  if (countEl) countEl.innerHTML = `<strong>${list.length}</strong> customer${list.length!==1?"s":""} &nbsp;(<strong style="color:#1db87a;">${newCount} new</strong> / <strong style="color:#E1245A;">${lostCount} lost</strong>)`;
+  if (countEl) countEl.innerHTML =
+    `<strong>${list.length}</strong> total &nbsp;` +
+    `(<strong style="color:#1db87a;">${newCount} new</strong> / ` +
+    `<strong style="color:#3b82f6;">${retainedCount} retained</strong> / ` +
+    `<strong style="color:#E1245A;">${lostCount} lost</strong>)`;
 
   const tbl = document.getElementById("scTableMovement");
   if (!tbl) return;
@@ -7141,7 +7157,7 @@ function scRenderMovement(list) {
     <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">No customers match the selected filters.</td></tr>'}</tbody>
     <tfoot><tr>
       <td colspan="5" style="color:rgba(255,255,255,0.7);font-size:11px;">
-        ${newCount} new customer${newCount!==1?"s":""} &nbsp;|&nbsp; ${lostCount} lost customer${lostCount!==1?"s":""}
+        ${newCount} new &nbsp;|&nbsp; ${retainedCount} retained &nbsp;|&nbsp; ${lostCount} lost
       </td>
     </tr></tfoot>`;
 }
@@ -7496,34 +7512,54 @@ function scRunComparison() {
     buildMoversTable('scTableGainers', 'gain');
     buildMoversTable('scTableLosers',  'lose');
 
-    // ── Customer Movement (new / lost) ──
+    // ── Customer Movement — full comparison ──
     function buildMovementTable() {
-      // Rich customer map: code → {name, amount, ltrs, region, channel, type}
       function richCustMap(txns) {
         const m = {};
         for (const t of txns) {
-          if (!m[t.custCode]) m[t.custCode] = { name: t.custName, amount: 0, ltrs: 0, region: t.region || "UNKNOWN", channel: t.channel || "UNKNOWN", type: t.type || "UNKNOWN" };
-          m[t.custCode].amount += t.amount;
-          m[t.custCode].ltrs   += t.ltrs;
+          if (!m[t.custCode]) m[t.custCode] = { name: t.custName, curAmt: 0, prevAmt: 0, ltrs: 0, region: t.region || "UNKNOWN", channel: t.channel || "UNKNOWN", type: t.type || "UNKNOWN" };
+          m[t.custCode].ltrs += t.ltrs;
         }
         return m;
       }
-      const set1 = new Set(d1.transactions.map(t => t.custCode));
-      const set2 = new Set(d2.transactions.map(t => t.custCode));
-      const custMap1 = richCustMap(d1.transactions);
-      const custMap2 = richCustMap(d2.transactions);
 
-      // Build full movement list — NEW (in current d1, not in previous d2) first
-      const newCusts  = [...set1].filter(c => !set2.has(c))
-        .map(code => ({ status: "NEW",  code, ...custMap1[code] }))
-        .sort((a, b) => (b.amount || 0) - (a.amount || 0));
-      const lostCusts = [...set2].filter(c => !set1.has(c))
-        .map(code => ({ status: "LOST", code, ...custMap2[code] }))
-        .sort((a, b) => (b.amount || 0) - (a.amount || 0));
-      const movList = [...newCusts, ...lostCusts];
+      // Build per-customer amounts separately for current and previous
+      const curMap  = {};  // custCode → {name, amount, region, channel, type}
+      for (const t of d1.transactions) {
+        if (!curMap[t.custCode])  curMap[t.custCode]  = { name: t.custName, amount: 0, region: t.region || "UNKNOWN", channel: t.channel || "UNKNOWN", type: t.type || "UNKNOWN" };
+        curMap[t.custCode].amount += t.amount;
+      }
+      const prevMap = {};
+      for (const t of d2.transactions) {
+        if (!prevMap[t.custCode]) prevMap[t.custCode] = { name: t.custName, amount: 0, region: t.region || "UNKNOWN", channel: t.channel || "UNKNOWN", type: t.type || "UNKNOWN" };
+        prevMap[t.custCode].amount += t.amount;
+      }
+
+      const allCodes = [...new Set([...Object.keys(curMap), ...Object.keys(prevMap)])];
+
+      const movList = allCodes.map(code => {
+        const cur  = curMap[code];
+        const prev = prevMap[code];
+        const inCur  = !!cur;
+        const inPrev = !!prev;
+        const status = inCur && inPrev ? "RETAINED" : inCur ? "NEW" : "LOST";
+        const info   = cur || prev;
+        const curAmt  = cur  ? cur.amount  : 0;
+        const prevAmt = prev ? prev.amount : 0;
+        const diff    = curAmt - prevAmt;
+        const pctChg  = prevAmt !== 0 ? Math.round((diff / Math.abs(prevAmt)) * 100) : null;
+        return { code, status, name: info.name, region: info.region, channel: info.channel, type: info.type, curAmt, prevAmt, diff, pctChg };
+      });
+
+      // Sort: NEW first (by curAmt desc), then RETAINED (by curAmt desc), then LOST (by prevAmt desc)
+      const order = { "NEW": 0, "RETAINED": 1, "LOST": 2 };
+      movList.sort((a, b) => {
+        if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
+        return (b.curAmt || b.prevAmt) - (a.curAmt || a.prevAmt);
+      });
       window._scMovementAll = movList;
 
-      // Populate filter dropdowns with unique values
+      // Populate filters
       function populateSelect(id, values) {
         const sel = document.getElementById(id);
         const cur = sel.value;
