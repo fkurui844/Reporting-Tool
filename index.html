@@ -7348,15 +7348,21 @@ function scRunComparison() {
       }).join('');
 
       document.getElementById(tableId).innerHTML = `
-        <thead><tr>
-          <th>${label}</th>
-          <th class="num p2h">Rev (Current)<br>${p1Lbl}<br>(KSH)</th>
-          <th class="num p1h">Rev (Previous)<br>${p2Lbl}<br>(KSH)</th>
-          <th class="num">% Growth / Decline</th>
-          <th class="num p2h">Vol (Current)<br>${p1Lbl}<br>(L)</th>
-          <th class="num p1h">Vol (Previous)<br>${p2Lbl}<br>(L)</th>
-          <th class="num">% Growth / Decline</th>
-        </tr></thead>
+        <thead>
+          <tr>
+            <th rowspan="2" style="vertical-align:bottom;">${label}</th>
+            <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(225,36,90,0.5);color:#f9a8d4;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">💰 SALES IN REVENUE</th>
+            <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(59,130,246,0.5);color:#93c5fd;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">📦 SALES IN VOLUME</th>
+          </tr>
+          <tr>
+            <th class="num p2h">Current<br>${p1Lbl}<br>(KSH)</th>
+            <th class="num p1h">Previous<br>${p2Lbl}<br>(KSH)</th>
+            <th class="num" style="color:#f59e0b;letter-spacing:0.04em;">% Growth / Decline</th>
+            <th class="num p2h">Current<br>${p1Lbl}<br>(L)</th>
+            <th class="num p1h">Previous<br>${p2Lbl}<br>(L)</th>
+            <th class="num" style="color:#f59e0b;letter-spacing:0.04em;">% Growth / Decline</th>
+          </tr>
+        </thead>
         <tbody>${rows}</tbody>
         <tfoot><tr>
           <td>TOTAL</td>
