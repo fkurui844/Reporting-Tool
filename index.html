@@ -1584,6 +1584,33 @@
       font-family: "DM Sans", sans-serif;
     }
     .btn-sc-mov-clear:hover { border-color: #E1245A; color: #E1245A; }
+    /* SC Export button */
+    .sc-export-wrap { position: relative; display: inline-flex; }
+    .btn-sc-export {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 12px; font-size: 11px; font-weight: 700;
+      border: 1px solid var(--border); border-radius: 7px;
+      background: var(--surface); color: var(--text-muted);
+      cursor: pointer; font-family: "DM Sans", sans-serif;
+      transition: border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .btn-sc-export:hover { border-color: #0f2744; color: var(--text); }
+    .sc-export-menu {
+      display: none; position: absolute; right: 0; top: calc(100% + 4px);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 9px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      z-index: 999; min-width: 180px; overflow: hidden;
+    }
+    .sc-export-menu.open { display: block; }
+    .sc-export-menu button {
+      display: flex; align-items: center; gap: 9px;
+      width: 100%; padding: 10px 14px; background: none; border: none;
+      cursor: pointer; font-size: 12px; font-family: "DM Sans", sans-serif;
+      color: var(--text); text-align: left;
+    }
+    .sc-export-menu button:hover { background: var(--bg); }
+    .sc-export-menu button + button { border-top: 1px solid var(--border2); }
     .sc-cust-badge { display: inline-block; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 700; }
     .sc-cust-badge.new  { background: #d1fae5; color: #065f46; }
     .sc-cust-badge.lost { background: #fee2e2; color: #991b1b; }
@@ -2293,6 +2320,13 @@
         <div class="sc-section-head">
           <span class="sc-section-title">📦 By Product Category</span>
           <span class="sc-section-sub">Revenue &amp; Volume per category</span>
+          <div class="sc-export-wrap" onclick="event.stopPropagation()">
+            <button class="btn-sc-export" onclick="scToggleExportMenu('scTableCategory_menu')">⬇ Export ▾</button>
+            <div class="sc-export-menu" id="scTableCategory_menu">
+              <button onclick="scExportExcel('scTableCategory','By Product Category');scToggleExportMenu('scTableCategory_menu')">📗 Download Excel (.xlsx)</button>
+              <button onclick="scExportHTML('scTableCategory','By Product Category');scToggleExportMenu('scTableCategory_menu')">🌐 Download HTML</button>
+            </div>
+          </div>
         </div>
         <div class="sc-table-wrap"><table class="sc-table" id="scTableCategory"></table></div>
       </div>
@@ -2302,6 +2336,13 @@
         <div class="sc-section-head">
           <span class="sc-section-title">📍 By Location / Region</span>
           <span class="sc-section-sub">Revenue comparison per sales region</span>
+          <div class="sc-export-wrap" onclick="event.stopPropagation()">
+            <button class="btn-sc-export" onclick="scToggleExportMenu('scTableRegion_menu')">⬇ Export ▾</button>
+            <div class="sc-export-menu" id="scTableRegion_menu">
+              <button onclick="scExportExcel('scTableRegion','By Location Region');scToggleExportMenu('scTableRegion_menu')">📗 Download Excel (.xlsx)</button>
+              <button onclick="scExportHTML('scTableRegion','By Location Region');scToggleExportMenu('scTableRegion_menu')">🌐 Download HTML</button>
+            </div>
+          </div>
         </div>
         <div class="sc-table-wrap"><table class="sc-table" id="scTableRegion"></table></div>
       </div>
@@ -2311,6 +2352,13 @@
         <div class="sc-section-head" style="cursor:pointer;" onclick="scToggleRegionCat()">
           <span class="sc-section-title">🗺️ By Location &amp; Product Category</span>
           <span class="sc-section-sub">Revenue per region broken down by category</span>
+          <div class="sc-export-wrap" onclick="event.stopPropagation()">
+            <button class="btn-sc-export" onclick="scToggleExportMenu('scTableRegionCat_menu')">⬇ Export ▾</button>
+            <div class="sc-export-menu" id="scTableRegionCat_menu">
+              <button onclick="scExportExcel('scTableRegionCat','By Location and Category');scToggleExportMenu('scTableRegionCat_menu')">📗 Download Excel (.xlsx)</button>
+              <button onclick="scExportHTML('scTableRegionCat','By Location and Category');scToggleExportMenu('scTableRegionCat_menu')">🌐 Download HTML</button>
+            </div>
+          </div>
           <span id="scRegionCatChevron" style="margin-left:auto;font-size:13px;color:var(--text-muted);transition:transform 0.2s;">▼</span>
         </div>
         <div id="scRegionCatBody" style="display:none;">
@@ -2323,6 +2371,13 @@
         <div class="sc-section-head">
           <span class="sc-section-title">🏷 By Sales Channel</span>
           <span class="sc-section-sub">Revenue comparison per channel / type</span>
+          <div class="sc-export-wrap" onclick="event.stopPropagation()">
+            <button class="btn-sc-export" onclick="scToggleExportMenu('scTableChannel_menu')">⬇ Export ▾</button>
+            <div class="sc-export-menu" id="scTableChannel_menu">
+              <button onclick="scExportExcel('scTableChannel','By Sales Channel');scToggleExportMenu('scTableChannel_menu')">📗 Download Excel (.xlsx)</button>
+              <button onclick="scExportHTML('scTableChannel','By Sales Channel');scToggleExportMenu('scTableChannel_menu')">🌐 Download HTML</button>
+            </div>
+          </div>
         </div>
         <div class="sc-table-wrap"><table class="sc-table" id="scTableChannel"></table></div>
       </div>
@@ -2333,6 +2388,13 @@
           <div class="sc-section-head">
             <span class="sc-section-title">🚀 Top Gainers</span>
             <span class="sc-section-sub">Highest revenue growth by customer</span>
+          <div class="sc-export-wrap" onclick="event.stopPropagation()">
+            <button class="btn-sc-export" onclick="scToggleExportMenu('scTableGainers_menu')">⬇ Export ▾</button>
+            <div class="sc-export-menu" id="scTableGainers_menu">
+              <button onclick="scExportExcel('scTableGainers','Top Gainers');scToggleExportMenu('scTableGainers_menu')">📗 Download Excel (.xlsx)</button>
+              <button onclick="scExportHTML('scTableGainers','Top Gainers');scToggleExportMenu('scTableGainers_menu')">🌐 Download HTML</button>
+            </div>
+          </div>
           </div>
           <div class="sc-table-wrap"><table class="sc-table" id="scTableGainers"></table></div>
         </div>
@@ -2340,6 +2402,13 @@
           <div class="sc-section-head">
             <span class="sc-section-title">📉 Top Decliners</span>
             <span class="sc-section-sub">Highest revenue drop by customer</span>
+          <div class="sc-export-wrap" onclick="event.stopPropagation()">
+            <button class="btn-sc-export" onclick="scToggleExportMenu('scTableLosers_menu')">⬇ Export ▾</button>
+            <div class="sc-export-menu" id="scTableLosers_menu">
+              <button onclick="scExportExcel('scTableLosers','Top Decliners');scToggleExportMenu('scTableLosers_menu')">📗 Download Excel (.xlsx)</button>
+              <button onclick="scExportHTML('scTableLosers','Top Decliners');scToggleExportMenu('scTableLosers_menu')">🌐 Download HTML</button>
+            </div>
+          </div>
           </div>
           <div class="sc-table-wrap"><table class="sc-table" id="scTableLosers"></table></div>
         </div>
@@ -2351,6 +2420,13 @@
         <div class="sc-section-head">
           <span class="sc-section-title">👤 Customer Movement</span>
           <span class="sc-section-sub">Customers gained or lost between periods</span>
+          <div class="sc-export-wrap" onclick="event.stopPropagation()">
+            <button class="btn-sc-export" onclick="scToggleExportMenu('scTableMovement_menu')">⬇ Export ▾</button>
+            <div class="sc-export-menu" id="scTableMovement_menu">
+              <button onclick="scExportExcel('scTableMovement','Customer Movement');scToggleExportMenu('scTableMovement_menu')">📗 Download Excel (.xlsx)</button>
+              <button onclick="scExportHTML('scTableMovement','Customer Movement');scToggleExportMenu('scTableMovement_menu')">🌐 Download HTML</button>
+            </div>
+          </div>
         </div>
         <!-- Filter bar -->
         <div class="sc-mov-filters">
@@ -7298,8 +7374,7 @@ function scRunComparison() {
     document.getElementById('scKpiGrid').innerHTML =
       kpiCard('Total Revenue', tot1Amt, tot2Amt, fmtK) +
       kpiCard('Total Volume', tot1Ltrs, tot2Ltrs, fmtL) +
-      kpiCard('Active Customers', cust1, cust2, fmtN) +
-      kpiCard('Transactions', txn1, txn2, fmtN);
+      kpiCard('Active Customers', cust1, cust2, fmtN);
 
     // ── Delta pill helper ──
     // deltaPill(cur, prev): positive = current grew vs previous
@@ -7335,14 +7410,8 @@ function scRunComparison() {
           <td class="num">${fmt(a1)}</td>
           <td class="num">${fmt(a2)}</td>
           <td class="num">${deltaPill(a1, a2)}</td>
-          <td class="num" style="min-width:90px;">
-            <div>${fmt(l1)}</div>
-            <div class="sc-mini-bar-wrap"><div class="sc-mini-bar" style="width:${Math.round((l1/Math.max(tot1l,1))*100)}%"></div></div>
-          </td>
-          <td class="num" style="min-width:90px;">
-            <div>${fmt(l2)}</div>
-            <div class="sc-mini-bar-wrap"><div class="sc-mini-bar p2" style="width:${Math.round((l2/Math.max(tot2l,1))*100)}%"></div></div>
-          </td>
+          <td class="num">${fmt(l1)}</td>
+          <td class="num">${fmt(l2)}</td>
           <td class="num">${deltaPill(l1, l2)}</td>
         </tr>`;
       }).join('');
@@ -7351,8 +7420,8 @@ function scRunComparison() {
         <thead>
           <tr>
             <th rowspan="2" style="vertical-align:bottom;">${label}</th>
-            <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(225,36,90,0.5);color:#f9a8d4;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">💰 SALES IN REVENUE</th>
-            <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(59,130,246,0.5);color:#93c5fd;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">📦 SALES IN VOLUME</th>
+            <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(225,36,90,0.5);color:#f9a8d4;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">SALES IN REVENUE</th>
+            <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(59,130,246,0.5);color:#93c5fd;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">SALES IN VOLUME</th>
           </tr>
           <tr>
             <th class="num p2h">Current<br>${p1Lbl}<br>(KSH)</th>
@@ -7667,6 +7736,118 @@ function scRunComparison() {
     document.getElementById('scResults').classList.add('visible');
   }, 80);
 }
+// ═══════════════════════════════════════════════════════
+// SC EXPORT ENGINE
+// ═══════════════════════════════════════════════════════
+
+document.addEventListener('click', function() {
+  document.querySelectorAll('.sc-export-menu.open').forEach(m => m.classList.remove('open'));
+});
+
+function scToggleExportMenu(menuId) {
+  const menu = document.getElementById(menuId);
+  if (!menu) return;
+  const wasOpen = menu.classList.contains('open');
+  document.querySelectorAll('.sc-export-menu.open').forEach(m => m.classList.remove('open'));
+  if (!wasOpen) menu.classList.add('open');
+}
+
+function scExportHTML(tableId, label) {
+  const tbl = document.getElementById(tableId);
+  if (!tbl) return;
+  const p1 = window._scP1Lbl || 'Current Period';
+  const p2 = window._scP2Lbl || 'Previous Period';
+
+  const style = `
+    body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6fb;margin:0;padding:20px;color:#111;}
+    h2{font-size:18px;color:#0f2744;margin-bottom:4px;}
+    .meta{font-size:12px;color:#666;margin-bottom:16px;}
+    table{border-collapse:collapse;width:100%;font-size:12px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);}
+    thead tr:first-child th{background:#0f2744;color:#fff;padding:10px 12px;text-align:left;font-size:11px;letter-spacing:0.06em;}
+    thead tr:last-child th{background:#1a3c5e;color:rgba(255,255,255,0.85);padding:8px 12px;text-align:right;font-size:10px;}
+    thead tr:last-child th:first-child,thead tr:first-child th:first-child{text-align:left;}
+    tbody tr:nth-child(even){background:#f8faff;}
+    tbody tr:hover{background:#eef3ff;}
+    tbody td{padding:8px 12px;border-bottom:1px solid #e5e7eb;vertical-align:middle;}
+    td.num,th.num{text-align:right;font-family:'Courier New',monospace;}
+    tfoot td{background:#0f2744;color:#fff;padding:9px 12px;font-weight:700;font-size:11px;}
+    .pill{display:inline-block;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;}
+    .up{background:#d1fae5;color:#065f46;} .down{background:#fee2e2;color:#991b1b;} .flat{background:#f3f4f6;color:#6b7280;}
+    .new{background:#d1fae5;color:#065f46;} .retained{background:#dbeafe;color:#1e40af;} .lost{background:#fee2e2;color:#991b1b;}
+  `;
+
+  const clone = tbl.cloneNode(true);
+  clone.querySelectorAll('.sc-delta-pill,.sc-cust-badge').forEach(el => {
+    const cls = [...el.classList].find(c => ['up','down','flat','new','retained','lost'].includes(c)) || '';
+    el.className = 'pill ' + cls;
+    el.removeAttribute('style');
+  });
+  clone.querySelectorAll('span[style*="pill-bg"]').forEach(el => {
+    el.replaceWith(document.createTextNode(el.textContent + ' '));
+  });
+  // Remove export wrap buttons inside any cloned table
+  clone.querySelectorAll('.sc-export-wrap').forEach(el => el.remove());
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>${label} — Sales Comparison</title>
+<style>${style}</style></head>
+<body>
+<h2>${label}</h2>
+<div class="meta">${p1} (Current) &nbsp;vs&nbsp; ${p2} (Previous) &nbsp;·&nbsp; Exported ${new Date().toLocaleDateString()}</div>
+${clone.outerHTML}
+</body></html>`;
+
+  const blob = new Blob([html], {type:'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = label.replace(/[^a-zA-Z0-9]+/g,'_') + '_Comparison.html';
+  a.click();
+}
+
+function scExportExcel(tableId, label) {
+  const tbl = document.getElementById(tableId);
+  if (!tbl) return;
+  const p1 = window._scP1Lbl || 'Current Period';
+  const p2 = window._scP2Lbl || 'Previous Period';
+
+  const aoa = [];
+  aoa.push([label]);
+  aoa.push([p1 + ' (Current) vs ' + p2 + ' (Previous)', '', 'Exported: ' + new Date().toLocaleDateString()]);
+  aoa.push([]);
+
+  const sections = [tbl.tHead, tbl.tBodies[0], tbl.tFoot];
+  for (const section of sections) {
+    if (!section) continue;
+    for (const row of section.rows) {
+      const rowData = [];
+      for (const cell of row.cells) {
+        let text = cell.innerText.replace(/\n/g,' ').replace(/\s+/g,' ').trim();
+        const cleaned = text.replace(/[,]/g,'');
+        const num = Number(cleaned);
+        if (!isNaN(num) && cleaned !== '' && /^-?[0-9]/.test(cleaned)) {
+          rowData.push(num);
+        } else {
+          rowData.push(text);
+        }
+        for (let s = 1; s < (cell.colSpan||1); s++) rowData.push(null);
+      }
+      aoa.push(rowData);
+    }
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const colWidths = [];
+  aoa.forEach(row => row.forEach((cell, i) => {
+    const len = cell ? String(cell).length : 0;
+    colWidths[i] = Math.min(Math.max(colWidths[i]||8, len+2), 42);
+  }));
+  ws['!cols'] = colWidths.map(w => ({wch:w}));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, label.replace(/[^a-zA-Z0-9 ]/g,'').slice(0,31) || 'Data');
+  XLSX.writeFile(wb, label.replace(/[^a-zA-Z0-9]+/g,'_') + '_Comparison.xlsx');
+}
+
 </script>
 </body>
 </html>
