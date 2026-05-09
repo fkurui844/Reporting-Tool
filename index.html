@@ -7497,7 +7497,7 @@ function scRunComparison() {
         const regCats = [...new Set([...Object.keys(cats1), ...Object.keys(cats2)])]
           .sort((a,b) => ((cats2[b]||0)+(cats1[b]||0)) - ((cats2[a]||0)+(cats1[a]||0)));
 
-        // Region subtotal row
+        // Region subtotals (rendered AFTER category rows)
         const rTot1 = rMap1[reg]?.amount || 0;
         const rTot2 = rMap2[reg]?.amount || 0;
         const rDiff = rTot2 - rTot1;
@@ -7507,16 +7507,9 @@ function scRunComparison() {
         const rSign = rDiff>0?'+':'';
         const sh1r  = grandTot1 ? ((rTot1/grandTot1)*100).toFixed(1)+'%' : '—';
         const sh2r  = grandTot2 ? ((rTot2/grandTot2)*100).toFixed(1)+'%' : '—';
-        tbody += `<tr style="background:var(--th-bg);">`;
-        tbody += `<td rowspan="${regCats.length+1}" style="font-weight:700;font-size:12px;color:var(--text-head);border-right:2px solid var(--border);vertical-align:top;padding-top:12px;">${reg}</td>`;
-        tbody += `<td style="font-style:italic;font-size:11px;color:var(--text-muted);">ALL CATEGORIES</td>`;
-        tbody += `<td class="num" style="font-weight:700;">${fmt(rTot1)}</td>`;
-        tbody += `<td class="num" style="font-weight:700;">${fmt(rTot2)}</td>`;
-        tbody += `<td class="num"><span class="sc-delta-pill ${rCls}">${rArrow} ${rSign}${rPct}%</span></td>`;
-        tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${sh1r}</td>`;
-        tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${sh2r}</td>`;
-        tbody += '</tr>';
 
+        // First row: region label spans all category rows + subtotal row
+        let firstCat = true;
         for (const cat of regCats) {
           const a1 = cats1[cat] || 0;
           const a2 = cats2[cat] || 0;
@@ -7528,6 +7521,11 @@ function scRunComparison() {
           const catSh1 = rTot1 ? ((a1/rTot1)*100).toFixed(1)+'%' : '—';
           const catSh2 = rTot2 ? ((a2/rTot2)*100).toFixed(1)+'%' : '—';
           tbody += '<tr>';
+          if (firstCat) {
+            // Region cell spans all category rows + 1 subtotal row
+            tbody += `<td rowspan="${regCats.length+1}" style="font-weight:700;font-size:12px;color:var(--text-head);border-right:2px solid var(--border);vertical-align:middle;">${reg}</td>`;
+            firstCat = false;
+          }
           tbody += `<td style="padding-left:14px;font-size:12px;"><span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:#e0f7fa;color:#0c5464;">${esc(cat)}</span></td>`;
           tbody += `<td class="num">${fmt(a1)}</td>`;
           tbody += `<td class="num">${fmt(a2)}</td>`;
@@ -7536,6 +7534,16 @@ function scRunComparison() {
           tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${catSh2}</td>`;
           tbody += '</tr>';
         }
+
+        // Subtotal row at the BOTTOM of the region group
+        tbody += `<tr style="background:var(--th-bg);border-top:2px solid var(--border);">`;
+        tbody += `<td style="font-weight:700;font-size:11px;color:var(--text-muted);padding-left:14px;font-style:italic;">SUBTOTAL</td>`;
+        tbody += `<td class="num" style="font-weight:700;">${fmt(rTot1)}</td>`;
+        tbody += `<td class="num" style="font-weight:700;">${fmt(rTot2)}</td>`;
+        tbody += `<td class="num"><span class="sc-delta-pill ${rCls}">${rArrow} ${rSign}${rPct}%</span></td>`;
+        tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${sh1r}</td>`;
+        tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${sh2r}</td>`;
+        tbody += '</tr>';
       }
       tbody += '</tbody>';
 
