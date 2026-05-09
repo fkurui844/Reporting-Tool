@@ -1478,7 +1478,10 @@
       color: rgba(255,255,255,0.72);
       letter-spacing: 0.07em;
       white-space: nowrap;
+      vertical-align: bottom;
     }
+    .sc-table thead th.p1h,
+    .sc-table thead th.p2h { white-space: normal; line-height: 1.3; min-width: 100px; }
     .sc-table thead th.num { text-align: right; }
     .sc-table thead th.p1h { color: #93c5fd; }
     .sc-table thead th.p2h { color: #f9a8d4; }
@@ -7184,11 +7187,11 @@ function scRunComparison() {
       document.getElementById(tableId).innerHTML = `
         <thead><tr>
           <th>${label}</th>
-          <th class="num p1h">Rev P1 (KSH)</th>
-          <th class="num p2h">Rev P2 (KSH)</th>
+          <th class="num p1h">Rev<br>${p1Lbl}<br>(KSH)</th>
+          <th class="num p2h">Rev<br>${p2Lbl}<br>(KSH)</th>
           <th class="num">Δ Rev</th>
-          <th class="num p1h">Vol P1 (L)</th>
-          <th class="num p2h">Vol P2 (L)</th>
+          <th class="num p1h">Vol<br>${p1Lbl}<br>(L)</th>
+          <th class="num p2h">Vol<br>${p2Lbl}<br>(L)</th>
           <th class="num">Δ Vol</th>
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -7238,8 +7241,8 @@ function scRunComparison() {
       let thead = '<thead><tr>';
       thead += '<th style="min-width:130px;">Region</th>';
       thead += '<th style="min-width:120px;">Category</th>';
-      thead += '<th class="num p1h">Rev P1 (KSH)</th>';
-      thead += '<th class="num p2h">Rev P2 (KSH)</th>';
+      thead += `<th class="num p1h">Rev<br>${p1Lbl}<br>(KSH)</th>`;
+      thead += `<th class="num p2h">Rev<br>${p2Lbl}<br>(KSH)</th>`;
       thead += '<th class="num">Δ Rev</th>';
       thead += '<th class="num" style="width:90px;">Share P1</th>';
       thead += '<th class="num" style="width:90px;">Share P2</th>';
@@ -7338,8 +7341,8 @@ function scRunComparison() {
         <thead><tr>
           <th style="width:32px;">#</th>
           <th>Customer</th>
-          <th class="num p1h">P1 Rev</th>
-          <th class="num p2h">P2 Rev</th>
+          <th class="num p1h">${p1Lbl}</th>
+          <th class="num p2h">${p2Lbl}</th>
           <th class="num">Δ</th>
         </tr></thead>
         <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text-muted);">No data</td></tr>'}</tbody>`;
@@ -7386,8 +7389,8 @@ function scRunComparison() {
           <th>Status</th>
           <th>Customer</th>
           <th>SAP Code</th>
-          <th class="num p1h">P1 Revenue</th>
-          <th class="num p2h">P2 Revenue</th>
+          <th class="num p1h">${p1Lbl}<br>Revenue</th>
+          <th class="num p2h">${p2Lbl}<br>Revenue</th>
         </tr></thead>
         <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">No customer movement detected between periods.</td></tr>'}</tbody>
         <tfoot><tr>
