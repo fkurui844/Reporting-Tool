@@ -7474,82 +7474,117 @@ function scRunComparison() {
       const mat1 = buildMatrix(d1.transactions);
       const mat2 = buildMatrix(d2.transactions);
 
-      // Build header — region cols + delta
-      // Layout: Region | Category | P1 Rev | P2 Rev | Δ
-      let thead = '<thead><tr>';
-      thead += '<th style="min-width:130px;">Region</th>';
-      thead += '<th style="min-width:120px;">Category</th>';
-      thead += `<th class="num p2h">Rev (Current)<br>${p1Lbl}<br>(KSH)</th>`;
-      thead += `<th class="num p1h">Rev (Previous)<br>${p2Lbl}<br>(KSH)</th>`;
-      thead += '<th class="num">Δ Rev</th>';
-
-      thead += '</tr></thead>';
+      // Build grouped header: SALES IN REVENUE | SALES IN VOLUME
+      let thead = `<thead>
+        <tr>
+          <th rowspan="2" style="min-width:130px;vertical-align:bottom;border-right:2px solid var(--border);">Region</th>
+          <th rowspan="2" style="min-width:120px;vertical-align:bottom;">Category</th>
+          <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(225,36,90,0.5);color:#f9a8d4;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">SALES IN REVENUE</th>
+          <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(59,130,246,0.5);color:#93c5fd;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">SALES IN VOLUME</th>
+        </tr>
+        <tr>
+          <th class="num p2h">Current<br>${p1Lbl}<br>(KSH)</th>
+          <th class="num p1h">Previous<br>${p2Lbl}<br>(KSH)</th>
+          <th class="num" style="color:#f59e0b;">% Growth / Decline</th>
+          <th class="num p2h">Current<br>${p1Lbl}<br>(L)</th>
+          <th class="num p1h">Previous<br>${p2Lbl}<br>(L)</th>
+          <th class="num" style="color:#f59e0b;">% Growth / Decline</th>
+        </tr>
+      </thead>`;
 
       // Grand totals for share %
       const grandTot1 = d1.transactions.reduce((s,t)=>s+t.amount, 0);
       const grandTot2 = d2.transactions.reduce((s,t)=>s+t.amount, 0);
 
+      // Volume matrix
+      function buildVolMatrix(txns) {
+        const m = {};
+        for (const t of txns) {
+          const r=(t.region||'UNKNOWN').toUpperCase();
+          const c=(t.category||'OTHER').toUpperCase();
+          if(!m[r])m[r]={};
+          if(!m[r][c])m[r][c]=0;
+          m[r][c]+=t.ltrs;
+        }
+        return m;
+      }
+      const volMat1=buildVolMatrix(d1.transactions);
+      const volMat2=buildVolMatrix(d2.transactions);
+      const rVolMap1=sumBy(d1.transactions,'region');
+      const rVolMap2=sumBy(d2.transactions,'region');
+
       let tbody = '<tbody>';
       for (const reg of regions) {
-        const cats1 = mat1[reg] || {};
-        const cats2 = mat2[reg] || {};
+        const cats1  = mat1[reg]    || {};
+        const cats2  = mat2[reg]    || {};
+        const vcats1 = volMat1[reg] || {};
+        const vcats2 = volMat2[reg] || {};
         const regCats = [...new Set([...Object.keys(cats1), ...Object.keys(cats2)])]
-          .sort((a,b) => ((cats2[b]||0)+(cats1[b]||0)) - ((cats2[a]||0)+(cats1[a]||0)));
+          .sort((a,b) => ((cats1[b]||0)+(cats2[b]||0)) - ((cats1[a]||0)+(cats2[a]||0)));
 
-        // Region subtotals (rendered AFTER category rows)
-        const rTot1 = rMap1[reg]?.amount || 0;
-        const rTot2 = rMap2[reg]?.amount || 0;
-        const rDiff = rTot2 - rTot1;
-        const rPct  = rTot1 ? Math.round((rDiff/Math.abs(rTot1))*100) : (rTot2>0?100:0);
-        const rCls  = rDiff>0?'up':rDiff<0?'down':'flat';
-        const rArrow= rDiff>0?'▲':rDiff<0?'▼':'—';
-        const rSign = rDiff>0?'+':'';
-        const sh1r  = grandTot1 ? ((rTot1/grandTot1)*100).toFixed(1)+'%' : '—';
-        const sh2r  = grandTot2 ? ((rTot2/grandTot2)*100).toFixed(1)+'%' : '—';
+        // Revenue subtotals
+        const rTot1  = rMap1[reg]?.amount || 0;
+        const rTot2  = rMap2[reg]?.amount || 0;
+        const rDiff  = rTot1 - rTot2;
+        const rPct   = rTot2 ? Math.round((rDiff/Math.abs(rTot2))*100) : (rTot1>0?100:0);
+        const rCls   = rDiff>0?'up':rDiff<0?'down':'flat';
+        const rArrow = rDiff>0?'▲':rDiff<0?'▼':'—';
+        const rSign  = rDiff>0?'+':'';
+        // Volume subtotals
+        const rVol1  = rVolMap1[reg]?.ltrs || 0;
+        const rVol2  = rVolMap2[reg]?.ltrs || 0;
+        const rVDiff = rVol1 - rVol2;
+        const rVPct  = rVol2 ? Math.round((rVDiff/Math.abs(rVol2))*100) : (rVol1>0?100:0);
+        const rVCls  = rVDiff>0?'up':rVDiff<0?'down':'flat';
+        const rVArr  = rVDiff>0?'▲':rVDiff<0?'▼':'—';
+        const rVSign = rVDiff>0?'+':'';
 
-        // First row: region label spans all category rows + subtotal row
         let firstCat = true;
         for (const cat of regCats) {
-          const a1 = cats1[cat] || 0;
-          const a2 = cats2[cat] || 0;
-          const diff = a2 - a1;
-          const pct2 = a1 ? Math.round((diff/Math.abs(a1))*100) : (a2>0?100:0);
-          const cls  = diff>0?'up':diff<0?'down':'flat';
-          const arr  = diff>0?'▲':diff<0?'▼':'—';
-          const sgn  = diff>0?'+':'';
-          const catSh1 = rTot1 ? ((a1/rTot1)*100).toFixed(1)+'%' : '—';
-          const catSh2 = rTot2 ? ((a2/rTot2)*100).toFixed(1)+'%' : '—';
+          const a1=cats1[cat]||0, a2=cats2[cat]||0;
+          const diff=a1-a2, pct2=a2?Math.round((diff/Math.abs(a2))*100):(a1>0?100:0);
+          const cls=diff>0?'up':diff<0?'down':'flat', arr=diff>0?'▲':diff<0?'▼':'—', sgn=diff>0?'+':'';
+          const v1=vcats1[cat]||0, v2=vcats2[cat]||0;
+          const vdif=v1-v2, vpct=v2?Math.round((vdif/Math.abs(v2))*100):(v1>0?100:0);
+          const vcls=vdif>0?'up':vdif<0?'down':'flat', varr=vdif>0?'▲':vdif<0?'▼':'—', vsgn=vdif>0?'+':'';
           tbody += '<tr>';
           if (firstCat) {
-            // Region cell spans all category rows + 1 subtotal row
             tbody += `<td rowspan="${regCats.length+1}" style="font-weight:700;font-size:12px;color:var(--text-head);border-right:2px solid var(--border);vertical-align:middle;">${reg}</td>`;
             firstCat = false;
           }
           tbody += `<td style="padding-left:14px;font-size:12px;"><span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:#e0f7fa;color:#0c5464;">${esc(cat)}</span></td>`;
-          tbody += `<td class="num">${fmt(a1)}</td>`;
-          tbody += `<td class="num">${fmt(a2)}</td>`;
-          tbody += `<td class="num"><span class="sc-delta-pill ${cls}">${arr} ${sgn}${pct2}%</span></td>`;
-
+          tbody += `<td class="num">${fmt(a1)}</td><td class="num">${fmt(a2)}</td><td class="num"><span class="sc-delta-pill ${cls}">${arr} ${sgn}${pct2}%</span></td>`;
+          tbody += `<td class="num">${fmt(v1)}</td><td class="num">${fmt(v2)}</td><td class="num"><span class="sc-delta-pill ${vcls}">${varr} ${vsgn}${vpct}%</span></td>`;
           tbody += '</tr>';
         }
 
-        // Subtotal row at the BOTTOM of the region group
+        // Subtotal row at BOTTOM of each region group
         tbody += `<tr style="background:var(--th-bg);border-top:2px solid var(--border);">`;
         tbody += `<td style="font-weight:700;font-size:11px;color:var(--text-muted);padding-left:14px;font-style:italic;">SUBTOTAL</td>`;
-        tbody += `<td class="num" style="font-weight:700;">${fmt(rTot1)}</td>`;
-        tbody += `<td class="num" style="font-weight:700;">${fmt(rTot2)}</td>`;
-        tbody += `<td class="num"><span class="sc-delta-pill ${rCls}">${rArrow} ${rSign}${rPct}%</span></td>`;
-
+        tbody += `<td class="num" style="font-weight:700;">${fmt(rTot1)}</td><td class="num" style="font-weight:700;">${fmt(rTot2)}</td><td class="num"><span class="sc-delta-pill ${rCls}">${rArrow} ${rSign}${rPct}%</span></td>`;
+        tbody += `<td class="num" style="font-weight:700;">${fmt(rVol1)}</td><td class="num" style="font-weight:700;">${fmt(rVol2)}</td><td class="num"><span class="sc-delta-pill ${rVCls}">${rVArr} ${rVSign}${rVPct}%</span></td>`;
         tbody += '</tr>';
       }
       tbody += '</tbody>';
 
       // Grand total footer
-      const gtDiff = grandTot2 - grandTot1;
-      const gtPct  = grandTot1 ? Math.round((gtDiff/Math.abs(grandTot1))*100) : 0;
-      const gtCls  = gtDiff>0?'up':gtDiff<0?'down':'flat';
-      const gtArr  = gtDiff>0?'▲':gtDiff<0?'▼':'—';
-      const tfoot  = `<tfoot><tr><td colspan="2">GRAND TOTAL</td><td class="num">${fmt(grandTot1)}</td><td class="num">${fmt(grandTot2)}</td><td class="num"><span class="sc-delta-pill ${gtCls}">${gtArr} ${gtDiff>0?'+':''}${gtPct}%</span></td></tr></tfoot>`;
+      const gtDiff  = grandTot1 - grandTot2;
+      const gtPct   = grandTot2 ? Math.round((gtDiff/Math.abs(grandTot2))*100) : 0;
+      const gtCls   = gtDiff>0?'up':gtDiff<0?'down':'flat';
+      const gtArr   = gtDiff>0?'▲':gtDiff<0?'▼':'—';
+      const grandVol1 = d1.transactions.reduce((s,t)=>s+t.ltrs,0);
+      const grandVol2 = d2.transactions.reduce((s,t)=>s+t.ltrs,0);
+      const gtVDiff = grandVol1 - grandVol2;
+      const gtVPct  = grandVol2 ? Math.round((gtVDiff/Math.abs(grandVol2))*100) : 0;
+      const gtVCls  = gtVDiff>0?'up':gtVDiff<0?'down':'flat';
+      const gtVArr  = gtVDiff>0?'▲':gtVDiff<0?'▼':'—';
+      const tfoot = `<tfoot><tr>
+        <td colspan='2'>GRAND TOTAL</td>
+        <td class='num'>${fmt(grandTot1)}</td><td class='num'>${fmt(grandTot2)}</td>
+        <td class='num'><span class='sc-delta-pill ${gtCls}'>${gtArr} ${gtDiff>0?'+':''}${gtPct}%</span></td>
+        <td class='num'>${fmt(grandVol1)}</td><td class='num'>${fmt(grandVol2)}</td>
+        <td class='num'><span class='sc-delta-pill ${gtVCls}'>${gtVArr} ${gtVDiff>0?'+':''}${gtVPct}%</span></td>
+      </tr></tfoot>`;
 
       document.getElementById('scTableRegionCat').innerHTML = thead + tbody + tfoot;
     })();
