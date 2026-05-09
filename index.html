@@ -1542,6 +1542,48 @@
     .sc-chart-card-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
 
     /* New customers / lost customers badges */
+    /* Customer Movement filter bar */
+    .sc-mov-filters {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px 12px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .sc-mov-filter-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+    .sc-mov-select {
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      font-family: "DM Sans", sans-serif;
+      cursor: pointer;
+      min-width: 130px;
+    }
+    .sc-mov-select:focus { outline: none; border-color: #E1245A; }
+    .sc-mov-filter-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .sc-mov-filter-count strong { color: var(--text); }
+    .btn-sc-mov-clear {
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: "DM Sans", sans-serif;
+    }
+    .btn-sc-mov-clear:hover { border-color: #E1245A; color: #E1245A; }
     .sc-cust-badge { display: inline-block; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 700; }
     .sc-cust-badge.new  { background: #d1fae5; color: #065f46; }
     .sc-cust-badge.lost { background: #fee2e2; color: #991b1b; }
@@ -2309,6 +2351,26 @@
         <div class="sc-section-head">
           <span class="sc-section-title">👤 Customer Movement</span>
           <span class="sc-section-sub">Customers gained or lost between periods</span>
+        </div>
+        <!-- Filter bar -->
+        <div class="sc-mov-filters">
+          <span class="sc-mov-filter-label">Filter:</span>
+          <select class="sc-mov-select" id="scMovFilterStatus" onchange="scFilterMovement()">
+            <option value="">All (New &amp; Lost)</option>
+            <option value="NEW">New only</option>
+            <option value="LOST">Lost only</option>
+          </select>
+          <select class="sc-mov-select" id="scMovFilterRegion" onchange="scFilterMovement()">
+            <option value="">All Regions</option>
+          </select>
+          <select class="sc-mov-select" id="scMovFilterChannel" onchange="scFilterMovement()">
+            <option value="">All Channels</option>
+          </select>
+          <select class="sc-mov-select" id="scMovFilterType" onchange="scFilterMovement()">
+            <option value="">All Types</option>
+          </select>
+          <button class="btn-sc-mov-clear" onclick="scMovClearFilters()">✕ Clear</button>
+          <span class="sc-mov-filter-count" id="scMovCount"></span>
         </div>
         <div class="sc-table-wrap"><table class="sc-table" id="scTableMovement"></table></div>
       </div>
@@ -7027,6 +7089,27 @@ function scLoadFile(file, n) {
   reader.readAsText(file, 'utf-8');
 }
 
+function scFilterMovement() {
+  const all     = window._scMovementAll || [];
+  const status  = document.getElementById("scMovFilterStatus").value;
+  const region  = document.getElementById("scMovFilterRegion").value;
+  const channel = document.getElementById("scMovFilterChannel").value;
+  const type    = document.getElementById("scMovFilterType").value;
+  const filtered = all.filter(c =>
+    (!status  || c.status  === status) &&
+    (!region  || (c.region  || "UNKNOWN") === region) &&
+    (!channel || (c.channel || "UNKNOWN") === channel) &&
+    (!type    || (c.type    || "UNKNOWN") === type)
+  );
+  scRenderMovement(filtered);
+}
+
+function scMovClearFilters() {
+  ["scMovFilterStatus","scMovFilterRegion","scMovFilterChannel","scMovFilterType"]
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  scRenderMovement(window._scMovementAll || []);
+}
+
 function scToggleRegionCat() {
   const body = document.getElementById('scRegionCatBody');
   const chev = document.getElementById('scRegionCatChevron');
@@ -7353,36 +7436,67 @@ function scRunComparison() {
 
     // ── Customer Movement (new / lost) ──
     function buildMovementTable() {
+      // Rich customer map: code → {name, amount, ltrs, region, channel, type}
+      function richCustMap(txns) {
+        const m = {};
+        for (const t of txns) {
+          if (!m[t.custCode]) m[t.custCode] = { name: t.custName, amount: 0, ltrs: 0, region: t.region || "UNKNOWN", channel: t.channel || "UNKNOWN", type: t.type || "UNKNOWN" };
+          m[t.custCode].amount += t.amount;
+          m[t.custCode].ltrs   += t.ltrs;
+        }
+        return m;
+      }
       const set1 = new Set(d1.transactions.map(t => t.custCode));
       const set2 = new Set(d2.transactions.map(t => t.custCode));
-      const custMap2 = sumByCust(d2.transactions);
-      const custMap1 = sumByCust(d1.transactions);
+      const custMap1 = richCustMap(d1.transactions);
+      const custMap2 = richCustMap(d2.transactions);
 
-      const newCusts  = [...set2].filter(c => !set1.has(c));
-      const lostCusts = [...set1].filter(c => !set2.has(c));
+      // Build full movement list with status + dimensions
+      const movList = [
+        ...[...set2].filter(c => !set1.has(c)).map(code => ({ status: "NEW",  code, ...custMap2[code] })),
+        ...[...set1].filter(c => !set2.has(c)).map(code => ({ status: "LOST", code, ...custMap1[code] }))
+      ];
+      window._scMovementAll = movList;
 
-      const rows = [
-        ...newCusts.map(code => {
-          const info = custMap2[code];
-          return `<tr>
-            <td><span class="sc-cust-badge new">NEW</span></td>
-            <td><strong>${esc(info?.name || code)}</strong></td>
-            <td style="font-family:'DM Mono',monospace;font-size:12px;">${code}</td>
-            <td class="num">—</td>
-            <td class="num">${fmt(info?.amount || 0)}</td>
+      // Populate filter dropdowns with unique values
+      function populateSelect(id, values) {
+        const sel = document.getElementById(id);
+        const cur = sel.value;
+        const first = sel.options[0].outerHTML;
+        sel.innerHTML = first + [...values].sort().map(v => `<option value="${v}">${v}</option>`).join('');
+        if ([...values].includes(cur)) sel.value = cur;
+      }
+      populateSelect("scMovFilterRegion",  new Set(movList.map(c => c.region  || "UNKNOWN")));
+      populateSelect("scMovFilterChannel", new Set(movList.map(c => c.channel || "UNKNOWN")));
+      populateSelect("scMovFilterType",    new Set(movList.map(c => c.type    || "UNKNOWN")));
+
+      scRenderMovement(movList);
+    }
+    buildMovementTable();
+
+    function scRenderMovement(list) {
+      const newCount  = list.filter(c => c.status === "NEW").length;
+      const lostCount = list.filter(c => c.status === "LOST").length;
+      const rows = list.map(c => {
+        const isNew = c.status === "NEW";
+        const p1Rev = isNew ? "—" : fmt(c.amount);
+        const p2Rev = isNew ? fmt(c.amount) : "—";
+        const regionPill = `<span style="display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;background:var(--pill-bg);color:var(--text-muted);margin-right:4px;">${esc(c.region||"—")}</span>`;
+        const chanPill   = `<span style="display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;background:var(--pill-bg);color:var(--text-muted);margin-right:4px;">${esc(c.channel||"—")}</span>`;
+        const typePill   = c.type ? `<span style="display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;background:var(--pill-bg);color:var(--text-muted);">${esc(c.type)}</span>` : "";
+        return `<tr>
+            <td><span class="sc-cust-badge ${isNew?"new":"lost"}">${c.status}</span></td>
+            <td>
+              <div style="font-weight:700;font-size:12px;margin-bottom:3px;">${esc(c.name || c.code)}</div>
+              <div>${regionPill}${chanPill}${typePill}</div>
+            </td>
+            <td style="font-family:'DM Mono',monospace;font-size:12px;">${c.code}</td>
+            <td class="num">${p1Rev}</td>
+            <td class="num">${p2Rev}</td>
           </tr>`;
-        }),
-        ...lostCusts.map(code => {
-          const info = custMap1[code];
-          return `<tr>
-            <td><span class="sc-cust-badge lost">LOST</span></td>
-            <td><strong>${esc(info?.name || code)}</strong></td>
-            <td style="font-family:'DM Mono',monospace;font-size:12px;">${code}</td>
-            <td class="num">${fmt(info?.amount || 0)}</td>
-            <td class="num">—</td>
-          </tr>`;
-        })
-      ].join('');
+      }).join('');
+
+      document.getElementById('scMovCount').innerHTML = `<strong>${list.length}</strong> customer${list.length!==1?"s":""} &nbsp;(<strong style="color:#1db87a;">${newCount} new</strong> / <strong style="color:#E1245A;">${lostCount} lost</strong>)`;
 
       document.getElementById('scTableMovement').innerHTML = `
         <thead><tr>
@@ -7392,14 +7506,13 @@ function scRunComparison() {
           <th class="num p1h">${p1Lbl}<br>Revenue</th>
           <th class="num p2h">${p2Lbl}<br>Revenue</th>
         </tr></thead>
-        <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">No customer movement detected between periods.</td></tr>'}</tbody>
+        <tbody>${rows || `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">No customers match the selected filters.</td></tr>`}</tbody>
         <tfoot><tr>
           <td colspan="5" style="color:rgba(255,255,255,0.7);font-size:11px;">
-            ${newCusts.length} new customer${newCusts.length !== 1 ? 's' : ''} &nbsp;|&nbsp; ${lostCusts.length} lost customer${lostCusts.length !== 1 ? 's' : ''}
+            ${newCount} new customer${newCount !== 1 ? "s" : ""} &nbsp;|&nbsp; ${lostCount} lost customer${lostCount !== 1 ? "s" : ""}
           </td>
         </tr></tfoot>`;
     }
-    buildMovementTable();
 
     // ── Charts ──
     function scDestroyChart(id) {
