@@ -1275,6 +1275,275 @@
     body.dark #typeSalesTable tbody td:first-child { background:var(--surface);border-right-color:var(--border); }
     body.dark #typeSalesTable tbody tr:hover td:first-child { background:var(--row-hover); }
     body.dark #typeSalesTable tbody td { border-bottom-color:var(--border2); }
+
+    /* ══ SALES COMPARISON TAB ══ */
+    .sc-page { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+
+    /* Upload zones */
+    .sc-upload-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 680px) { .sc-upload-row { grid-template-columns: 1fr; } }
+
+    .sc-drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
+    }
+    .sc-drop-zone:hover, .sc-drop-zone.drag { border-color: #E1245A; background: var(--row-total); }
+    .sc-drop-zone.loaded { border-color: #1db87a; border-style: solid; background: var(--surface); cursor: default; }
+    .sc-drop-zone input[type=file] { display: none; }
+    .sc-drop-icon { font-size: 28px; margin-bottom: 8px; }
+    .sc-drop-label { font-size: 13px; font-weight: 700; color: var(--text-head); margin-bottom: 4px; }
+    .sc-drop-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+    .sc-drop-btn {
+      display: inline-block;
+      padding: 7px 18px;
+      background: #0f2744;
+      color: #fff;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      transition: background 0.15s;
+    }
+    .sc-drop-btn:hover { background: #1a3c5e; }
+    .sc-file-info {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: #d1fae5;
+      border-radius: 8px;
+      margin-top: 10px;
+      text-align: left;
+    }
+    body.dark .sc-file-info { background: #0d2618; }
+    .sc-file-info.visible { display: flex; }
+    .sc-file-tick { font-size: 18px; flex-shrink: 0; }
+    .sc-file-name { font-size: 12px; font-weight: 700; color: #065f46; word-break: break-all; }
+    body.dark .sc-file-name { color: #6ee7b7; }
+    .sc-file-period { font-size: 11px; color: #047857; margin-top: 1px; }
+    body.dark .sc-file-period { color: #34d399; }
+    .sc-file-change { font-size: 11px; color: var(--text-muted); cursor: pointer; text-decoration: underline; margin-left: auto; flex-shrink: 0; }
+    .sc-file-change:hover { color: #E1245A; }
+
+    /* Period color tags */
+    .sc-p1-tag { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+    .sc-p2-tag { background: #fce7f3; color: #9d174d; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+    body.dark .sc-p1-tag { background: #1e3a5f; color: #93c5fd; }
+    body.dark .sc-p2-tag { background: #4a1028; color: #f9a8d4; }
+
+    /* Compare button */
+    .sc-compare-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 18px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .sc-compare-bar.visible { display: flex; }
+    .sc-compare-bar-info { font-size: 13px; color: var(--text-muted); }
+    .sc-compare-bar-info strong { color: var(--text); }
+    .btn-sc-compare {
+      padding: 8px 22px;
+      background: #E1245A;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-sc-compare:hover { background: #c01f4e; }
+    .btn-sc-reset {
+      padding: 7px 16px;
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: background 0.15s;
+    }
+    .btn-sc-reset:hover { background: var(--border); }
+
+    /* Results area */
+    .sc-results { display: none; }
+    .sc-results.visible { display: block; }
+    .sc-results-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .sc-results-title { font-size: 17px; font-weight: 700; color: var(--text-head); flex: 1; }
+    .sc-period-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .sc-period-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+
+    /* KPI summary cards */
+    .sc-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 900px) { .sc-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .sc-kpi-grid { grid-template-columns: 1fr; } }
+
+    .sc-kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+    .sc-kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 10px; }
+    .sc-kpi-vals { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .sc-kpi-row { display: flex; align-items: center; gap: 6px; }
+    .sc-kpi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .sc-kpi-dot.p1 { background: #3b82f6; }
+    .sc-kpi-dot.p2 { background: #E1245A; }
+    .sc-kpi-val { font-size: 13px; font-weight: 700; color: var(--text); }
+    .sc-kpi-period-lbl { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+    .sc-kpi-delta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .sc-kpi-delta.up   { background: #d1fae5; color: #065f46; }
+    .sc-kpi-delta.down { background: #fee2e2; color: #991b1b; }
+    .sc-kpi-delta.flat { background: var(--bg); color: var(--text-muted); }
+    body.dark .sc-kpi-delta.up   { background: #0d2618; color: #6ee7b7; }
+    body.dark .sc-kpi-delta.down { background: #2d0a0a; color: #fca5a5; }
+
+    /* Comparison section / table */
+    .sc-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .sc-section-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--th-bg);
+    }
+    .sc-section-title { font-size: 13px; font-weight: 700; color: var(--text-head); flex: 1; }
+    .sc-section-sub { font-size: 12px; color: var(--text-muted); }
+    .sc-table-wrap { overflow-x: auto; }
+    .sc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .sc-table thead tr { background: #0f2744; }
+    .sc-table thead th {
+      padding: 9px 14px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.72);
+      letter-spacing: 0.07em;
+      white-space: nowrap;
+    }
+    .sc-table thead th.num { text-align: right; }
+    .sc-table thead th.p1h { color: #93c5fd; }
+    .sc-table thead th.p2h { color: #f9a8d4; }
+    .sc-table tbody tr:nth-child(even) { background: var(--row-pct); }
+    .sc-table tbody tr:hover { background: var(--row-hover); }
+    .sc-table tbody td { padding: 9px 14px; border-bottom: 1px solid var(--border2); color: var(--text); vertical-align: middle; }
+    .sc-table tbody tr:last-child td { border-bottom: none; }
+    .sc-table tbody td.num { text-align: right; font-family: 'DM Mono', monospace; font-size: 12px; }
+    .sc-table tfoot tr { background: #0f2744; }
+    .sc-table tfoot td { padding: 9px 14px; font-weight: 700; color: #fff; font-size: 12px; }
+    .sc-table tfoot td.num { text-align: right; font-family: 'DM Mono', monospace; }
+
+    .sc-delta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .sc-delta-pill.up   { background: #d1fae5; color: #065f46; }
+    .sc-delta-pill.down { background: #fee2e2; color: #991b1b; }
+    .sc-delta-pill.flat { background: var(--pill-bg); color: var(--text-muted); }
+    body.dark .sc-delta-pill.up   { background: #0d2618; color: #6ee7b7; }
+    body.dark .sc-delta-pill.down { background: #2d0a0a; color: #fca5a5; }
+
+    /* Mini sparkline-style bar */
+    .sc-mini-bar-wrap { height: 4px; background: var(--border2); border-radius: 99px; margin-top: 4px; min-width: 60px; }
+    .sc-mini-bar { height: 4px; border-radius: 99px; background: #3b82f6; }
+    .sc-mini-bar.p2 { background: #E1245A; }
+
+    /* Gainers / losers grid */
+    .sc-gl-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 700px) { .sc-gl-grid { grid-template-columns: 1fr; } }
+
+    /* Chart row */
+    .sc-chart-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 900px) { .sc-chart-grid { grid-template-columns: 1fr; } }
+    .sc-chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+    .sc-chart-card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+    .sc-chart-card-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+
+    /* New customers / lost customers badges */
+    .sc-cust-badge { display: inline-block; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 700; }
+    .sc-cust-badge.new  { background: #d1fae5; color: #065f46; }
+    .sc-cust-badge.lost { background: #fee2e2; color: #991b1b; }
+    body.dark .sc-cust-badge.new  { background: #0d2618; color: #6ee7b7; }
+    body.dark .sc-cust-badge.lost { background: #2d0a0a; color: #fca5a5; }
 </style>
 </head>
 <body>
@@ -1292,6 +1561,7 @@
     <button class="nav-btn" id="navLocation" onclick="switchPage('location')">📍 Location Sales</button>
     <button class="nav-btn" id="navType" onclick="switchPage('type')">🏷 Type Sales</button>
     <button class="nav-btn" id="navSpc" onclick="switchPage('spc')">👤 Sales Per Customer</button>
+    <button class="nav-btn" id="navSalesComparison" onclick="switchPage('salesComparison')">📈 Sales Comparison</button>
     <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">📊 Charts</button>
     <div class="theme-toggle">
       <span class="theme-toggle-label" id="themeLabel">☀️</span>
@@ -1868,6 +2138,168 @@
       <div class="spc-no-data"><div class="spc-no-data-icon">📂</div><div>Upload a SAP file on the <strong>Upload Sales</strong> tab to see Sales Per Customer here.</div></div>
     </div>
   </div>
+</div>
+
+<!-- ══════════════════ SALES COMPARISON PAGE ══════════════════ -->
+<div class="page" id="pageSalesComparison">
+  <div class="sc-page">
+
+    <!-- Header -->
+    <div style="margin-bottom:20px;">
+      <h2 style="font-size:18px;font-weight:700;color:var(--text-head);margin-bottom:4px;">📈 Sales Comparison</h2>
+      <p style="font-size:13px;color:var(--text-muted);">Upload two SAP export files from different periods to compare revenue, volume, customers and product mix side-by-side.</p>
+    </div>
+
+    <!-- Upload row -->
+    <div class="sc-upload-row">
+
+      <!-- Period 1 -->
+      <div class="sc-drop-zone" id="scZone1"
+           ondragover="scDrag(event,'1')" ondragleave="scDragLeave('1')" ondrop="scDrop(event,'1')"
+           onclick="document.getElementById('scInput1').click()">
+        <input type="file" id="scInput1" accept=".txt,.csv" onchange="scFileChosen(this,'1')">
+        <div class="sc-drop-icon">📁</div>
+        <div class="sc-drop-label"><span class="sc-p1-tag">Period 1</span> &nbsp;Previous Period</div>
+        <div class="sc-drop-sub">Drop SAP .txt / .csv file here</div>
+        <button class="sc-drop-btn" onclick="event.stopPropagation();document.getElementById('scInput1').click()">Choose File</button>
+        <div class="sc-file-info" id="scInfo1">
+          <span class="sc-file-tick">✅</span>
+          <div style="flex:1;min-width:0;">
+            <div class="sc-file-name" id="scName1">—</div>
+            <div class="sc-file-period" id="scPeriod1">—</div>
+          </div>
+          <span class="sc-file-change" onclick="event.stopPropagation();scClear('1')">Change</span>
+        </div>
+      </div>
+
+      <!-- Period 2 -->
+      <div class="sc-drop-zone" id="scZone2"
+           ondragover="scDrag(event,'2')" ondragleave="scDragLeave('2')" ondrop="scDrop(event,'2')"
+           onclick="document.getElementById('scInput2').click()">
+        <input type="file" id="scInput2" accept=".txt,.csv" onchange="scFileChosen(this,'2')">
+        <div class="sc-drop-icon">📁</div>
+        <div class="sc-drop-label"><span class="sc-p2-tag">Period 2</span> &nbsp;Current Period</div>
+        <div class="sc-drop-sub">Drop SAP .txt / .csv file here</div>
+        <button class="sc-drop-btn" onclick="event.stopPropagation();document.getElementById('scInput2').click()">Choose File</button>
+        <div class="sc-file-info" id="scInfo2">
+          <span class="sc-file-tick">✅</span>
+          <div style="flex:1;min-width:0;">
+            <div class="sc-file-name" id="scName2">—</div>
+            <div class="sc-file-period" id="scPeriod2">—</div>
+          </div>
+          <span class="sc-file-change" onclick="event.stopPropagation();scClear('2')">Change</span>
+        </div>
+      </div>
+
+    </div><!-- /sc-upload-row -->
+
+    <!-- Compare bar (shown when both files ready) -->
+    <div class="sc-compare-bar" id="scCompareBar">
+      <div class="sc-compare-bar-info">
+        Both files loaded — <strong id="scCompareBarLabel">ready to compare</strong>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-sc-reset" onclick="scReset()">↺ Reset</button>
+        <button class="btn-sc-compare" id="btnCompare" onclick="scRunComparison()">⚡ Run Comparison</button>
+      </div>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="scLoading" style="display:none;text-align:center;padding:32px;color:var(--text-muted);font-size:13px;">
+      <div style="font-size:28px;margin-bottom:8px;">⏳</div>
+      Analysing both periods…
+    </div>
+
+    <!-- Results -->
+    <div class="sc-results" id="scResults">
+
+      <!-- Results header -->
+      <div class="sc-results-header">
+        <div class="sc-results-title">Comparison Report</div>
+        <div class="sc-period-badges">
+          <span class="sc-period-badge" id="scBadge1" style="background:#dbeafe;color:#1e40af;">Period 1</span>
+          <span style="color:var(--text-muted);font-size:12px;align-self:center;">vs</span>
+          <span class="sc-period-badge" id="scBadge2" style="background:#fce7f3;color:#9d174d;">Period 2</span>
+        </div>
+        <button class="btn-sc-reset" onclick="scReset()" style="margin-left:auto;">↺ New Comparison</button>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="sc-kpi-grid" id="scKpiGrid"></div>
+
+      <!-- Charts -->
+      <div class="sc-chart-grid" id="scChartGrid">
+        <div class="sc-chart-card">
+          <div class="sc-chart-card-head">
+            <span class="sc-chart-card-title">Revenue by Category</span>
+          </div>
+          <canvas id="scChartCat" height="220"></canvas>
+        </div>
+        <div class="sc-chart-card">
+          <div class="sc-chart-card-head">
+            <span class="sc-chart-card-title">Revenue by Region</span>
+          </div>
+          <canvas id="scChartReg" height="220"></canvas>
+        </div>
+      </div>
+
+      <!-- By Category table -->
+      <div class="sc-section" id="scSecCategory">
+        <div class="sc-section-head">
+          <span class="sc-section-title">📦 By Product Category</span>
+          <span class="sc-section-sub">Revenue &amp; Volume per category</span>
+        </div>
+        <div class="sc-table-wrap"><table class="sc-table" id="scTableCategory"></table></div>
+      </div>
+
+      <!-- By Region table -->
+      <div class="sc-section" id="scSecRegion">
+        <div class="sc-section-head">
+          <span class="sc-section-title">📍 By Location / Region</span>
+          <span class="sc-section-sub">Revenue comparison per sales region</span>
+        </div>
+        <div class="sc-table-wrap"><table class="sc-table" id="scTableRegion"></table></div>
+      </div>
+
+      <!-- By Channel table -->
+      <div class="sc-section" id="scSecChannel">
+        <div class="sc-section-head">
+          <span class="sc-section-title">🏷 By Sales Channel</span>
+          <span class="sc-section-sub">Revenue comparison per channel / type</span>
+        </div>
+        <div class="sc-table-wrap"><table class="sc-table" id="scTableChannel"></table></div>
+      </div>
+
+      <!-- Gainers / Losers -->
+      <div class="sc-gl-grid">
+        <div class="sc-section" style="margin-bottom:0;">
+          <div class="sc-section-head">
+            <span class="sc-section-title">🚀 Top Gainers</span>
+            <span class="sc-section-sub">Highest revenue growth by customer</span>
+          </div>
+          <div class="sc-table-wrap"><table class="sc-table" id="scTableGainers"></table></div>
+        </div>
+        <div class="sc-section" style="margin-bottom:0;">
+          <div class="sc-section-head">
+            <span class="sc-section-title">📉 Top Decliners</span>
+            <span class="sc-section-sub">Highest revenue drop by customer</span>
+          </div>
+          <div class="sc-table-wrap"><table class="sc-table" id="scTableLosers"></table></div>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;"></div>
+
+      <!-- New / Lost customers -->
+      <div class="sc-section">
+        <div class="sc-section-head">
+          <span class="sc-section-title">👤 Customer Movement</span>
+          <span class="sc-section-sub">Customers gained or lost between periods</span>
+        </div>
+        <div class="sc-table-wrap"><table class="sc-table" id="scTableMovement"></table></div>
+      </div>
+
+    </div><!-- /sc-results -->
+  </div><!-- /sc-page -->
 </div>
 
 <div class="page" id="pageCustomers">
@@ -6524,6 +6956,394 @@ function applyTargetToggle(on) {
 // Init — only load sheet reference data, NOT customers yet
 loadSheetData();
 // Do NOT call loadCustomers() here — wait until tab is clicked
+
+// ═══════════════════════════════════════════════════════
+// SALES COMPARISON
+// ═══════════════════════════════════════════════════════
+let _scData = { '1': null, '2': null };
+let _scChartInstances = {};
+
+// ── Drag / Drop helpers ─────────────────────────────────
+function scDrag(e, n) {
+  e.preventDefault();
+  document.getElementById('scZone' + n).classList.add('drag');
+}
+function scDragLeave(n) {
+  document.getElementById('scZone' + n).classList.remove('drag');
+}
+function scDrop(e, n) {
+  e.preventDefault();
+  scDragLeave(n);
+  const file = e.dataTransfer.files[0];
+  if (file) scLoadFile(file, n);
+}
+function scFileChosen(input, n) {
+  const file = input.files[0];
+  if (file) scLoadFile(file, n);
+  input.value = '';
+}
+function scClear(n) {
+  _scData[n] = null;
+  document.getElementById('scInfo' + n).classList.remove('visible');
+  document.getElementById('scZone' + n).classList.remove('loaded');
+  scCheckBothReady();
+}
+
+// ── File loading ────────────────────────────────────────
+function scLoadFile(file, n) {
+  const zone = document.getElementById('scZone' + n);
+  zone.classList.add('drag');
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = parseSAP(e.target.result);
+      _scData[n] = parsed;
+      document.getElementById('scName' + n).textContent = file.name;
+      document.getElementById('scPeriod' + n).textContent = parsed.period || 'Period not detected';
+      document.getElementById('scInfo' + n).classList.add('visible');
+      zone.classList.remove('drag');
+      zone.classList.add('loaded');
+      scCheckBothReady();
+    } catch (err) {
+      zone.classList.remove('drag');
+      alert('Could not parse file: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function scCheckBothReady() {
+  const bar = document.getElementById('scCompareBar');
+  const ready = _scData['1'] && _scData['2'];
+  if (ready) {
+    bar.classList.add('visible');
+    const p1 = _scData['1'].period || 'Period 1';
+    const p2 = _scData['2'].period || 'Period 2';
+    document.getElementById('scCompareBarLabel').textContent = `"${p1}" vs "${p2}"`;
+  } else {
+    bar.classList.remove('visible');
+  }
+  // Hide results if either file was cleared
+  if (!ready) {
+    document.getElementById('scResults').classList.remove('visible');
+  }
+}
+
+function scReset() {
+  scClear('1');
+  scClear('2');
+  document.getElementById('scResults').classList.remove('visible');
+  document.getElementById('scCompareBar').classList.remove('visible');
+  // Destroy comparison charts
+  Object.values(_scChartInstances).forEach(c => c.destroy());
+  _scChartInstances = {};
+}
+
+// ── Core comparison logic ───────────────────────────────
+function scRunComparison() {
+  if (!_scData['1'] || !_scData['2']) return;
+  document.getElementById('scLoading').style.display = 'block';
+  document.getElementById('scResults').classList.remove('visible');
+
+  setTimeout(() => {
+    const d1 = _scData['1'];
+    const d2 = _scData['2'];
+
+    // ── Aggregate helpers ──
+    function sumBy(txns, key) {
+      const m = {};
+      for (const t of txns) {
+        const k = (t[key] || 'UNKNOWN').toUpperCase();
+        if (!m[k]) m[k] = { amount: 0, ltrs: 0, custs: new Set() };
+        m[k].amount += t.amount;
+        m[k].ltrs   += t.ltrs;
+        m[k].custs.add(t.custCode);
+      }
+      return m;
+    }
+    function sumByCust(txns) {
+      const m = {};
+      for (const t of txns) {
+        if (!m[t.custCode]) m[t.custCode] = { name: t.custName, amount: 0, ltrs: 0 };
+        m[t.custCode].amount += t.amount;
+        m[t.custCode].ltrs   += t.ltrs;
+      }
+      return m;
+    }
+    const totAmt  = txns => txns.reduce((s, t) => s + t.amount, 0);
+    const totLtrs = txns => txns.reduce((s, t) => s + t.ltrs, 0);
+    const uniqCusts = txns => new Set(txns.map(t => t.custCode)).size;
+
+    const tot1Amt  = totAmt(d1.transactions);
+    const tot2Amt  = totAmt(d2.transactions);
+    const tot1Ltrs = totLtrs(d1.transactions);
+    const tot2Ltrs = totLtrs(d2.transactions);
+    const cust1    = uniqCusts(d1.transactions);
+    const cust2    = uniqCusts(d2.transactions);
+    const txn1     = d1.transactions.length;
+    const txn2     = d2.transactions.length;
+
+    // ── Badges ──
+    const p1Lbl = d1.period || 'Period 1';
+    const p2Lbl = d2.period || 'Period 2';
+    document.getElementById('scBadge1').textContent = p1Lbl;
+    document.getElementById('scBadge2').textContent = p2Lbl;
+
+    // ── KPI Cards ──
+    function kpiCard(label, v1, v2, fmtFn) {
+      const diff = v2 - v1;
+      const pct  = v1 !== 0 ? Math.round((diff / Math.abs(v1)) * 100) : (v2 > 0 ? 100 : 0);
+      const cls  = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+      const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '●';
+      const sign  = diff > 0 ? '+' : '';
+      return `<div class="sc-kpi-card">
+        <div class="sc-kpi-label">${label}</div>
+        <div class="sc-kpi-vals">
+          <div class="sc-kpi-row"><span class="sc-kpi-dot p1"></span><span class="sc-kpi-val">${fmtFn(v1)}</span><span class="sc-kpi-period-lbl">${p1Lbl}</span></div>
+          <div class="sc-kpi-row"><span class="sc-kpi-dot p2"></span><span class="sc-kpi-val">${fmtFn(v2)}</span><span class="sc-kpi-period-lbl">${p2Lbl}</span></div>
+        </div>
+        <div class="sc-kpi-delta ${cls}">${arrow} ${sign}${fmtFn(Math.abs(diff))} &nbsp;<span style="opacity:.7;font-size:11px;">(${sign}${pct}%)</span></div>
+      </div>`;
+    }
+    const fmtK = v => v >= 1e6 ? 'KSH ' + (v/1e6).toFixed(2) + 'M' : 'KSH ' + Math.round(v).toLocaleString();
+    const fmtL = v => Math.round(v).toLocaleString() + ' L';
+    const fmtN = v => Math.round(v).toLocaleString();
+
+    document.getElementById('scKpiGrid').innerHTML =
+      kpiCard('Total Revenue', tot1Amt, tot2Amt, fmtK) +
+      kpiCard('Total Volume', tot1Ltrs, tot2Ltrs, fmtL) +
+      kpiCard('Active Customers', cust1, cust2, fmtN) +
+      kpiCard('Transactions', txn1, txn2, fmtN);
+
+    // ── Delta pill helper ──
+    function deltaPill(v1, v2) {
+      const diff = v2 - v1;
+      const p    = v1 !== 0 ? Math.round((diff / Math.abs(v1)) * 100) : (v2 > 0 ? 100 : 0);
+      const cls  = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+      const arrow= diff > 0 ? '▲' : diff < 0 ? '▼' : '—';
+      return `<span class="sc-delta-pill ${cls}">${arrow} ${(diff > 0 ? '+' : '')}${p}%</span>`;
+    }
+
+    // ── Generic dimension table builder ──
+    function buildDimTable(tableId, dim, label) {
+      const m1 = sumBy(d1.transactions, dim);
+      const m2 = sumBy(d2.transactions, dim);
+      const keys = [...new Set([...Object.keys(m1), ...Object.keys(m2)])];
+      keys.sort((a, b) => {
+        const a2 = (m2[a]?.amount || 0); const b2 = (m2[b]?.amount || 0);
+        return b2 - a2;
+      });
+
+      const tot1a = keys.reduce((s, k) => s + (m1[k]?.amount || 0), 0);
+      const tot2a = keys.reduce((s, k) => s + (m2[k]?.amount || 0), 0);
+      const tot1l = keys.reduce((s, k) => s + (m1[k]?.ltrs   || 0), 0);
+      const tot2l = keys.reduce((s, k) => s + (m2[k]?.ltrs   || 0), 0);
+
+      const rows = keys.map(k => {
+        const a1 = m1[k]?.amount || 0, a2 = m2[k]?.amount || 0;
+        const l1 = m1[k]?.ltrs   || 0, l2 = m2[k]?.ltrs   || 0;
+        const maxA = Math.max(a1, a2, 1);
+        return `<tr>
+          <td><strong>${k}</strong></td>
+          <td class="num">${fmt(a1)}</td>
+          <td class="num">${fmt(a2)}</td>
+          <td class="num">${deltaPill(a1, a2)}</td>
+          <td class="num" style="min-width:90px;">
+            <div>${fmt(l1)}</div>
+            <div class="sc-mini-bar-wrap"><div class="sc-mini-bar" style="width:${Math.round((l1/Math.max(tot1l,1))*100)}%"></div></div>
+          </td>
+          <td class="num" style="min-width:90px;">
+            <div>${fmt(l2)}</div>
+            <div class="sc-mini-bar-wrap"><div class="sc-mini-bar p2" style="width:${Math.round((l2/Math.max(tot2l,1))*100)}%"></div></div>
+          </td>
+          <td class="num">${deltaPill(l1, l2)}</td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById(tableId).innerHTML = `
+        <thead><tr>
+          <th>${label}</th>
+          <th class="num p1h">Rev P1 (KSH)</th>
+          <th class="num p2h">Rev P2 (KSH)</th>
+          <th class="num">Δ Rev</th>
+          <th class="num p1h">Vol P1 (L)</th>
+          <th class="num p2h">Vol P2 (L)</th>
+          <th class="num">Δ Vol</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr>
+          <td>TOTAL</td>
+          <td class="num">${fmt(tot1a)}</td>
+          <td class="num">${fmt(tot2a)}</td>
+          <td class="num">${deltaPill(tot1a, tot2a)}</td>
+          <td class="num">${fmt(tot1l)}</td>
+          <td class="num">${fmt(tot2l)}</td>
+          <td class="num">${deltaPill(tot1l, tot2l)}</td>
+        </tr></tfoot>`;
+    }
+
+    buildDimTable('scTableCategory', 'category', 'Category');
+    buildDimTable('scTableRegion',   'region',   'Region');
+    buildDimTable('scTableChannel',  'channel',  'Channel');
+
+    // ── Top Gainers / Decliners ──
+    function buildMoversTable(tableId, type) {
+      const c1 = sumByCust(d1.transactions);
+      const c2 = sumByCust(d2.transactions);
+      const allCodes = [...new Set([...Object.keys(c1), ...Object.keys(c2)])];
+      const changes = allCodes
+        .filter(code => c1[code] && c2[code]) // only customers in BOTH periods
+        .map(code => {
+          const a1 = c1[code].amount, a2 = c2[code].amount;
+          return { code, name: c2[code]?.name || c1[code]?.name || code, a1, a2, diff: a2 - a1 };
+        });
+
+      const sorted = type === 'gain'
+        ? changes.sort((a, b) => b.diff - a.diff).slice(0, 10)
+        : changes.sort((a, b) => a.diff - b.diff).slice(0, 10);
+
+      const rows = sorted.map((c, i) => {
+        return `<tr>
+          <td style="text-align:center;font-size:12px;font-weight:700;color:var(--text-muted);">${i+1}</td>
+          <td><strong style="font-size:12px;">${esc(c.name)}</strong><br><span style="font-size:10px;color:var(--text-muted);">${c.code}</span></td>
+          <td class="num">${fmt(c.a1)}</td>
+          <td class="num">${fmt(c.a2)}</td>
+          <td class="num">${deltaPill(c.a1, c.a2)}</td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById(tableId).innerHTML = `
+        <thead><tr>
+          <th style="width:32px;">#</th>
+          <th>Customer</th>
+          <th class="num p1h">P1 Rev</th>
+          <th class="num p2h">P2 Rev</th>
+          <th class="num">Δ</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text-muted);">No data</td></tr>'}</tbody>`;
+    }
+
+    buildMoversTable('scTableGainers', 'gain');
+    buildMoversTable('scTableLosers',  'lose');
+
+    // ── Customer Movement (new / lost) ──
+    function buildMovementTable() {
+      const set1 = new Set(d1.transactions.map(t => t.custCode));
+      const set2 = new Set(d2.transactions.map(t => t.custCode));
+      const custMap2 = sumByCust(d2.transactions);
+      const custMap1 = sumByCust(d1.transactions);
+
+      const newCusts  = [...set2].filter(c => !set1.has(c));
+      const lostCusts = [...set1].filter(c => !set2.has(c));
+
+      const rows = [
+        ...newCusts.map(code => {
+          const info = custMap2[code];
+          return `<tr>
+            <td><span class="sc-cust-badge new">NEW</span></td>
+            <td><strong>${esc(info?.name || code)}</strong></td>
+            <td style="font-family:'DM Mono',monospace;font-size:12px;">${code}</td>
+            <td class="num">—</td>
+            <td class="num">${fmt(info?.amount || 0)}</td>
+          </tr>`;
+        }),
+        ...lostCusts.map(code => {
+          const info = custMap1[code];
+          return `<tr>
+            <td><span class="sc-cust-badge lost">LOST</span></td>
+            <td><strong>${esc(info?.name || code)}</strong></td>
+            <td style="font-family:'DM Mono',monospace;font-size:12px;">${code}</td>
+            <td class="num">${fmt(info?.amount || 0)}</td>
+            <td class="num">—</td>
+          </tr>`;
+        })
+      ].join('');
+
+      document.getElementById('scTableMovement').innerHTML = `
+        <thead><tr>
+          <th>Status</th>
+          <th>Customer</th>
+          <th>SAP Code</th>
+          <th class="num p1h">P1 Revenue</th>
+          <th class="num p2h">P2 Revenue</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">No customer movement detected between periods.</td></tr>'}</tbody>
+        <tfoot><tr>
+          <td colspan="5" style="color:rgba(255,255,255,0.7);font-size:11px;">
+            ${newCusts.length} new customer${newCusts.length !== 1 ? 's' : ''} &nbsp;|&nbsp; ${lostCusts.length} lost customer${lostCusts.length !== 1 ? 's' : ''}
+          </td>
+        </tr></tfoot>`;
+    }
+    buildMovementTable();
+
+    // ── Charts ──
+    function scDestroyChart(id) {
+      if (_scChartInstances[id]) { _scChartInstances[id].destroy(); delete _scChartInstances[id]; }
+    }
+    function scMkChart(id, config) {
+      scDestroyChart(id);
+      const ctx = document.getElementById(id);
+      if (!ctx) return;
+      _scChartInstances[id] = new Chart(ctx, config);
+    }
+
+    function buildGroupedBarChart(canvasId, dim) {
+      const m1 = sumBy(d1.transactions, dim);
+      const m2 = sumBy(d2.transactions, dim);
+      const keys = [...new Set([...Object.keys(m1), ...Object.keys(m2)])]
+        .sort((a, b) => ((m2[b]?.amount||0) + (m1[b]?.amount||0)) - ((m2[a]?.amount||0) + (m1[a]?.amount||0)))
+        .slice(0, 10);
+
+      const tc = chartTextColor(), gc = chartGridColor();
+      scMkChart(canvasId, {
+        type: 'bar',
+        data: {
+          labels: keys,
+          datasets: [
+            {
+              label: p1Lbl,
+              data: keys.map(k => Math.round(m1[k]?.amount || 0)),
+              backgroundColor: 'rgba(59,130,246,0.75)',
+              borderRadius: 4,
+            },
+            {
+              label: p2Lbl,
+              data: keys.map(k => Math.round(m2[k]?.amount || 0)),
+              backgroundColor: 'rgba(225,36,90,0.82)',
+              borderRadius: 4,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: 'top', labels: { color: tc, font: { family: "'DM Sans', sans-serif", size: 11 }, boxWidth: 10, padding: 10 } },
+            tooltip: {
+              backgroundColor: chartSurfaceColor(),
+              titleColor: document.body.classList.contains('dark') ? '#e6edf3' : '#0f2744',
+              bodyColor: tc,
+              borderColor: gc, borderWidth: 1, padding: 10,
+              callbacks: { label: ctx => ' KSH ' + Number(ctx.raw).toLocaleString() }
+            },
+            datalabels: { display: false }
+          },
+          scales: {
+            x: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 10 } }, grid: { color: gc } },
+            y: { ticks: { color: tc, font: { family: "'DM Sans', sans-serif", size: 10 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v }, grid: { color: gc } }
+          }
+        }
+      });
+    }
+
+    buildGroupedBarChart('scChartCat', 'category');
+    buildGroupedBarChart('scChartReg', 'region');
+
+    // ── Show results ──
+    document.getElementById('scLoading').style.display = 'none';
+    document.getElementById('scResults').classList.add('visible');
+  }, 80);
+}
 </script>
 </body>
 </html>
