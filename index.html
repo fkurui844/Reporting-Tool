@@ -7482,8 +7482,7 @@ function scRunComparison() {
       thead += `<th class="num p2h">Rev (Current)<br>${p1Lbl}<br>(KSH)</th>`;
       thead += `<th class="num p1h">Rev (Previous)<br>${p2Lbl}<br>(KSH)</th>`;
       thead += '<th class="num">Δ Rev</th>';
-      thead += '<th class="num" style="width:90px;">Share P1</th>';
-      thead += '<th class="num" style="width:90px;">Share P2</th>';
+
       thead += '</tr></thead>';
 
       // Grand totals for share %
@@ -7530,8 +7529,7 @@ function scRunComparison() {
           tbody += `<td class="num">${fmt(a1)}</td>`;
           tbody += `<td class="num">${fmt(a2)}</td>`;
           tbody += `<td class="num"><span class="sc-delta-pill ${cls}">${arr} ${sgn}${pct2}%</span></td>`;
-          tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${catSh1}</td>`;
-          tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${catSh2}</td>`;
+
           tbody += '</tr>';
         }
 
@@ -7541,8 +7539,7 @@ function scRunComparison() {
         tbody += `<td class="num" style="font-weight:700;">${fmt(rTot1)}</td>`;
         tbody += `<td class="num" style="font-weight:700;">${fmt(rTot2)}</td>`;
         tbody += `<td class="num"><span class="sc-delta-pill ${rCls}">${rArrow} ${rSign}${rPct}%</span></td>`;
-        tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${sh1r}</td>`;
-        tbody += `<td class="num" style="font-size:11px;color:var(--text-muted);">${sh2r}</td>`;
+
         tbody += '</tr>';
       }
       tbody += '</tbody>';
@@ -7552,7 +7549,7 @@ function scRunComparison() {
       const gtPct  = grandTot1 ? Math.round((gtDiff/Math.abs(grandTot1))*100) : 0;
       const gtCls  = gtDiff>0?'up':gtDiff<0?'down':'flat';
       const gtArr  = gtDiff>0?'▲':gtDiff<0?'▼':'—';
-      const tfoot  = `<tfoot><tr><td colspan="2">GRAND TOTAL</td><td class="num">${fmt(grandTot1)}</td><td class="num">${fmt(grandTot2)}</td><td class="num"><span class="sc-delta-pill ${gtCls}">${gtArr} ${gtDiff>0?'+':''}${gtPct}%</span></td><td class="num">100%</td><td class="num">100%</td></tr></tfoot>`;
+      const tfoot  = `<tfoot><tr><td colspan="2">GRAND TOTAL</td><td class="num">${fmt(grandTot1)}</td><td class="num">${fmt(grandTot2)}</td><td class="num"><span class="sc-delta-pill ${gtCls}">${gtArr} ${gtDiff>0?'+':''}${gtPct}%</span></td></tr></tfoot>`;
 
       document.getElementById('scTableRegionCat').innerHTML = thead + tbody + tfoot;
     })();
