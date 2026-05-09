@@ -7096,8 +7096,21 @@ function scRenderMovement(list) {
   const lostCount = list.filter(c => c.status === "LOST").length;
   const rows = list.map(c => {
     const isNew = c.status === "NEW";
-    const p1Rev = isNew ? "—" : fmt(c.amount);
-    const p2Rev = isNew ? fmt(c.amount) : "—";
+    // For NEW: current = c.amount, previous = 0 (didn't exist)
+    // For LOST: current = 0 (no longer exists), previous = c.amount
+    const curRev  = isNew ? c.amount : 0;
+    const prevRev = isNew ? 0 : c.amount;
+    const curCell  = isNew ? `<span style="font-weight:700;">${fmt(curRev)}</span>` : `<span style="color:var(--text-muted);">—</span>`;
+    const prevCell = isNew ? `<span style="color:var(--text-muted);">—</span>` : `<span style="font-weight:700;">${fmt(prevRev)}</span>`;
+
+    // % Change pill
+    let changePill;
+    if (isNew) {
+      changePill = `<span class="sc-delta-pill up">▲ NEW</span>`;
+    } else {
+      changePill = `<span class="sc-delta-pill down">▼ LOST</span>`;
+    }
+
     const pill = (v) => `<span style="display:inline-block;font-size:10px;padding:1px 6px;border-radius:99px;background:var(--pill-bg);color:var(--text-muted);margin-right:4px;">${esc(v||"—")}</span>`;
     const typePill = c.type ? pill(c.type) : "";
     return `<tr>
@@ -7106,9 +7119,9 @@ function scRenderMovement(list) {
         <div style="font-weight:700;font-size:12px;margin-bottom:3px;">${esc(c.name || c.code)}</div>
         <div>${pill(c.region)}${pill(c.channel)}${typePill}</div>
       </td>
-      <td style="font-family:'DM Mono',monospace;font-size:12px;">${c.code}</td>
-      <td class="num">${p1Rev}</td>
-      <td class="num">${p2Rev}</td>
+      <td class="num">${curCell}</td>
+      <td class="num">${prevCell}</td>
+      <td class="num">${changePill}</td>
     </tr>`;
   }).join("");
 
@@ -7121,9 +7134,9 @@ function scRenderMovement(list) {
     <thead><tr>
       <th>Status</th>
       <th>Customer</th>
-      <th>SAP Code</th>
       <th class="num p2h">${p1Lbl}<br>(Current)</th>
       <th class="num p1h">${p2Lbl}<br>(Previous)</th>
+      <th class="num">% Change</th>
     </tr></thead>
     <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">No customers match the selected filters.</td></tr>'}</tbody>
     <tfoot><tr>
