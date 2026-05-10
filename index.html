@@ -7547,9 +7547,9 @@ function scRunComparison() {
           const v1=vcats1[cat]||0, v2=vcats2[cat]||0;
           const vdif=v1-v2, vpct=v2?Math.round((vdif/Math.abs(v2))*100):(v1>0?100:0);
           const vcls=vdif>0?'up':vdif<0?'down':'flat', varr=vdif>0?'▲':vdif<0?'▼':'—', vsgn=vdif>0?'+':'';
-          tbody += '<tr>';
+          tbody += firstCat ? '<tr style="border-top:3px solid #E1245A;">' : '<tr>';
           if (firstCat) {
-            tbody += `<td rowspan="${regCats.length+1}" style="font-weight:700;font-size:12px;color:var(--text-head);border-right:2px solid var(--border);vertical-align:middle;">${reg}</td>`;
+            tbody += `<td rowspan="${regCats.length+1}" style="font-weight:700;font-size:13px;color:var(--text-head);border-right:3px solid #E1245A;border-top:3px solid #E1245A;background:var(--th-bg);vertical-align:middle;text-align:center;letter-spacing:0.04em;padding:10px 14px;">${reg}</td>`;
             firstCat = false;
           }
           tbody += `<td style="padding-left:14px;font-size:12px;"><span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:#e0f7fa;color:#0c5464;">${esc(cat)}</span></td>`;
@@ -7559,10 +7559,10 @@ function scRunComparison() {
         }
 
         // Subtotal row at BOTTOM of each region group
-        tbody += `<tr style="background:var(--th-bg);border-top:2px solid var(--border);">`;
-        tbody += `<td style="font-weight:700;font-size:11px;color:var(--text-muted);padding-left:14px;font-style:italic;">SUBTOTAL</td>`;
-        tbody += `<td class="num" style="font-weight:700;">${fmt(rTot1)}</td><td class="num" style="font-weight:700;">${fmt(rTot2)}</td><td class="num"><span class="sc-delta-pill ${rCls}">${rArrow} ${rSign}${rPct}%</span></td>`;
-        tbody += `<td class="num" style="font-weight:700;">${fmt(rVol1)}</td><td class="num" style="font-weight:700;">${fmt(rVol2)}</td><td class="num"><span class="sc-delta-pill ${rVCls}">${rVArr} ${rVSign}${rVPct}%</span></td>`;
+        tbody += `<tr style="background:#0f2744;border-top:3px solid #E1245A;border-bottom:4px solid #E1245A;">`;
+        tbody += `<td style="font-weight:700;font-size:11px;color:rgba(255,255,255,0.85);padding-left:14px;font-style:italic;letter-spacing:0.05em;">SUBTOTAL</td>`;
+        tbody += `<td class="num" style="font-weight:700;color:#fff;">${fmt(rTot1)}</td><td class="num" style="font-weight:700;color:#fff;">${fmt(rTot2)}</td><td class="num"><span class="sc-delta-pill ${rCls}">${rArrow} ${rSign}${rPct}%</span></td>`;
+        tbody += `<td class="num" style="font-weight:700;color:#fff;">${fmt(rVol1)}</td><td class="num" style="font-weight:700;color:#fff;">${fmt(rVol2)}</td><td class="num"><span class="sc-delta-pill ${rVCls}">${rVArr} ${rVSign}${rVPct}%</span></td>`;
         tbody += '</tr>';
       }
       tbody += '</tbody>';
