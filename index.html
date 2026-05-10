@@ -7228,11 +7228,11 @@ function scRenderMovement(list) {
   if (!tbl) return;
   tbl.innerHTML = `
     <thead><tr>
-      <th>Status</th>
-      <th>Customer</th>
+      <th style="background:#0f2744;color:rgba(255,255,255,0.72);">Status</th>
+      <th style="background:#0f2744;color:rgba(255,255,255,0.72);">Customer</th>
       <th class="num p2h">${p1Lbl}<br>(Current)</th>
       <th class="num p1h">${p2Lbl}<br>(Previous)</th>
-      <th class="num">% Change</th>
+      <th class="num" style="background:#0f2744;color:#f59e0b;">% Change</th>
     </tr></thead>
     <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">No customers match the selected filters.</td></tr>'}</tbody>
     <tfoot><tr>
