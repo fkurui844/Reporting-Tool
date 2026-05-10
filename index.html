@@ -2786,15 +2786,6 @@
       <div class="proj-section">
         <div class="proj-section-head">
           <span class="proj-section-title">📍 Projection by Region</span>
-          <div style="position:relative;display:inline-block;">
-            <button id="projRegExportBtn" onclick="toggleProjRegExportMenu()" style="display:flex;align-items:center;gap:6px;padding:6px 13px;background:#0f2744;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s;" onmouseover="this.style.background='#1a3a5c'" onmouseout="this.style.background='#0f2744'">
-              ⬇ Export <span style="font-size:10px;opacity:0.75;">▾</span>
-            </button>
-            <div id="projRegExportMenu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.12);z-index:100;min-width:200px;overflow:hidden;">
-              <button onclick="exportProjRegionXLSX();toggleProjRegExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📗 Download Excel (.xlsx)</button>
-              <button onclick="exportProjRegionCSV();toggleProjRegExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📄 Download CSV</button>
-            </div>
-          </div>
         </div>
         <div style="overflow-x:auto;"><table class="proj-table" id="projTableReg"></table></div>
       </div>
@@ -2805,6 +2796,36 @@
           <span class="proj-section-title">🏷 Projection by Sales Channel</span>
         </div>
         <div style="overflow-x:auto;"><table class="proj-table" id="projTableChan"></table></div>
+      </div>
+
+      <!-- By Region × Category -->
+      <div class="proj-section">
+        <div class="proj-section-head">
+          <span class="proj-section-title">📍📦 Projection by Region &amp; Product Category</span>
+          <div style="position:relative;display:inline-block;">
+            <button id="projRegCatExportBtn" onclick="toggleProjMenu('projRegCatMenu')" style="display:flex;align-items:center;gap:6px;padding:6px 13px;background:#0f2744;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;" onmouseover="this.style.background='#1a3a5c'" onmouseout="this.style.background='#0f2744'">⬇ Export <span style="font-size:10px;opacity:0.75;">▾</span></button>
+            <div id="projRegCatMenu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.12);z-index:100;min-width:210px;overflow:hidden;">
+              <button onclick="exportProjRegCatXLSX();toggleProjMenu('projRegCatMenu')" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📗 Download Excel (.xlsx)</button>
+              <button onclick="exportProjRegCatCSV();toggleProjMenu('projRegCatMenu')" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📄 Download CSV</button>
+            </div>
+          </div>
+        </div>
+        <div style="overflow-x:auto;"><table class="proj-table" id="projTableRegCat"></table></div>
+      </div>
+
+      <!-- By SKU -->
+      <div class="proj-section">
+        <div class="proj-section-head">
+          <span class="proj-section-title">🔖 Projection by SKU / Product Code</span>
+          <div style="position:relative;display:inline-block;">
+            <button id="projSkuExportBtn" onclick="toggleProjMenu('projSkuMenu')" style="display:flex;align-items:center;gap:6px;padding:6px 13px;background:#0f2744;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;" onmouseover="this.style.background='#1a3a5c'" onmouseout="this.style.background='#0f2744'">⬇ Export <span style="font-size:10px;opacity:0.75;">▾</span></button>
+            <div id="projSkuMenu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.12);z-index:100;min-width:210px;overflow:hidden;">
+              <button onclick="exportProjSkuXLSX();toggleProjMenu('projSkuMenu')" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📗 Download Excel (.xlsx)</button>
+              <button onclick="exportProjSkuCSV();toggleProjMenu('projSkuMenu')" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📄 Download CSV</button>
+            </div>
+          </div>
+        </div>
+        <div style="overflow-x:auto;"><table class="proj-table" id="projTableSku"></table></div>
       </div>
 
     </div><!-- /proj-results -->
@@ -8694,77 +8715,109 @@ function projClear() {
   });
 }
 
-// ── Projection Region Export ──────────────────────────────
-function toggleProjRegExportMenu() {
-  const m = document.getElementById('projRegExportMenu');
+// ── Shared projection export helpers ─────────────────────
+function toggleProjMenu(menuId) {
+  const m = document.getElementById(menuId);
+  // close all other proj menus first
+  ['projRegCatMenu','projSkuMenu'].forEach(id => { if (id !== menuId) { const el = document.getElementById(id); if (el) el.style.display='none'; } });
   m.style.display = m.style.display === 'none' ? 'block' : 'none';
   if (m.style.display === 'block') {
-    const close = e => { if (!m.contains(e.target) && e.target.id !== 'projRegExportBtn') { m.style.display = 'none'; document.removeEventListener('click', close); } };
+    const close = e => { if (!m.contains(e.target)) { m.style.display='none'; document.removeEventListener('click', close); } };
     setTimeout(() => document.addEventListener('click', close), 0);
   }
 }
 
-function _getProjRegionData() {
-  if (!_projData) return null;
-  const daysSel = document.getElementById('projDaysTarget').value;
-  const targetDays = daysSel === 'custom' ? parseInt(document.getElementById('projDaysCustom').value) || 30 : parseInt(daysSel);
-  const growthSel = document.getElementById('projGrowthMode').value;
-  const growthPct = growthSel === 'custom' ? parseFloat(document.getElementById('projGrowthCustom').value) || 0 : parseFloat(growthSel);
-  const growthFactor = 1 + (growthPct / 100);
-  const elapsed = _projData.days || 1;
-  const projFactor = (targetDays / elapsed) * growthFactor;
-  const txns = _projData.transactions;
-
-  const map = {};
-  for (const t of txns) {
-    const k = (t.region || 'UNKNOWN').toUpperCase();
-    if (!map[k]) map[k] = { amount: 0, ltrs: 0 };
-    map[k].amount += t.amount;
-    map[k].ltrs   += t.ltrs;
-  }
-  const keys = Object.keys(map).sort((a, b) => map[b].amount - map[a].amount);
-  const totA = keys.reduce((s, k) => s + map[k].amount, 0);
-  const totV = keys.reduce((s, k) => s + map[k].ltrs, 0);
-
-  const rows = keys.map(k => {
-    const a = map[k].amount, v = map[k].ltrs;
-    const pa = a * projFactor, pv = v * projFactor;
-    const shareRev = totA > 0 ? ((a / totA) * 100).toFixed(1) + '%' : '0.0%';
-    const avg = 1 / Math.max(keys.length, 1);
-    const share = totA > 0 ? a / totA : 0;
-    const pace = share > avg * 1.15 ? 'Above avg' : share < avg * 0.85 ? 'Below avg' : 'On track';
-    return { Region: k, 'Actual Rev (KSH)': Math.round(a), 'Projected Rev (KSH)': Math.round(pa), 'Rev Share': shareRev, 'Actual Vol (Ltrs/Kgs)': Math.round(v), 'Projected Vol': Math.round(pv), Pace: pace };
+// Region × Category exports
+function exportProjRegCatXLSX() {
+  const d = window._projRegCatData;
+  if (!d) return;
+  const { pivot, regions, cats, grandA, projFactor, period } = d;
+  const header = ['Region','Actual Rev (KSH)','Projected Rev (KSH)','Rev Share', ...cats.map(c=>c+' Proj Rev (KSH)'), 'Pace'];
+  const dataRows = regions.map(reg => {
+    const regData = pivot[reg];
+    const regA = Object.values(regData).reduce((s,v)=>s+v.amount,0);
+    const regPA = Math.round(regA * projFactor);
+    const share = grandA > 0 ? ((regA/grandA)*100).toFixed(1)+'%' : '0.0%';
+    const avg = 1/Math.max(regions.length,1);
+    const pace = (regA/grandA) > avg*1.15 ? 'Above avg' : (regA/grandA) < avg*0.85 ? 'Below avg' : 'On track';
+    const catVals = cats.map(c => Math.round((regData[c]?.amount||0)*projFactor));
+    return [reg, Math.round(regA), regPA, share, ...catVals, pace];
   });
-  rows.push({ Region: 'TOTAL', 'Actual Rev (KSH)': Math.round(totA), 'Projected Rev (KSH)': Math.round(totA * projFactor), 'Rev Share': '100%', 'Actual Vol (Ltrs/Kgs)': Math.round(totV), 'Projected Vol': Math.round(totV * projFactor), Pace: '' });
-  return { rows, period: _projData.period || '', targetDays, growthPct };
-}
-
-function exportProjRegionXLSX() {
-  const d = _getProjRegionData();
-  if (!d) return;
-  const ws = XLSX.utils.json_to_sheet(d.rows);
+  // Totals
+  const totA = regions.reduce((s,r)=>s+Object.values(pivot[r]).reduce((ss,v)=>ss+v.amount,0),0);
+  const totCats = cats.map(c => {
+    let s=0; regions.forEach(r=>{ s+=(pivot[r][c]?.amount||0)*projFactor; }); return Math.round(s);
+  });
+  dataRows.push(['TOTAL', Math.round(totA), Math.round(totA*projFactor), '100%', ...totCats, '']);
+  const ws = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Projection by Region');
-  const fname = `Proj_Region_${(d.period || 'Export').replace(/[\s\/\\.–]+/g, '_')}_${d.targetDays}days.xlsx`;
-  XLSX.writeFile(wb, fname);
+  XLSX.utils.book_append_sheet(wb, ws, 'Region x Category');
+  XLSX.writeFile(wb, `Proj_Region_Category_${(period||'Export').replace(/[\s\/\\.–]+/g,'_')}.xlsx`);
 }
 
-function exportProjRegionCSV() {
-  const d = _getProjRegionData();
+function exportProjRegCatCSV() {
+  const d = window._projRegCatData;
   if (!d) return;
-  const cols = ['Region','Actual Rev (KSH)','Projected Rev (KSH)','Rev Share','Actual Vol (Ltrs/Kgs)','Projected Vol','Pace'];
-  const lines = [cols.join(',')].concat(d.rows.map(r => cols.map(c => JSON.stringify(r[c] ?? '')).join(',')));
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const { pivot, regions, cats, grandA, projFactor, period } = d;
+  const header = ['Region','Actual Rev (KSH)','Projected Rev (KSH)','Rev Share', ...cats.map(c=>c+' Proj Rev'), 'Pace'];
+  const rows = regions.map(reg => {
+    const regData = pivot[reg];
+    const regA = Object.values(regData).reduce((s,v)=>s+v.amount,0);
+    const share = grandA>0?((regA/grandA)*100).toFixed(1)+'%':'0.0%';
+    const avg=1/Math.max(regions.length,1);
+    const pace=(regA/grandA)>avg*1.15?'Above avg':(regA/grandA)<avg*0.85?'Below avg':'On track';
+    return [reg,Math.round(regA),Math.round(regA*projFactor),share,...cats.map(c=>Math.round((regData[c]?.amount||0)*projFactor)),pace];
+  });
+  const lines = [header,...rows].map(r=>r.map(v=>JSON.stringify(v??'')).join(','));
+  const blob = new Blob([lines.join('\n')],{type:'text/csv'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Proj_Region_${(d.period || 'Export').replace(/[\s\/\\.–]+/g, '_')}_${d.targetDays}days.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const a = document.createElement('a'); a.href=url;
+  a.download=`Proj_Region_Category_${(period||'Export').replace(/[\s\/\\.–]+/g,'_')}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// SKU exports
+function exportProjSkuXLSX() {
+  const d = window._projSkuData;
+  if (!d) return;
+  const { skuMap, keys, totA, totV, totQ, projFactor, period } = d;
+  const header = ['SKU Code','Description','Category','Actual Rev (KSH)','Projected Rev (KSH)','Rev Share','Actual Qty','Projected Qty','Actual Vol (Ltrs/Kgs)','Projected Vol','Pace'];
+  const avg = 1/Math.max(keys.length,1);
+  const dataRows = keys.map(k => {
+    const { amount:a, ltrs:v, qty:q, description, category } = skuMap[k];
+    const share = totA>0?a/totA:0;
+    const pace = share>avg*1.15?'Above avg':share<avg*0.85?'Below avg':'On track';
+    return [k, description||'', category||'', Math.round(a), Math.round(a*projFactor), ((share)*100).toFixed(1)+'%', Math.round(q), Math.round(q*projFactor), Math.round(v), Math.round(v*projFactor), pace];
+  });
+  dataRows.push(['TOTAL','','',Math.round(totA),Math.round(totA*projFactor),'100%',Math.round(totQ),Math.round(totQ*projFactor),Math.round(totV),Math.round(totV*projFactor),'']);
+  const ws = XLSX.utils.aoa_to_sheet([header,...dataRows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Projection by SKU');
+  XLSX.writeFile(wb, `Proj_SKU_${(period||'Export').replace(/[\s\/\\.–]+/g,'_')}.xlsx`);
+}
+
+function exportProjSkuCSV() {
+  const d = window._projSkuData;
+  if (!d) return;
+  const { skuMap, keys, totA, totV, totQ, projFactor, period } = d;
+  const header = ['SKU Code','Description','Category','Actual Rev (KSH)','Projected Rev (KSH)','Rev Share','Actual Qty','Projected Qty','Actual Vol','Projected Vol','Pace'];
+  const avg = 1/Math.max(keys.length,1);
+  const rows = keys.map(k => {
+    const { amount:a, ltrs:v, qty:q, description, category } = skuMap[k];
+    const share = totA>0?a/totA:0;
+    const pace = share>avg*1.15?'Above avg':share<avg*0.85?'Below avg':'On track';
+    return [k, description||'', category||'', Math.round(a), Math.round(a*projFactor), ((share)*100).toFixed(1)+'%', Math.round(q), Math.round(q*projFactor), Math.round(v), Math.round(v*projFactor), pace];
+  });
+  const lines = [header,...rows].map(r=>r.map(v=>JSON.stringify(v??'')).join(','));
+  const blob = new Blob([lines.join('\n')],{type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url;
+  a.download=`Proj_SKU_${(period||'Export').replace(/[\s\/\\.–]+/g,'_')}.csv`;
+  a.click(); URL.revokeObjectURL(url);
 }
 // ─────────────────────────────────────────────────────────
 
-// Handle custom days/growth selects
+
 document.addEventListener('change', function(e) {
   if (e.target.id === 'projDaysTarget') {
     document.getElementById('projDaysCustom').style.display = e.target.value === 'custom' ? 'inline-block' : 'none';
@@ -8906,6 +8959,163 @@ function projRun() {
     buildProjTable('projTableCat',  'category');
     buildProjTable('projTableReg',  'region');
     buildProjTable('projTableChan', 'channel');
+    buildProjTableRegCat('projTableRegCat');
+    buildProjTableSku('projTableSku');
+
+    // ── Region × Category nested table ──────────────────────
+    function buildProjTableRegCat(tblId) {
+      // pivot: region → category → {amount, ltrs}
+      const pivot = {};
+      const allCats = new Set();
+      for (const t of txns) {
+        const reg = (t.region   || 'UNKNOWN').toUpperCase();
+        const cat = (t.category || 'UNKNOWN').toUpperCase();
+        allCats.add(cat);
+        if (!pivot[reg]) pivot[reg] = {};
+        if (!pivot[reg][cat]) pivot[reg][cat] = { amount:0, ltrs:0 };
+        pivot[reg][cat].amount += t.amount;
+        pivot[reg][cat].ltrs   += t.ltrs;
+      }
+      const regions = Object.keys(pivot).sort((a,b) => {
+        const sa = Object.values(pivot[a]).reduce((s,v)=>s+v.amount,0);
+        const sb = Object.values(pivot[b]).reduce((s,v)=>s+v.amount,0);
+        return sb - sa;
+      });
+      const cats = [...allCats].sort();
+      const grandA = txns.reduce((s,t)=>s+t.amount,0);
+      const grandV = txns.reduce((s,t)=>s+t.ltrs,0);
+
+      // Header
+      const catHeads = cats.map(c => `<th class="r proj-col" style="white-space:nowrap;">${c}</th>`).join('');
+      const head = `<thead><tr>
+        <th>Region</th>
+        <th class="r">Actual Rev (KSH)</th>
+        <th class="r proj-col">Projected Rev (KSH)</th>
+        <th class="r">Rev Share</th>
+        ${catHeads}
+        <th class="r pace-col">Pace</th>
+      </tr></thead>`;
+
+      const avg = 1 / Math.max(regions.length, 1);
+      const rows = regions.map(reg => {
+        const regData = pivot[reg];
+        const regA = Object.values(regData).reduce((s,v)=>s+v.amount,0);
+        const regPA = regA * projFactor;
+        const share = grandA > 0 ? regA/grandA : 0;
+        const shareStr = (share*100).toFixed(1) + '%';
+        const paceHtml = share > avg*1.15
+          ? '<span class="proj-pace-pill fast">▲ Above avg</span>'
+          : share < avg*0.85
+            ? '<span class="proj-pace-pill slow">▼ Below avg</span>'
+            : '<span class="proj-pace-pill avg">≈ On track</span>';
+        const catCells = cats.map(c => {
+          const v = regData[c];
+          const a = v ? v.amount * projFactor : 0;
+          return `<td class="r" style="color:#E1245A;font-weight:600;">${a>0?fmt(a):'—'}</td>`;
+        }).join('');
+        return `<tr>
+          <td><strong>${reg}</strong></td>
+          <td class="r">${fmt(regA)}</td>
+          <td class="r" style="color:#E1245A;font-weight:700;">${fmt(regPA)}</td>
+          <td class="r">${shareStr}</td>
+          ${catCells}
+          <td class="r">${paceHtml}</td>
+        </tr>`;
+      }).join('');
+
+      // Totals row
+      const totalCatCells = cats.map(c => {
+        const totC = txns.filter(t=>(t.category||'UNKNOWN').toUpperCase()===c).reduce((s,t)=>s+t.amount,0);
+        return `<td class="r">${fmt(totC*projFactor)}</td>`;
+      }).join('');
+      const foot = `<tfoot><tr>
+        <td>TOTAL</td>
+        <td class="r">${fmt(grandA)}</td>
+        <td class="r">${fmt(grandA*projFactor)}</td>
+        <td class="r">100%</td>
+        ${totalCatCells}
+        <td></td>
+      </tr></tfoot>`;
+
+      document.getElementById(tblId).innerHTML = head + `<tbody>${rows}</tbody>` + foot;
+      // store for export
+      window._projRegCatData = { pivot, regions, cats, grandA, grandV, projFactor, period: d.period };
+    }
+
+    // ── SKU table ────────────────────────────────────────────
+    function buildProjTableSku(tblId) {
+      const skuMap = {};
+      for (const t of txns) {
+        const k = t.matCode || 'UNKNOWN';
+        if (!skuMap[k]) {
+          const prod = refData.products[k] || {};
+          skuMap[k] = { amount:0, ltrs:0, qty:0, description: prod.description || '', category: (t.category||'').toUpperCase() };
+        }
+        skuMap[k].amount += t.amount;
+        skuMap[k].ltrs   += t.ltrs;
+        skuMap[k].qty    += t.qty || 0;
+      }
+      const keys = Object.keys(skuMap).sort((a,b) => skuMap[b].amount - skuMap[a].amount);
+      const totA = keys.reduce((s,k)=>s+skuMap[k].amount,0);
+      const totV = keys.reduce((s,k)=>s+skuMap[k].ltrs,0);
+      const totQ = keys.reduce((s,k)=>s+skuMap[k].qty,0);
+      const avg  = 1 / Math.max(keys.length,1);
+
+      const rows = keys.map(k => {
+        const a = skuMap[k].amount, v = skuMap[k].ltrs, q = skuMap[k].qty;
+        const pa = a*projFactor, pv = v*projFactor, pq = q*projFactor;
+        const share = totA>0 ? a/totA : 0;
+        const shareStr = (share*100).toFixed(1)+'%';
+        const paceHtml = share > avg*1.15
+          ? '<span class="proj-pace-pill fast">▲ Above avg</span>'
+          : share < avg*0.85
+            ? '<span class="proj-pace-pill slow">▼ Below avg</span>'
+            : '<span class="proj-pace-pill avg">≈ On track</span>';
+        return `<tr>
+          <td><strong>${k}</strong></td>
+          <td style="color:var(--text-muted);font-size:12px;">${skuMap[k].description||'—'}</td>
+          <td style="color:var(--text-muted);font-size:11px;">${skuMap[k].category||'—'}</td>
+          <td class="r">${fmt(a)}</td>
+          <td class="r" style="color:#E1245A;font-weight:700;">${fmt(pa)}</td>
+          <td class="r">${shareStr}</td>
+          <td class="r">${Math.round(q).toLocaleString()}</td>
+          <td class="r" style="color:#E1245A;font-weight:700;">${Math.round(pq).toLocaleString()}</td>
+          <td class="r">${fmt(v)}</td>
+          <td class="r" style="color:#E1245A;font-weight:700;">${fmt(pv)}</td>
+          <td class="r">${paceHtml}</td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById(tblId).innerHTML = `
+        <thead><tr>
+          <th>SKU Code</th>
+          <th>Description</th>
+          <th>Category</th>
+          <th class="r">Actual Rev (KSH)</th>
+          <th class="r proj-col">Projected Rev (KSH)</th>
+          <th class="r">Rev Share</th>
+          <th class="r">Actual Qty</th>
+          <th class="r proj-col">Projected Qty</th>
+          <th class="r">Actual Vol (Ltrs/Kgs)</th>
+          <th class="r proj-col">Projected Vol</th>
+          <th class="r pace-col">Pace</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr>
+          <td>TOTAL</td><td></td><td></td>
+          <td class="r">${fmt(totA)}</td>
+          <td class="r">${fmt(totA*projFactor)}</td>
+          <td class="r">100%</td>
+          <td class="r">${Math.round(totQ).toLocaleString()}</td>
+          <td class="r">${Math.round(totQ*projFactor).toLocaleString()}</td>
+          <td class="r">${fmt(totV)}</td>
+          <td class="r">${fmt(totV*projFactor)}</td>
+          <td></td>
+        </tr></tfoot>`;
+      // store for export
+      window._projSkuData = { skuMap, keys, totA, totV, totQ, projFactor, period: d.period };
+    }
+    // ─────────────────────────────────────────────────────────
 
     // Charts
     window._projCharts = window._projCharts || {};
