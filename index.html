@@ -7182,6 +7182,7 @@ function scRenderMovement(list) {
     RETAINED: "display:inline-block;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af;",
     LOST:     "display:inline-block;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;background:#fee2e2;color:#991b1b;"
   };
+  const statusLabel = { NEW: "TRADING", RETAINED: "RETAINED", LOST: "NOT TRADING" };
 
   const rows = list.map(c => {
     const curCell  = c.curAmt  ? `<strong>${fmt(c.curAmt)}</strong>`  : `<span style="color:var(--text-muted);">—</span>`;
@@ -7206,7 +7207,7 @@ function scRenderMovement(list) {
 
     const typePill = c.type ? pill(c.type) : "";
     return `<tr>
-      <td><span style="${statusCSS[c.status]}">${c.status}</span></td>
+      <td><span style="${statusCSS[c.status]}">${statusLabel[c.status] || c.status}</span></td>
       <td>
         <div style="font-weight:700;font-size:12px;margin-bottom:3px;">${esc(c.name || c.code)}</div>
         <div>${pill(c.region)}${pill(c.channel)}${typePill}</div>
