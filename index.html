@@ -7862,10 +7862,94 @@ ${clone.outerHTML}
 }
 
 function scExportExcel(tableId, label) {
+  const p1  = window._scP1Lbl || 'Current Period';
+  const p2  = window._scP2Lbl || 'Previous Period';
+  const wb  = XLSX.utils.book_new();
+  const fname = label.replace(/[^a-zA-Z0-9]+/g,'_') + '_Comparison.xlsx';
+
+  // ── Customer Movement: one sheet per region when no region filter active ──
+  if (tableId === 'scTableMovement') {
+    const allData   = window._scMovementAll || [];
+    const regionSel = (document.getElementById('scMovFilterRegion')?.value  || '').trim();
+    const statusSel = (document.getElementById('scMovFilterStatus')?.value  || '').trim();
+    const chanSel   = (document.getElementById('scMovFilterChannel')?.value || '').trim();
+    const typeSel   = (document.getElementById('scMovFilterType')?.value    || '').trim();
+    const isFiltered = regionSel || statusSel || chanSel || typeSel;
+
+    const statusLabel = { NEW: 'TRADING', RETAINED: 'RETAINED', LOST: 'NOT TRADING' };
+    const headers = ['Status','Customer','SAP Code','Region','Channel','Type',
+                     p1 + ' (Current) KSH', p2 + ' (Previous) KSH','% Change'];
+
+    function buildAOA(rows, title) {
+      const aoa = [];
+      aoa.push([title]);
+      aoa.push([p1 + ' (Current) vs ' + p2 + ' (Previous)', '', '', '', '', '', '', 'Exported: ' + new Date().toLocaleDateString()]);
+      aoa.push([]);
+      aoa.push(headers);
+      for (const c of rows) {
+        const pct = c.prevAmt !== 0
+          ? Math.round(((c.curAmt - c.prevAmt) / Math.abs(c.prevAmt)) * 100)
+          : (c.status === 'NEW' ? 100 : -100);
+        aoa.push([
+          statusLabel[c.status] || c.status,
+          c.name || c.code,
+          c.code,
+          c.region  || '',
+          c.channel || '',
+          c.type    || '',
+          c.curAmt  || 0,
+          c.prevAmt || 0,
+          (pct >= 0 ? '+' : '') + pct + '%'
+        ]);
+      }
+      // Totals row
+      const totCur  = rows.reduce((s,r) => s + (r.curAmt  || 0), 0);
+      const totPrev = rows.reduce((s,r) => s + (r.prevAmt || 0), 0);
+      const totPct  = totPrev !== 0 ? Math.round(((totCur-totPrev)/Math.abs(totPrev))*100) : 0;
+      aoa.push([]);
+      aoa.push(['TOTAL', '', '', '', '', '', Math.round(totCur), Math.round(totPrev), (totPct>=0?'+':'') + totPct + '%']);
+      return aoa;
+    }
+
+    function addSheet(aoa, sheetName) {
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      const colW = [];
+      aoa.forEach(row => (row||[]).forEach((cell,i) => {
+        const len = cell ? String(cell).length : 0;
+        colW[i] = Math.min(Math.max(colW[i]||8, len+2), 42);
+      }));
+      ws['!cols'] = colW.map(w => ({wch:w}));
+      const safe = (sheetName||'Data').replace(/[:\/?*[\]]/g,'').slice(0,31);
+      XLSX.utils.book_append_sheet(wb, ws, safe);
+    }
+
+    if (isFiltered) {
+      // Single sheet with active filters applied
+      const filtered = allData.filter(c =>
+        (!statusSel  || c.status  === statusSel) &&
+        (!regionSel  || (c.region  || 'UNKNOWN') === regionSel) &&
+        (!chanSel    || (c.channel || 'UNKNOWN') === chanSel) &&
+        (!typeSel    || (c.type    || 'UNKNOWN') === typeSel)
+      );
+      addSheet(buildAOA(filtered, label + ' — Filtered'), 'Customer Movement');
+    } else {
+      // One sheet per region, plus an "All" summary sheet
+      const regions = [...new Set(allData.map(c => c.region || 'UNKNOWN'))].sort();
+      // All sheet first
+      addSheet(buildAOA(allData, label + ' — All Regions'), 'All Regions');
+      for (const reg of regions) {
+        const regRows = allData.filter(c => (c.region || 'UNKNOWN') === reg);
+        addSheet(buildAOA(regRows, label + ' — ' + reg), reg);
+      }
+    }
+
+    XLSX.writeFile(wb, fname);
+    return;
+  }
+
+  // ── All other tables: standard single-sheet export ──
   const tbl = document.getElementById(tableId);
   if (!tbl) return;
-  const p1 = window._scP1Lbl || 'Current Period';
-  const p2 = window._scP2Lbl || 'Previous Period';
 
   const aoa = [];
   aoa.push([label]);
@@ -7899,10 +7983,8 @@ function scExportExcel(tableId, label) {
     colWidths[i] = Math.min(Math.max(colWidths[i]||8, len+2), 42);
   }));
   ws['!cols'] = colWidths.map(w => ({wch:w}));
-
-  const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, label.replace(/[^a-zA-Z0-9 ]/g,'').slice(0,31) || 'Data');
-  XLSX.writeFile(wb, label.replace(/[^a-zA-Z0-9]+/g,'_') + '_Comparison.xlsx');
+  XLSX.writeFile(wb, fname);
 }
 
 </script>
