@@ -7923,24 +7923,22 @@ function scExportExcel(tableId, label) {
       XLSX.utils.book_append_sheet(wb, ws, safe);
     }
 
-    if (isFiltered) {
-      // Single sheet with active filters applied
-      const filtered = allData.filter(c =>
-        (!statusSel  || c.status  === statusSel) &&
-        (!regionSel  || (c.region  || 'UNKNOWN') === regionSel) &&
-        (!chanSel    || (c.channel || 'UNKNOWN') === chanSel) &&
-        (!typeSel    || (c.type    || 'UNKNOWN') === typeSel)
-      );
-      addSheet(buildAOA(filtered, label + ' — Filtered'), 'Customer Movement');
-    } else {
-      // One sheet per region, plus an "All" summary sheet
-      const regions = [...new Set(allData.map(c => c.region || 'UNKNOWN'))].sort();
-      // All sheet first
-      addSheet(buildAOA(allData, label + ' — All Regions'), 'All Regions');
-      for (const reg of regions) {
-        const regRows = allData.filter(c => (c.region || 'UNKNOWN') === reg);
-        addSheet(buildAOA(regRows, label + ' — ' + reg), reg);
-      }
+    // Apply filters to get the working dataset
+    const filtered = allData.filter(c =>
+      (!statusSel || c.status  === statusSel) &&
+      (!regionSel || (c.region  || 'UNKNOWN') === regionSel) &&
+      (!chanSel   || (c.channel || 'UNKNOWN') === chanSel) &&
+      (!typeSel   || (c.type    || 'UNKNOWN') === typeSel)
+    );
+
+    // Always: All-data summary sheet first, then one sheet per region
+    const sheetTitle = isFiltered ? label + ' — Filtered' : label + ' — All Regions';
+    addSheet(buildAOA(filtered, sheetTitle), 'All Regions');
+
+    const regions = [...new Set(filtered.map(c => c.region || 'UNKNOWN'))].sort();
+    for (const reg of regions) {
+      const regRows = filtered.filter(c => (c.region || 'UNKNOWN') === reg);
+      addSheet(buildAOA(regRows, label + ' — ' + reg), reg);
     }
 
     XLSX.writeFile(wb, fname);
