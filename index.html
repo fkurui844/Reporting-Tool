@@ -7434,6 +7434,18 @@ function scRunComparison() {
         </tr>`;
       }).join('');
 
+      // Store structured data for Excel export
+      window._scDimData = window._scDimData || {};
+      window._scDimData[tableId] = {
+        label,
+        rows: keys.map(k => ({
+          name: k,
+          a1: m1[k]?.amount || 0, a2: m2[k]?.amount || 0,
+          l1: m1[k]?.ltrs   || 0, l2: m2[k]?.ltrs   || 0
+        })),
+        tot1a, tot2a, tot1l, tot2l
+      };
+
       document.getElementById(tableId).innerHTML = `
         <thead>
           <tr>
@@ -7661,6 +7673,10 @@ function scRunComparison() {
           <td class="num">${deltaPill(c.a1, c.a2)}</td>
         </tr>`;
       }).join('');
+
+      // Store for Excel export
+      window._scMoversData = window._scMoversData || {};
+      window._scMoversData[tableId] = { type, rows: sorted };
 
       document.getElementById(tableId).innerHTML = `
         <thead><tr>
@@ -8095,6 +8111,162 @@ async function scExportExcel(tableId, label) {
       const ws = wb.addWorksheet(reg.replace(/[:\/?*[\]]/g,'').slice(0,31));
       buildRegSheet(ws, reg, categories, revCur, revPrev, volCur, volPrev, false);
     }
+
+    const buf  = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click();
+    return;
+  }
+
+  // ─── DIM TABLES (Category / Region / Channel) ──────────────────
+  const DIM_IDS = ['scTableCategory','scTableRegion','scTableChannel'];
+  if (DIM_IDS.includes(tableId)) {
+    const p1  = window._scP1Lbl || 'Current Period';
+    const p2  = window._scP2Lbl || 'Previous Period';
+    const src = (window._scDimData || {})[tableId];
+    if (!src) { alert('Run a comparison first.'); return; }
+
+    function pctStr(cur, prev) {
+      if (prev === 0) return cur > 0 ? '+100%' : '0%';
+      const p = Math.round(((cur - prev) / Math.abs(prev)) * 100);
+      return (p >= 0 ? '+' : '') + p + '%';
+    }
+
+    const ws = wb.addWorksheet(src.label.replace(/[:\/?*[\]]/g,'').slice(0,31) || 'Data');
+
+    // Title row
+    const ttl = label + '   |   ' + p1 + ' (Current) vs ' + p2 + ' (Previous)   |   Exported: ' + new Date().toLocaleDateString();
+    ws.addRow([ttl]);
+    applyCell(ws.getCell(1,1), ttl, { bold:true, size:11, color:WHITE, fill:NAVY });
+    ws.mergeCells(1,1,1,7);
+    ws.addRow([]);
+
+    // Group header row 1
+    ws.addRow([src.label, 'SALES IN REVENUE', '', '', 'SALES IN VOLUME', '', '']);
+    applyCell(ws.getCell(3,1), src.label,        { bold:true, color:WHITE, fill:NAVY });
+    applyCell(ws.getCell(3,2), 'SALES IN REVENUE', { bold:true, color:PINK,  fill:NAVY, center:true });
+    ws.mergeCells(3,2,3,4);
+    applyCell(ws.getCell(3,5), 'SALES IN VOLUME',  { bold:true, color:BLUE,  fill:NAVY, center:true });
+    ws.mergeCells(3,5,3,7);
+    ws.getRow(3).height = 20;
+
+    // Group header row 2
+    const HDRS2 = [
+      src.label,
+      'Current\n' + p1 + '\n(KSH)',
+      'Previous\n' + p2 + '\n(KSH)',
+      '% Growth / Decline',
+      'Current\n' + p1 + '\n(Ltrs/Kgs)',
+      'Previous\n' + p2 + '\n(Ltrs/Kgs)',
+      '% Growth / Decline'
+    ];
+    ws.addRow(HDRS2);
+    hCell(ws.getCell(4,1), HDRS2[0]);
+    hCell(ws.getCell(4,2), HDRS2[1], { color:PINK,  right:true });
+    hCell(ws.getCell(4,3), HDRS2[2], { color:PINK,  right:true });
+    hCell(ws.getCell(4,4), HDRS2[3], { color:AMBER, right:true });
+    hCell(ws.getCell(4,5), HDRS2[4], { color:BLUE,  right:true });
+    hCell(ws.getCell(4,6), HDRS2[5], { color:BLUE,  right:true });
+    hCell(ws.getCell(4,7), HDRS2[6], { color:AMBER, right:true });
+    ws.getRow(4).height = 52;
+
+    // Data rows
+    src.rows.forEach(({ name, a1, a2, l1, l2 }, idx) => {
+      const fill = idx % 2 === 1 ? LIGHT_ROW : undefined;
+      const dr = ws.addRow([name, a1, a2, pctStr(a1,a2), l1, l2, pctStr(l1,l2)]);
+      applyCell(dr.getCell(1), name,           { fill });
+      applyCell(dr.getCell(2), a1,             { fill });
+      applyCell(dr.getCell(3), a2,             { fill });
+      applyCell(dr.getCell(4), pctStr(a1,a2),  { fill, right:true });
+      applyCell(dr.getCell(5), l1,             { fill });
+      applyCell(dr.getCell(6), l2,             { fill });
+      applyCell(dr.getCell(7), pctStr(l1,l2),  { fill, right:true });
+    });
+
+    // Total row
+    ws.addRow([]);
+    const tr = ws.addRow(['TOTAL', src.tot1a, src.tot2a, pctStr(src.tot1a,src.tot2a),
+                          src.tot1l, src.tot2l, pctStr(src.tot1l,src.tot2l)]);
+    applyCell(tr.getCell(1), 'TOTAL',                      { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(2), src.tot1a,                    { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(3), src.tot2a,                    { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(4), pctStr(src.tot1a,src.tot2a),  { bold:true, color:AMBER, fill:NAVY, right:true });
+    applyCell(tr.getCell(5), src.tot1l,                    { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(6), src.tot2l,                    { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(7), pctStr(src.tot1l,src.tot2l),  { bold:true, color:AMBER, fill:NAVY, right:true });
+
+    // Column widths
+    [22, 22, 22, 18, 22, 22, 18].forEach((w,i) => { ws.getColumn(i+1).width = w; });
+
+    const buf  = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click();
+    return;
+  }
+
+  // ─── TOP GAINERS / DECLINERS ────────────────────────────────────
+  const MOVERS_IDS = ['scTableGainers','scTableLosers'];
+  if (MOVERS_IDS.includes(tableId)) {
+    const p1  = window._scP1Lbl || 'Current Period';
+    const p2  = window._scP2Lbl || 'Previous Period';
+    const src = (window._scMoversData || {})[tableId];
+    if (!src || !src.rows.length) { alert('Run a comparison first.'); return; }
+
+    function pctM(cur, prev) {
+      if (prev === 0) return cur > 0 ? '+100%' : '0%';
+      const p = Math.round(((cur - prev) / Math.abs(prev)) * 100);
+      return (p >= 0 ? '+' : '') + p + '%';
+    }
+
+    const ws = wb.addWorksheet(label.replace(/[:\/?*[\]]/g,'').slice(0,31) || 'Data');
+
+    // Title
+    const ttl = label + '   |   ' + p1 + ' (Current) vs ' + p2 + ' (Previous)   |   Exported: ' + new Date().toLocaleDateString();
+    ws.addRow([ttl]);
+    applyCell(ws.getCell(1,1), ttl, { bold:true, size:11, color:WHITE, fill:NAVY });
+    ws.mergeCells(1,1,1,5);
+    ws.addRow([]);
+
+    // Header row
+    const HDRS = ['#', 'Customer', 'SAP Code',
+      'Current\n' + p1 + '\n(KSH)',
+      'Previous\n' + p2 + '\n(KSH)',
+      '% Growth / Decline'];
+    ws.addRow(HDRS);
+    hCell(ws.getCell(3,1), '#',      { center:true });
+    hCell(ws.getCell(3,2), 'Customer');
+    hCell(ws.getCell(3,3), 'SAP Code');
+    hCell(ws.getCell(3,4), HDRS[3],  { color:PINK,  right:true });
+    hCell(ws.getCell(3,5), HDRS[4],  { color:BLUE,  right:true });
+    hCell(ws.getCell(3,6), HDRS[5],  { color:AMBER, right:true });
+    ws.getRow(3).height = 52;
+
+    // Data rows
+    src.rows.forEach(({ code, name, a1, a2 }, idx) => {
+      const fill = idx % 2 === 1 ? LIGHT_ROW : undefined;
+      const dr = ws.addRow([idx+1, name, code, a1, a2, pctM(a1,a2)]);
+      applyCell(dr.getCell(1), idx+1,      { fill, center:true });
+      applyCell(dr.getCell(2), name,        { fill });
+      applyCell(dr.getCell(3), code,        { fill });
+      applyCell(dr.getCell(4), a1,          { fill });
+      applyCell(dr.getCell(5), a2,          { fill });
+      applyCell(dr.getCell(6), pctM(a1,a2), { fill, right:true });
+    });
+
+    // Summary total row
+    ws.addRow([]);
+    const totCur  = src.rows.reduce((s,r)=>s+r.a1, 0);
+    const totPrev = src.rows.reduce((s,r)=>s+r.a2, 0);
+    const tr = ws.addRow(['', 'TOTAL (shown)', '', totCur, totPrev, pctM(totCur,totPrev)]);
+    applyCell(tr.getCell(1), '',               { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(2), 'TOTAL (shown)',   { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(3), '',               { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(4), totCur,            { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(5), totPrev,           { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(6), pctM(totCur,totPrev), { bold:true, color:AMBER, fill:NAVY, right:true });
+
+    // Column widths
+    [6, 40, 12, 24, 24, 18].forEach((w,i) => { ws.getColumn(i+1).width = w; });
 
     const buf  = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
