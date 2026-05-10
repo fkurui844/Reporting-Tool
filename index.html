@@ -7367,8 +7367,8 @@ function scRunComparison() {
         <div class="sc-kpi-delta ${cls}">${arrow} ${sign}${fmtFn(Math.abs(diff))} &nbsp;<span style="opacity:.7;font-size:11px;">(${sign}${pct}%)</span></div>
       </div>`;
     }
-    const fmtK = v => v >= 1e6 ? 'KSH ' + (v/1e6).toFixed(2) + 'M' : 'KSH ' + Math.round(v).toLocaleString();
-    const fmtL = v => Math.round(v).toLocaleString() + ' L';
+    const fmtK = v => 'KSH ' + Math.round(v).toLocaleString();
+    const fmtL = v => Math.round(v).toLocaleString() + ' Ltrs/Kgs';
     const fmtN = v => Math.round(v).toLocaleString();
 
     document.getElementById('scKpiGrid').innerHTML =
