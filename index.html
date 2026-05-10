@@ -9,6 +9,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -7861,128 +7862,181 @@ ${clone.outerHTML}
   a.click();
 }
 
-function scExportExcel(tableId, label) {
-  const p1  = window._scP1Lbl || 'Current Period';
-  const p2  = window._scP2Lbl || 'Previous Period';
-  const wb  = XLSX.utils.book_new();
+async function scExportExcel(tableId, label) {
+  const p1   = window._scP1Lbl || 'Current Period';
+  const p2   = window._scP2Lbl || 'Previous Period';
   const fname = label.replace(/[^a-zA-Z0-9]+/g,'_') + '_Comparison.xlsx';
 
-  // ── Customer Movement: one sheet per region when no region filter active ──
+  const FONT      = 'Segoe UI';
+  const NAVY      = { argb: 'FF0F2744' };
+  const WHITE     = { argb: 'FFFFFFFF' };
+  const AMBER     = { argb: 'FFF59E0B' };
+  const PINK      = { argb: 'FFF9A8D4' };
+  const BLUE      = { argb: 'FF93C5FD' };
+  const LIGHT_ROW = { argb: 'FFF8FAFF' };
+  const BORDER_C  = { argb: 'FFD1D5DB' };
+  const thinBorder = s => ({ top:{style:s,color:BORDER_C}, left:{style:s,color:BORDER_C}, bottom:{style:s,color:BORDER_C}, right:{style:s,color:BORDER_C} });
+
+  function applyCell(cell, value, opts={}) {
+    cell.value  = value;
+    cell.border = thinBorder(opts.bold ? 'medium' : 'thin');
+    cell.font   = { name: FONT, size: opts.size||10, bold:!!opts.bold, color: opts.color||{argb:'FF111827'} };
+    if (opts.fill) cell.fill = { type:'pattern', pattern:'solid', fgColor: opts.fill };
+    const ha = opts.right ? 'right' : opts.center ? 'center' : 'left';
+    cell.alignment = { horizontal: ha, vertical:'middle', wrapText: !!opts.wrap };
+    if (typeof value === 'number') { cell.numFmt = '#,##0'; cell.alignment = { horizontal:'right', vertical:'middle' }; }
+  }
+  function hCell(cell, value, opts={}) {
+    applyCell(cell, value, { bold:true, color: opts.color||WHITE, fill: opts.fill||NAVY, right: opts.right, wrap:true, ...opts });
+  }
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Sales Comparison Tool';
+  wb.created = new Date();
+
+  // ─── CUSTOMER MOVEMENT (multi-sheet by region) ───────────────
   if (tableId === 'scTableMovement') {
-    const allData   = window._scMovementAll || [];
-    const regionSel = (document.getElementById('scMovFilterRegion')?.value  || '').trim();
-    const statusSel = (document.getElementById('scMovFilterStatus')?.value  || '').trim();
-    const chanSel   = (document.getElementById('scMovFilterChannel')?.value || '').trim();
-    const typeSel   = (document.getElementById('scMovFilterType')?.value    || '').trim();
-    const isFiltered = regionSel || statusSel || chanSel || typeSel;
+    const allData  = window._scMovementAll || [];
+    const sS = (document.getElementById('scMovFilterStatus')?.value  ||'').trim();
+    const rS = (document.getElementById('scMovFilterRegion')?.value  ||'').trim();
+    const cS = (document.getElementById('scMovFilterChannel')?.value ||'').trim();
+    const tS = (document.getElementById('scMovFilterType')?.value    ||'').trim();
+    const SL = { NEW:'TRADING', RETAINED:'RETAINED', LOST:'NOT TRADING' };
 
-    const statusLabel = { NEW: 'TRADING', RETAINED: 'RETAINED', LOST: 'NOT TRADING' };
-    const headers = ['Status','Customer','SAP Code','Region','Channel','Type',
-                     p1 + ' (Current) KSH', p2 + ' (Previous) KSH','% Change'];
-
-    function buildAOA(rows, title) {
-      const aoa = [];
-      aoa.push([title]);
-      aoa.push([p1 + ' (Current) vs ' + p2 + ' (Previous)', '', '', '', '', '', '', 'Exported: ' + new Date().toLocaleDateString()]);
-      aoa.push([]);
-      aoa.push(headers);
-      for (const c of rows) {
-        const pct = c.prevAmt !== 0
-          ? Math.round(((c.curAmt - c.prevAmt) / Math.abs(c.prevAmt)) * 100)
-          : (c.status === 'NEW' ? 100 : -100);
-        aoa.push([
-          statusLabel[c.status] || c.status,
-          c.name || c.code,
-          c.code,
-          c.region  || '',
-          c.channel || '',
-          c.type    || '',
-          c.curAmt  || 0,
-          c.prevAmt || 0,
-          (pct >= 0 ? '+' : '') + pct + '%'
-        ]);
-      }
-      // Totals row
-      const totCur  = rows.reduce((s,r) => s + (r.curAmt  || 0), 0);
-      const totPrev = rows.reduce((s,r) => s + (r.prevAmt || 0), 0);
-      const totPct  = totPrev !== 0 ? Math.round(((totCur-totPrev)/Math.abs(totPrev))*100) : 0;
-      aoa.push([]);
-      aoa.push(['TOTAL', '', '', '', '', '', Math.round(totCur), Math.round(totPrev), (totPct>=0?'+':'') + totPct + '%']);
-      return aoa;
-    }
-
-    function addSheet(aoa, sheetName) {
-      const ws = XLSX.utils.aoa_to_sheet(aoa);
-      const colW = [];
-      aoa.forEach(row => (row||[]).forEach((cell,i) => {
-        const len = cell ? String(cell).length : 0;
-        colW[i] = Math.min(Math.max(colW[i]||8, len+2), 42);
-      }));
-      ws['!cols'] = colW.map(w => ({wch:w}));
-      const safe = (sheetName||'Data').replace(/[:\/?*[\]]/g,'').slice(0,31);
-      XLSX.utils.book_append_sheet(wb, ws, safe);
-    }
-
-    // Apply filters to get the working dataset
     const filtered = allData.filter(c =>
-      (!statusSel || c.status  === statusSel) &&
-      (!regionSel || (c.region  || 'UNKNOWN') === regionSel) &&
-      (!chanSel   || (c.channel || 'UNKNOWN') === chanSel) &&
-      (!typeSel   || (c.type    || 'UNKNOWN') === typeSel)
+      (!sS || c.status === sS) &&
+      (!rS || (c.region  ||'UNKNOWN') === rS) &&
+      (!cS || (c.channel ||'UNKNOWN') === cS) &&
+      (!tS || (c.type    ||'UNKNOWN') === tS)
     );
+    const regions = [...new Set(filtered.map(c => c.region||'UNKNOWN'))].sort();
+    const sheets  = [{ name:'All Regions', rows:filtered }, ...regions.map(r => ({ name:r, rows: filtered.filter(c=>(c.region||'UNKNOWN')===r) }))];
 
-    // Always: All-data summary sheet first, then one sheet per region
-    const sheetTitle = isFiltered ? label + ' — Filtered' : label + ' — All Regions';
-    addSheet(buildAOA(filtered, sheetTitle), 'All Regions');
+    const COLS = [14,38,12,18,16,16,22,22,14];
+    const HDRS = ['Status','Customer','SAP Code','Region','Channel','Type', p1+'\n(Current) KSH', p2+'\n(Previous) KSH','% Change'];
 
-    const regions = [...new Set(filtered.map(c => c.region || 'UNKNOWN'))].sort();
-    for (const reg of regions) {
-      const regRows = filtered.filter(c => (c.region || 'UNKNOWN') === reg);
-      addSheet(buildAOA(regRows, label + ' — ' + reg), reg);
+    for (const { name, rows } of sheets) {
+      const ws = wb.addWorksheet(name.replace(/[:\\/?*[\]]/g,'').slice(0,31));
+      // Title
+      const ttl = label + ' — ' + name + '   |   Exported: ' + new Date().toLocaleDateString();
+      ws.addRow([ttl]);
+      applyCell(ws.getCell(1,1), ttl, { bold:true, size:12, color:WHITE, fill:NAVY });
+      ws.mergeCells(1,1,1,9);
+      const sub = p1+' (Current)  vs  '+p2+' (Previous)';
+      ws.addRow([sub]);
+      applyCell(ws.getCell(2,1), sub, { size:9, color:{argb:'FF6B7280'} });
+      ws.mergeCells(2,1,2,9);
+      ws.addRow([]);
+      // Header
+      const hRow = ws.addRow(HDRS); hRow.height = 38;
+      [1,2,3,4,5,6].forEach(i => hCell(ws.getCell(4,i), HDRS[i-1]));
+      hCell(ws.getCell(4,7), HDRS[6], { color:PINK,  right:true });
+      hCell(ws.getCell(4,8), HDRS[7], { color:BLUE,  right:true });
+      hCell(ws.getCell(4,9), HDRS[8], { color:AMBER, right:true });
+      // Data
+      rows.forEach((c,idx) => {
+        const pct = c.prevAmt !== 0 ? Math.round(((c.curAmt-c.prevAmt)/Math.abs(c.prevAmt))*100) : (c.status==='NEW'?100:-100);
+        const pStr = (pct>=0?'+':'')+pct+'%';
+        const fill = idx%2===1 ? LIGHT_ROW : undefined;
+        const dr = ws.addRow([SL[c.status]||c.status, c.name||c.code, c.code, c.region||'', c.channel||'', c.type||'', c.curAmt||0, c.prevAmt||0, pStr]);
+        [1,2,3,4,5,6].forEach(i => applyCell(dr.getCell(i), dr.getCell(i).value, {fill}));
+        applyCell(dr.getCell(7), c.curAmt||0, {fill});
+        applyCell(dr.getCell(8), c.prevAmt||0, {fill});
+        applyCell(dr.getCell(9), pStr, {fill, right:true});
+      });
+      // Totals
+      ws.addRow([]);
+      const tC = Math.round(rows.reduce((s,r)=>s+(r.curAmt||0),0));
+      const tP = Math.round(rows.reduce((s,r)=>s+(r.prevAmt||0),0));
+      const tPct = tP!==0 ? Math.round(((tC-tP)/Math.abs(tP))*100) : 0;
+      const tr = ws.addRow(['TOTAL','','','','','', tC, tP, (tPct>=0?'+':'')+tPct+'%']);
+      [1,2,3,4,5,6].forEach(i => applyCell(tr.getCell(i), tr.getCell(i).value, {bold:true,color:WHITE,fill:NAVY}));
+      applyCell(tr.getCell(7), tC,  {bold:true,color:WHITE,fill:NAVY});
+      applyCell(tr.getCell(8), tP,  {bold:true,color:WHITE,fill:NAVY});
+      applyCell(tr.getCell(9), tr.getCell(9).value, {bold:true,color:AMBER,fill:NAVY,right:true});
+      COLS.forEach((w,i) => { ws.getColumn(i+1).width = w; });
     }
 
-    XLSX.writeFile(wb, fname);
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click();
     return;
   }
 
-  // ── All other tables: standard single-sheet export ──
+  // ─── ALL OTHER TABLES (single sheet) ─────────────────────────
   const tbl = document.getElementById(tableId);
   if (!tbl) return;
+  const ws = wb.addWorksheet(label.replace(/[:\\/?*[\]]/g,'').slice(0,31)||'Data');
 
-  const aoa = [];
-  aoa.push([label]);
-  aoa.push([p1 + ' (Current) vs ' + p2 + ' (Previous)', '', 'Exported: ' + new Date().toLocaleDateString()]);
-  aoa.push([]);
+  // Title row
+  const ttl = label + '   |   ' + p1 + ' (Current) vs ' + p2 + ' (Previous)   |   Exported: ' + new Date().toLocaleDateString();
+  ws.addRow([ttl]);
+  applyCell(ws.getCell(1,1), ttl, {bold:true, size:11, color:WHITE, fill:NAVY});
+  ws.addRow([]);
 
+  let maxCol = 0;
+  let excelRow = 2;
   const sections = [tbl.tHead, tbl.tBodies[0], tbl.tFoot];
+  let bodyStart = 0, bodyLen = 0;
   for (const section of sections) {
     if (!section) continue;
+    const isHead = section === tbl.tHead;
+    const isFoot = section === tbl.tFoot;
+    if (!isHead && !isFoot && bodyStart === 0) bodyStart = excelRow + 1;
     for (const row of section.rows) {
-      const rowData = [];
+      excelRow++;
+      let col = 1;
       for (const cell of row.cells) {
-        let text = cell.innerText.replace(/\n/g,' ').replace(/\s+/g,' ').trim();
-        const cleaned = text.replace(/[,]/g,'');
-        const num = Number(cleaned);
-        if (!isNaN(num) && cleaned !== '' && /^-?[0-9]/.test(cleaned)) {
-          rowData.push(num);
+        const raw = cell.innerText.replace(/\n/g,' ').replace(/\s+/g,' ').trim();
+        const cleaned = raw.replace(/,/g,'').replace(/KSH\s*/i,'').replace(/Ltrs\/Kgs/i,'').trim();
+        const num = parseFloat(cleaned);
+        const isNum = !isNaN(num) && cleaned !== '' && /^-?[0-9]/.test(cleaned) && !raw.includes('%');
+        const val = isNum ? num : raw;
+        const ec = ws.getCell(excelRow, col);
+        const cls = cell.className || '';
+        const isRight = cls.includes('num') || isNum;
+        if (isHead) {
+          const color = cls.includes('p2h') ? PINK : cls.includes('p1h') ? BLUE : WHITE;
+          hCell(ec, val, { color, right:isRight, fill: NAVY });
+        } else if (isFoot) {
+          applyCell(ec, val, { bold:true, color:WHITE, fill:NAVY, right:isRight });
         } else {
-          rowData.push(text);
+          applyCell(ec, val, { right:isRight });
         }
-        for (let s = 1; s < (cell.colSpan||1); s++) rowData.push(null);
+        if (col > maxCol) maxCol = col;
+        const cs = cell.colSpan||1, rs = cell.rowSpan||1;
+        if (cs>1||rs>1) ws.mergeCells(excelRow, col, excelRow+rs-1, col+cs-1);
+        col += cs;
       }
-      aoa.push(rowData);
+      if (!isHead && !isFoot) bodyLen++;
     }
   }
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  const colWidths = [];
-  aoa.forEach(row => row.forEach((cell, i) => {
-    const len = cell ? String(cell).length : 0;
-    colWidths[i] = Math.min(Math.max(colWidths[i]||8, len+2), 42);
-  }));
-  ws['!cols'] = colWidths.map(w => ({wch:w}));
-  XLSX.utils.book_append_sheet(wb, ws, label.replace(/[^a-zA-Z0-9 ]/g,'').slice(0,31) || 'Data');
-  XLSX.writeFile(wb, fname);
+  // Merge title
+  if (maxCol > 1) ws.mergeCells(1,1,1,maxCol);
+
+  // Zebra stripe body rows
+  for (let r = 0; r < bodyLen; r++) {
+    if (r%2===1) {
+      const eRow = ws.getRow(bodyStart + r);
+      eRow.eachCell({includeEmpty:false}, c => {
+        if (!c.fill || !c.fill.fgColor || c.fill.fgColor.argb === 'FF000000') {
+          c.fill = {type:'pattern', pattern:'solid', fgColor: LIGHT_ROW};
+        }
+      });
+    }
+  }
+
+  // Auto-width columns
+  ws.columns.forEach((col, i) => {
+    let max = 8;
+    col.eachCell({includeEmpty:false}, c => { const v = c.value!=null?String(c.value):''; if(v.length>max) max=v.length; });
+    col.width = Math.min(max+2, 44);
+  });
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click();
 }
 
 </script>
