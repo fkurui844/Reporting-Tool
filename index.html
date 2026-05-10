@@ -7217,6 +7217,16 @@ function scRenderMovement(list) {
     </tr>`;
   }).join("");
 
+  // Totals — flexible, reflects current filtered list
+  const totalCur  = Math.round(list.reduce((s,c) => s + (c.curAmt  || 0), 0));
+  const totalPrev = Math.round(list.reduce((s,c) => s + (c.prevAmt || 0), 0));
+  const totalDiff = totalCur - totalPrev;
+  const totalPct  = totalPrev !== 0 ? Math.round((totalDiff / Math.abs(totalPrev)) * 100) : (totalCur > 0 ? 100 : 0);
+  const tCls  = totalDiff > 0 ? "up" : totalDiff < 0 ? "down" : "flat";
+  const tArr  = totalDiff > 0 ? "▲" : totalDiff < 0 ? "▼" : "—";
+  const tSign = totalDiff > 0 ? "+" : "";
+  const totalChangePill = `<span class="sc-delta-pill ${tCls}">${tArr} ${tSign}${totalPct}%</span>`;
+
   const countEl = document.getElementById("scMovCount");
   if (countEl) countEl.innerHTML =
     `<strong>${list.length}</strong> total &nbsp;` +
@@ -7235,11 +7245,16 @@ function scRenderMovement(list) {
       <th class="num" style="background:#0f2744;color:#f59e0b;">% Change</th>
     </tr></thead>
     <tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">No customers match the selected filters.</td></tr>'}</tbody>
-    <tfoot><tr>
-      <td colspan="5" style="color:rgba(255,255,255,0.7);font-size:11px;">
-        ${newCount} new &nbsp;|&nbsp; ${retainedCount} retained &nbsp;|&nbsp; ${lostCount} lost
-      </td>
-    </tr></tfoot>`;
+    <tfoot>
+      <tr>
+        <td colspan="2" style="color:rgba(255,255,255,0.7);font-size:11px;vertical-align:middle;">
+          ${newCount} trading &nbsp;|&nbsp; ${retainedCount} retained &nbsp;|&nbsp; ${lostCount} not trading
+        </td>
+        <td class="num" style="font-weight:700;color:#fff;font-size:13px;">${"KSH " + totalCur.toLocaleString()}</td>
+        <td class="num" style="font-weight:700;color:#fff;font-size:13px;">${"KSH " + totalPrev.toLocaleString()}</td>
+        <td class="num">${totalChangePill}</td>
+      </tr>
+    </tfoot>`;
 }
 
 function scFilterMovement() {
