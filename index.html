@@ -1277,6 +1277,148 @@
     body.dark #typeSalesTable tbody tr:hover td:first-child { background:var(--row-hover); }
     body.dark #typeSalesTable tbody td { border-bottom-color:var(--border2); }
 
+    /* ══ SALES PROJECTION PAGE ══ */
+    .proj-page { max-width:1200px; margin:0 auto; padding:24px 16px; }
+
+    /* Upload zone */
+    .proj-upload-zone {
+      border:2px dashed var(--border); border-radius:12px;
+      background:var(--surface); padding:32px 24px;
+      text-align:center; cursor:pointer;
+      transition:border-color 0.15s, background 0.15s;
+      margin-bottom:20px;
+    }
+    .proj-upload-zone:hover,.proj-upload-zone.drag { border-color:#E1245A; background:var(--row-total); }
+    .proj-upload-zone.loaded { border-color:#1db87a; border-style:solid; cursor:default; }
+    .proj-upload-zone input[type=file] { display:none; }
+    .proj-upload-icon { font-size:32px; margin-bottom:10px; }
+    .proj-upload-title { font-size:15px; font-weight:700; color:var(--text-head); margin-bottom:4px; }
+    .proj-upload-sub { font-size:12px; color:var(--text-muted); margin-bottom:14px; }
+    .proj-drop-btn {
+      display:inline-block; padding:8px 22px;
+      background:#0f2744; color:#fff; border-radius:8px;
+      font-size:13px; font-weight:600; cursor:pointer;
+      border:none; font-family:'DM Sans',sans-serif;
+    }
+    .proj-drop-btn:hover { background:#1a3c5e; }
+    .proj-file-loaded {
+      display:none; align-items:center; gap:12px;
+      padding:12px 16px; background:#d1fae5;
+      border-radius:8px; margin-top:12px; text-align:left;
+    }
+    body.dark .proj-file-loaded { background:#0d2618; }
+    .proj-file-loaded.visible { display:flex; }
+    .proj-file-loaded-name { font-size:13px; font-weight:700; color:#065f46; word-break:break-all; }
+    body.dark .proj-file-loaded-name { color:#6ee7b7; }
+    .proj-file-loaded-meta { font-size:11px; color:#047857; margin-top:2px; }
+    body.dark .proj-file-loaded-meta { color:#34d399; }
+    .proj-change-link { font-size:11px; color:var(--text-muted); text-decoration:underline; cursor:pointer; margin-left:auto; flex-shrink:0; }
+    .proj-change-link:hover { color:#E1245A; }
+
+    /* Settings bar */
+    .proj-settings {
+      display:none; align-items:center; flex-wrap:wrap; gap:12px;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; padding:14px 18px; margin-bottom:20px;
+    }
+    .proj-settings.visible { display:flex; }
+    .proj-settings-label { font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; white-space:nowrap; }
+    .proj-select,.proj-input {
+      padding:6px 12px; border:1px solid var(--border);
+      border-radius:7px; background:var(--surface); color:var(--text);
+      font-size:12px; font-family:'DM Sans',sans-serif; cursor:pointer;
+    }
+    .proj-select:focus,.proj-input:focus { outline:none; border-color:#E1245A; }
+    .proj-input { width:80px; }
+    .btn-proj-run {
+      padding:8px 22px; background:#E1245A; color:#fff;
+      border:none; border-radius:8px; font-size:13px;
+      font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif;
+      display:flex; align-items:center; gap:6px;
+    }
+    .btn-proj-run:hover { background:#c01f4e; }
+
+    /* Results */
+    .proj-results { display:none; }
+    .proj-results.visible { display:block; }
+
+    /* KPI grid */
+    .proj-kpi-grid {
+      display:grid; grid-template-columns:repeat(4,1fr);
+      gap:14px; margin-bottom:20px;
+    }
+    @media(max-width:900px){.proj-kpi-grid{grid-template-columns:repeat(2,1fr);}}
+    @media(max-width:480px){.proj-kpi-grid{grid-template-columns:1fr;}}
+    .proj-kpi-card {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; padding:16px 18px;
+    }
+    .proj-kpi-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); margin-bottom:8px; }
+    .proj-kpi-actual { font-size:13px; font-weight:700; color:var(--text); margin-bottom:4px; }
+    .proj-kpi-projected { font-size:18px; font-weight:800; color:#E1245A; margin-bottom:6px; }
+    .proj-kpi-meta { font-size:11px; color:var(--text-muted); }
+    .proj-kpi-pct {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700;
+      margin-top:6px;
+    }
+    .proj-kpi-pct.up   { background:#d1fae5; color:#065f46; }
+    .proj-kpi-pct.down { background:#fee2e2; color:#991b1b; }
+    body.dark .proj-kpi-pct.up   { background:#0d2618; color:#6ee7b7; }
+    body.dark .proj-kpi-pct.down { background:#2d0a0a; color:#fca5a5; }
+
+    /* Progress bar */
+    .proj-progress-bar-wrap { height:6px; background:var(--border2); border-radius:99px; margin:8px 0; }
+    .proj-progress-bar { height:6px; border-radius:99px; background:#E1245A; transition:width 0.5s ease; }
+
+    /* Dimension tables */
+    .proj-section {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; margin-bottom:16px; overflow:hidden;
+    }
+    .proj-section-head {
+      display:flex; align-items:center; gap:10px;
+      padding:14px 18px; border-bottom:1px solid var(--border);
+      background:var(--th-bg);
+    }
+    .proj-section-title { font-size:13px; font-weight:700; color:var(--text-head); flex:1; }
+    .proj-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .proj-table thead tr { background:#0f2744; }
+    .proj-table thead th { padding:9px 14px; text-align:left; font-size:10px; font-weight:700; color:rgba(255,255,255,0.72); letter-spacing:0.07em; white-space:nowrap; }
+    .proj-table thead th.r { text-align:right; }
+    .proj-table thead th.proj-col { color:#f9a8d4; }
+    .proj-table thead th.pace-col { color:#f59e0b; }
+    .proj-table tbody tr:nth-child(even) { background:var(--row-pct); }
+    .proj-table tbody tr:hover { background:var(--row-hover); }
+    .proj-table tbody td { padding:9px 14px; border-bottom:1px solid var(--border2); color:var(--text); vertical-align:middle; }
+    .proj-table tbody tr:last-child td { border-bottom:none; }
+    .proj-table tbody td.r { text-align:right; font-family:'DM Mono',monospace; font-size:12px; }
+    .proj-table tfoot tr { background:#0f2744; }
+    .proj-table tfoot td { padding:9px 14px; font-weight:700; color:#fff; font-size:12px; }
+    .proj-table tfoot td.r { text-align:right; font-family:'DM Mono',monospace; }
+    .proj-pace-pill {
+      display:inline-flex; align-items:center; gap:3px;
+      padding:2px 8px; border-radius:99px; font-size:11px; font-weight:700;
+    }
+    .proj-pace-pill.fast  { background:#d1fae5; color:#065f46; }
+    .proj-pace-pill.slow  { background:#fee2e2; color:#991b1b; }
+    .proj-pace-pill.avg   { background:#dbeafe; color:#1e40af; }
+    body.dark .proj-pace-pill.fast { background:#0d2618; color:#6ee7b7; }
+    body.dark .proj-pace-pill.slow { background:#2d0a0a; color:#fca5a5; }
+    body.dark .proj-pace-pill.avg  { background:#1e3a5f; color:#93c5fd; }
+
+    /* Chart grid */
+    .proj-chart-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;
+    }
+    @media(max-width:900px){.proj-chart-grid{grid-template-columns:1fr;}}
+    .proj-chart-card {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; padding:16px 18px;
+    }
+    .proj-chart-card-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:14px; }
+
+
     /* ══ SALES COMPARISON TAB ══ */
     .sc-page { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
 
@@ -1637,6 +1779,7 @@
     <button class="nav-btn" id="navSpc" onclick="switchPage('spc')">👤 Sales Per Customer</button>
     <button class="nav-btn" id="navSalesComparison" onclick="switchPage('salesComparison')">📈 Sales Comparison</button>
     <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">📊 Charts</button>
+    <button class="nav-btn" id="navSalesProjection" onclick="switchPage('salesProjection')">📈 Sales Projection</button>
     <div class="theme-toggle">
       <span class="theme-toggle-label" id="themeLabel">☀️</span>
       <label class="toggle-switch" title="Toggle Day / Night mode">
@@ -2525,6 +2668,138 @@
       </button>
     </div>
   </div>
+</div>
+
+<!-- ══════════════════ SALES PROJECTION PAGE ══════════════════ -->
+<div class="page" id="pageSalesProjection">
+  <div class="proj-page">
+
+    <!-- Header -->
+    <div style="margin-bottom:20px;">
+      <h2 style="font-size:18px;font-weight:700;color:var(--text-head);margin-bottom:4px;">📈 Sales Projection</h2>
+      <p style="font-size:13px;color:var(--text-muted);">Upload a SAP export to project full-period revenue, volume and customer targets based on current trading pace.</p>
+    </div>
+
+    <!-- Upload zone -->
+    <div class="proj-upload-zone" id="projZone"
+         ondragover="projDrag(event)" ondragleave="projDragLeave()" ondrop="projDrop(event)"
+         onclick="document.getElementById('projInput').click()">
+      <input type="file" id="projInput" accept=".xls,.txt,.csv" onchange="projFileChosen(this)">
+      <div class="proj-upload-icon">📂</div>
+      <div class="proj-upload-title">Drop SAP Sales Export Here</div>
+      <div class="proj-upload-sub">Same file format as Upload Sales — .xls / .txt / .csv</div>
+      <button class="proj-drop-btn" onclick="event.stopPropagation();document.getElementById('projInput').click()">Choose File</button>
+      <div class="proj-file-loaded" id="projFileLoaded">
+        <span style="font-size:20px;">✅</span>
+        <div style="flex:1;min-width:0;">
+          <div class="proj-file-loaded-name" id="projFileName">—</div>
+          <div class="proj-file-loaded-meta" id="projFileMeta">—</div>
+        </div>
+        <span class="proj-change-link" onclick="event.stopPropagation();projClear()">Change</span>
+      </div>
+    </div>
+
+    <!-- Settings bar -->
+    <div class="proj-settings" id="projSettings">
+      <span class="proj-settings-label">Project for:</span>
+      <select class="proj-select" id="projDaysTarget">
+        <option value="30">30 days (monthly)</option>
+        <option value="31">31 days</option>
+        <option value="28">28 days</option>
+        <option value="90">90 days (quarterly)</option>
+        <option value="custom">Custom…</option>
+      </select>
+      <input class="proj-input" type="number" id="projDaysCustom" placeholder="Days" min="1" max="365" style="display:none;">
+      <span class="proj-settings-label" style="margin-left:12px;">Growth assumption:</span>
+      <select class="proj-select" id="projGrowthMode">
+        <option value="0">No adjustment (run rate only)</option>
+        <option value="5">+5% growth</option>
+        <option value="10">+10% growth</option>
+        <option value="15">+15% growth</option>
+        <option value="-5">-5% conservative</option>
+        <option value="-10">-10% conservative</option>
+        <option value="custom">Custom %…</option>
+      </select>
+      <input class="proj-input" type="number" id="projGrowthCustom" placeholder="%" style="display:none;">
+      <button class="btn-proj-run" onclick="projRun()">⚡ Generate Projection</button>
+      <button style="padding:7px 14px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;" onclick="projClear()">↺ Reset</button>
+    </div>
+
+    <!-- Loading -->
+    <div id="projLoading" style="display:none;text-align:center;padding:32px;font-size:13px;color:var(--text-muted);">
+      <div style="font-size:28px;margin-bottom:8px;">⏳</div>Calculating projections…
+    </div>
+
+    <!-- Results -->
+    <div class="proj-results" id="projResults">
+
+      <!-- Period info banner -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:2px;">Period</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text-head);" id="projPeriodLabel">—</div>
+        </div>
+        <div style="width:1px;height:36px;background:var(--border);"></div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:2px;">Days Elapsed</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text-head);" id="projDaysElapsed">—</div>
+        </div>
+        <div style="width:1px;height:36px;background:var(--border);"></div>
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:4px;">Period Progress</div>
+          <div class="proj-progress-bar-wrap">
+            <div class="proj-progress-bar" id="projProgressBar" style="width:0%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;" id="projProgressLabel">0% complete</div>
+        </div>
+        <div style="width:1px;height:36px;background:var(--border);"></div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:2px;">Projecting To</div>
+          <div style="font-size:13px;font-weight:700;color:#E1245A;" id="projTargetLabel">—</div>
+        </div>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="proj-kpi-grid" id="projKpiGrid"></div>
+
+      <!-- Charts -->
+      <div class="proj-chart-grid">
+        <div class="proj-chart-card">
+          <div class="proj-chart-card-title">Revenue — Actual vs Projected by Category</div>
+          <canvas id="projChartCat" height="220"></canvas>
+        </div>
+        <div class="proj-chart-card">
+          <div class="proj-chart-card-title">Revenue — Actual vs Projected by Region</div>
+          <canvas id="projChartReg" height="220"></canvas>
+        </div>
+      </div>
+
+      <!-- By Category -->
+      <div class="proj-section">
+        <div class="proj-section-head">
+          <span class="proj-section-title">📦 Projection by Product Category</span>
+        </div>
+        <div style="overflow-x:auto;"><table class="proj-table" id="projTableCat"></table></div>
+      </div>
+
+      <!-- By Region -->
+      <div class="proj-section">
+        <div class="proj-section-head">
+          <span class="proj-section-title">📍 Projection by Region</span>
+        </div>
+        <div style="overflow-x:auto;"><table class="proj-table" id="projTableReg"></table></div>
+      </div>
+
+      <!-- By Channel -->
+      <div class="proj-section">
+        <div class="proj-section-head">
+          <span class="proj-section-title">🏷 Projection by Sales Channel</span>
+        </div>
+        <div style="overflow-x:auto;"><table class="proj-table" id="projTableChan"></table></div>
+      </div>
+
+    </div><!-- /proj-results -->
+  </div><!-- /proj-page -->
 </div>
 
 <!-- ══ DELETE MODAL ══ -->
@@ -8348,6 +8623,261 @@ async function scExportExcel(tableId, label) {
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click();
+}
+
+// ═══════════════════════════════════════════════════════
+// SALES PROJECTION ENGINE
+// ═══════════════════════════════════════════════════════
+let _projData = null;
+
+function projDrag(e)     { e.preventDefault(); document.getElementById('projZone').classList.add('drag'); }
+function projDragLeave() { document.getElementById('projZone').classList.remove('drag'); }
+function projDrop(e) {
+  e.preventDefault(); projDragLeave();
+  const file = e.dataTransfer.files[0];
+  if (file) projLoadFile(file);
+}
+function projFileChosen(input) {
+  const file = input.files[0];
+  if (file) projLoadFile(file);
+  input.value = '';
+}
+
+function projLoadFile(file) {
+  const zone = document.getElementById('projZone');
+  zone.classList.add('drag');
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = parseSAP(e.target.result);
+      _projData = parsed;
+      document.getElementById('projFileName').textContent = file.name;
+      document.getElementById('projFileMeta').textContent =
+        (parsed.period || 'Period not detected') +
+        ' · ' + parsed.transactions.length.toLocaleString() + ' transactions' +
+        ' · ' + (parsed.days ? parsed.days + ' days elapsed' : '');
+      document.getElementById('projFileLoaded').classList.add('visible');
+      zone.classList.remove('drag');
+      zone.classList.add('loaded');
+      document.getElementById('projSettings').classList.add('visible');
+      document.getElementById('projResults').classList.remove('visible');
+    } catch(err) {
+      zone.classList.remove('drag');
+      alert('Could not parse file: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function projClear() {
+  _projData = null;
+  document.getElementById('projZone').classList.remove('loaded','drag');
+  document.getElementById('projFileLoaded').classList.remove('visible');
+  document.getElementById('projSettings').classList.remove('visible');
+  document.getElementById('projResults').classList.remove('visible');
+  document.getElementById('projLoading').style.display = 'none';
+  // Destroy projection charts
+  ['projChartCat','projChartReg'].forEach(id => {
+    if (window._projCharts && window._projCharts[id]) {
+      window._projCharts[id].destroy();
+      delete window._projCharts[id];
+    }
+  });
+}
+
+// Handle custom days/growth selects
+document.addEventListener('change', function(e) {
+  if (e.target.id === 'projDaysTarget') {
+    document.getElementById('projDaysCustom').style.display = e.target.value === 'custom' ? 'inline-block' : 'none';
+  }
+  if (e.target.id === 'projGrowthMode') {
+    document.getElementById('projGrowthCustom').style.display = e.target.value === 'custom' ? 'inline-block' : 'none';
+  }
+});
+
+function projRun() {
+  if (!_projData) return;
+  document.getElementById('projLoading').style.display = 'block';
+  document.getElementById('projResults').classList.remove('visible');
+  setTimeout(() => {
+    const d = _projData;
+    const txns = d.transactions;
+
+    // Determine projection period
+    const daysSel = document.getElementById('projDaysTarget').value;
+    const targetDays = daysSel === 'custom'
+      ? parseInt(document.getElementById('projDaysCustom').value) || 30
+      : parseInt(daysSel);
+
+    const growthSel = document.getElementById('projGrowthMode').value;
+    const growthPct = growthSel === 'custom'
+      ? parseFloat(document.getElementById('projGrowthCustom').value) || 0
+      : parseFloat(growthSel);
+    const growthFactor = 1 + (growthPct / 100);
+
+    const elapsed = d.days || 1;
+    const projFactor = (targetDays / elapsed) * growthFactor;
+
+    // Totals
+    const totalRev  = txns.reduce((s,t) => s+t.amount, 0);
+    const totalVol  = txns.reduce((s,t) => s+t.ltrs, 0);
+    const totalCust = new Set(txns.map(t=>t.custCode)).size;
+    const dailyRev  = totalRev / elapsed;
+    const projRev   = totalRev * projFactor;
+    const projVol   = totalVol * projFactor;
+    const projCust  = Math.round(totalCust * growthFactor);
+    const pct = Math.round(((elapsed / targetDays) * 100));
+
+    // Period banner
+    document.getElementById('projPeriodLabel').textContent   = d.period || 'Unknown period';
+    document.getElementById('projDaysElapsed').textContent   = elapsed + ' days';
+    document.getElementById('projProgressBar').style.width   = Math.min(pct,100) + '%';
+    document.getElementById('projProgressLabel').textContent = Math.min(pct,100) + '% of ' + targetDays + '-day period complete';
+    document.getElementById('projTargetLabel').textContent   = targetDays + ' days' + (growthPct !== 0 ? ' @ ' + (growthPct>0?'+':'') + growthPct + '%' : '');
+
+    // KPI cards
+    function projCard(label, actual, projected, unit, sub) {
+      const uplift = projected - actual;
+      const cls  = uplift >= 0 ? 'up' : 'down';
+      const arr  = uplift >= 0 ? '▲' : '▼';
+      const p    = actual !== 0 ? Math.round(((projected-actual)/Math.abs(actual))*100) : 100;
+      const sign = p >= 0 ? '+' : '';
+      return `<div class="proj-kpi-card">
+        <div class="proj-kpi-label">${label}</div>
+        <div class="proj-kpi-actual" style="font-size:11px;color:var(--text-muted);">Actual: <strong style="color:var(--text);">${unit}${Math.round(actual).toLocaleString()}</strong></div>
+        <div class="proj-kpi-projected">${unit}${Math.round(projected).toLocaleString()}</div>
+        <div class="proj-kpi-meta">${sub}</div>
+        <div class="proj-kpi-pct ${cls}">${arr} ${sign}${p}% vs actual pace</div>
+      </div>`;
+    }
+    document.getElementById('projKpiGrid').innerHTML =
+      projCard('Projected Revenue', totalRev, projRev, 'KSH ', 'Full-period revenue estimate') +
+      projCard('Projected Volume', totalVol, projVol, '', ' Ltrs/Kgs projected') +
+      projCard('Daily Run Rate', dailyRev, dailyRev * growthFactor, 'KSH ', 'Per day with growth factor') +
+      projCard('Active Customers', totalCust, projCust, '', 'Estimated active accounts');
+
+    // Aggregate helper
+    function projByDim(dim) {
+      const m = {};
+      for (const t of txns) {
+        const k = (t[dim] || 'UNKNOWN').toUpperCase();
+        if (!m[k]) m[k] = { amount:0, ltrs:0 };
+        m[k].amount += t.amount;
+        m[k].ltrs   += t.ltrs;
+      }
+      return m;
+    }
+
+    // Dimension table builder
+    function buildProjTable(tblId, dim) {
+      const map = projByDim(dim);
+      const keys = Object.keys(map).sort((a,b) => map[b].amount - map[a].amount);
+      const totA = keys.reduce((s,k)=>s+map[k].amount,0);
+      const totV = keys.reduce((s,k)=>s+map[k].ltrs,0);
+      const totPA = totA * projFactor;
+      const totPV = totV * projFactor;
+
+      // Pace pill
+      function pace(actual, total) {
+        const share = total > 0 ? actual / total : 0;
+        // Compare to equal share — above average = fast
+        const avg = 1 / Math.max(keys.length,1);
+        if (share > avg * 1.15) return '<span class="proj-pace-pill fast">▲ Above avg</span>';
+        if (share < avg * 0.85) return '<span class="proj-pace-pill slow">▼ Below avg</span>';
+        return '<span class="proj-pace-pill avg">≈ On track</span>';
+      }
+
+      const rows = keys.map((k,idx) => {
+        const a = map[k].amount, v = map[k].ltrs;
+        const pa = a * projFactor, pv = v * projFactor;
+        const shareRev = totA > 0 ? ((a/totA)*100).toFixed(1) : '0.0';
+        return `<tr>
+          <td><strong>${k}</strong></td>
+          <td class="r">${fmt(a)}</td>
+          <td class="r" style="color:#E1245A;font-weight:700;">${fmt(pa)}</td>
+          <td class="r">${shareRev}%</td>
+          <td class="r">${fmt(v)}</td>
+          <td class="r" style="color:#E1245A;font-weight:700;">${fmt(pv)}</td>
+          <td class="r">${pace(a, totA)}</td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById(tblId).innerHTML = `
+        <thead><tr>
+          <th>${dim.charAt(0).toUpperCase()+dim.slice(1)}</th>
+          <th class="r">Actual Rev (KSH)</th>
+          <th class="r proj-col">Projected Rev (KSH)</th>
+          <th class="r">Rev Share</th>
+          <th class="r">Actual Vol (Ltrs/Kgs)</th>
+          <th class="r proj-col">Projected Vol</th>
+          <th class="r pace-col">Pace</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr>
+          <td>TOTAL</td>
+          <td class="r">${fmt(totA)}</td>
+          <td class="r">${fmt(totPA)}</td>
+          <td class="r">100%</td>
+          <td class="r">${fmt(totV)}</td>
+          <td class="r">${fmt(totPV)}</td>
+          <td></td>
+        </tr></tfoot>`;
+    }
+
+    buildProjTable('projTableCat',  'category');
+    buildProjTable('projTableReg',  'region');
+    buildProjTable('projTableChan', 'channel');
+
+    // Charts
+    window._projCharts = window._projCharts || {};
+    function mkProjChart(canvasId, dim) {
+      if (window._projCharts[canvasId]) { window._projCharts[canvasId].destroy(); }
+      const map  = projByDim(dim);
+      const keys = Object.keys(map).sort((a,b) => map[b].amount - map[a].amount).slice(0,10);
+      const tc = chartTextColor(), gc = chartGridColor();
+      window._projCharts[canvasId] = new Chart(document.getElementById(canvasId), {
+        type: 'bar',
+        data: {
+          labels: keys,
+          datasets: [
+            { label: 'Actual',    data: keys.map(k=>Math.round(map[k].amount)), backgroundColor:'rgba(59,130,246,0.75)', borderRadius:4 },
+            { label: 'Projected', data: keys.map(k=>Math.round(map[k].amount*projFactor)), backgroundColor:'rgba(225,36,90,0.82)', borderRadius:4 }
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:true,
+          layout:{ padding:{ top:6 } },
+          plugins: {
+            legend:{ position:'top', labels:{ color:tc, font:{ family:"'DM Sans',sans-serif", size:11 }, boxWidth:10, padding:10 } },
+            tooltip:{
+              backgroundColor: chartSurfaceColor(),
+              titleColor: document.body.classList.contains('dark')?'#e6edf3':'#0f2744',
+              bodyColor: tc, borderColor: gc, borderWidth:1, padding:10,
+              callbacks:{ label: ctx => ' KSH ' + Number(ctx.raw).toLocaleString() }
+            },
+            datalabels:{
+              display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+              anchor:'end', align:'end', offset:2, rotation:-90,
+              color:tc,
+              font:{ family:"'DM Mono',monospace", size:9, weight:'700' },
+              formatter: v => v>=1e6?(v/1e6).toFixed(2)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v,
+              clip:false
+            }
+          },
+          scales: {
+            x:{ ticks:{ color:tc, font:{ family:"'DM Sans',sans-serif", size:10 } }, grid:{ color:gc } },
+            y:{ ticks:{ color:tc, font:{ family:"'DM Sans',sans-serif", size:10 }, callback: v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':v }, grid:{ color:gc }, grace:'18%' }
+          }
+        }
+      });
+    }
+
+    mkProjChart('projChartCat', 'category');
+    mkProjChart('projChartReg', 'region');
+
+    document.getElementById('projLoading').style.display = 'none';
+    document.getElementById('projResults').classList.add('visible');
+  }, 60);
 }
 
 </script>
