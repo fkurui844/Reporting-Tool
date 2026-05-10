@@ -2786,6 +2786,15 @@
       <div class="proj-section">
         <div class="proj-section-head">
           <span class="proj-section-title">📍 Projection by Region</span>
+          <div style="position:relative;display:inline-block;">
+            <button id="projRegExportBtn" onclick="toggleProjRegExportMenu()" style="display:flex;align-items:center;gap:6px;padding:6px 13px;background:#0f2744;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s;" onmouseover="this.style.background='#1a3a5c'" onmouseout="this.style.background='#0f2744'">
+              ⬇ Export <span style="font-size:10px;opacity:0.75;">▾</span>
+            </button>
+            <div id="projRegExportMenu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.12);z-index:100;min-width:200px;overflow:hidden;">
+              <button onclick="exportProjRegionXLSX();toggleProjRegExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📗 Download Excel (.xlsx)</button>
+              <button onclick="exportProjRegionCSV();toggleProjRegExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📄 Download CSV</button>
+            </div>
+          </div>
         </div>
         <div style="overflow-x:auto;"><table class="proj-table" id="projTableReg"></table></div>
       </div>
@@ -8684,6 +8693,76 @@ function projClear() {
     }
   });
 }
+
+// ── Projection Region Export ──────────────────────────────
+function toggleProjRegExportMenu() {
+  const m = document.getElementById('projRegExportMenu');
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+  if (m.style.display === 'block') {
+    const close = e => { if (!m.contains(e.target) && e.target.id !== 'projRegExportBtn') { m.style.display = 'none'; document.removeEventListener('click', close); } };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }
+}
+
+function _getProjRegionData() {
+  if (!_projData) return null;
+  const daysSel = document.getElementById('projDaysTarget').value;
+  const targetDays = daysSel === 'custom' ? parseInt(document.getElementById('projDaysCustom').value) || 30 : parseInt(daysSel);
+  const growthSel = document.getElementById('projGrowthMode').value;
+  const growthPct = growthSel === 'custom' ? parseFloat(document.getElementById('projGrowthCustom').value) || 0 : parseFloat(growthSel);
+  const growthFactor = 1 + (growthPct / 100);
+  const elapsed = _projData.days || 1;
+  const projFactor = (targetDays / elapsed) * growthFactor;
+  const txns = _projData.transactions;
+
+  const map = {};
+  for (const t of txns) {
+    const k = (t.region || 'UNKNOWN').toUpperCase();
+    if (!map[k]) map[k] = { amount: 0, ltrs: 0 };
+    map[k].amount += t.amount;
+    map[k].ltrs   += t.ltrs;
+  }
+  const keys = Object.keys(map).sort((a, b) => map[b].amount - map[a].amount);
+  const totA = keys.reduce((s, k) => s + map[k].amount, 0);
+  const totV = keys.reduce((s, k) => s + map[k].ltrs, 0);
+
+  const rows = keys.map(k => {
+    const a = map[k].amount, v = map[k].ltrs;
+    const pa = a * projFactor, pv = v * projFactor;
+    const shareRev = totA > 0 ? ((a / totA) * 100).toFixed(1) + '%' : '0.0%';
+    const avg = 1 / Math.max(keys.length, 1);
+    const share = totA > 0 ? a / totA : 0;
+    const pace = share > avg * 1.15 ? 'Above avg' : share < avg * 0.85 ? 'Below avg' : 'On track';
+    return { Region: k, 'Actual Rev (KSH)': Math.round(a), 'Projected Rev (KSH)': Math.round(pa), 'Rev Share': shareRev, 'Actual Vol (Ltrs/Kgs)': Math.round(v), 'Projected Vol': Math.round(pv), Pace: pace };
+  });
+  rows.push({ Region: 'TOTAL', 'Actual Rev (KSH)': Math.round(totA), 'Projected Rev (KSH)': Math.round(totA * projFactor), 'Rev Share': '100%', 'Actual Vol (Ltrs/Kgs)': Math.round(totV), 'Projected Vol': Math.round(totV * projFactor), Pace: '' });
+  return { rows, period: _projData.period || '', targetDays, growthPct };
+}
+
+function exportProjRegionXLSX() {
+  const d = _getProjRegionData();
+  if (!d) return;
+  const ws = XLSX.utils.json_to_sheet(d.rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Projection by Region');
+  const fname = `Proj_Region_${(d.period || 'Export').replace(/[\s\/\\.–]+/g, '_')}_${d.targetDays}days.xlsx`;
+  XLSX.writeFile(wb, fname);
+}
+
+function exportProjRegionCSV() {
+  const d = _getProjRegionData();
+  if (!d) return;
+  const cols = ['Region','Actual Rev (KSH)','Projected Rev (KSH)','Rev Share','Actual Vol (Ltrs/Kgs)','Projected Vol','Pace'];
+  const lines = [cols.join(',')].concat(d.rows.map(r => cols.map(c => JSON.stringify(r[c] ?? '')).join(',')));
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Proj_Region_${(d.period || 'Export').replace(/[\s\/\\.–]+/g, '_')}_${d.targetDays}days.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+// ─────────────────────────────────────────────────────────
 
 // Handle custom days/growth selects
 document.addEventListener('change', function(e) {
