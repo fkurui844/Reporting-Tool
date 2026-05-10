@@ -7604,6 +7604,34 @@ function scRunComparison() {
         <td class='num'><span class='sc-delta-pill ${gtVCls}'>${gtVArr} ${gtVDiff>0?'+':''}${gtVPct}%</span></td>
       </tr></tfoot>`;
 
+      // Store structured data for Excel export
+      window._scRegionCatData = regions.map(reg => {
+        const cats1  = mat1[reg]    || {};
+        const cats2  = mat2[reg]    || {};
+        const vcats1 = volMat1[reg] || {};
+        const vcats2 = volMat2[reg] || {};
+        const regCats = [...new Set([...Object.keys(cats1), ...Object.keys(cats2)])]
+          .sort((a,b) => ((cats1[b]||0)+(cats2[b]||0)) - ((cats1[a]||0)+(cats2[a]||0)));
+        const categories = regCats.map(cat => ({
+          cat,
+          a1: cats1[cat]||0,  a2: cats2[cat]||0,
+          v1: vcats1[cat]||0, v2: vcats2[cat]||0
+        }));
+        return {
+          reg,
+          revCur:  rMap1[reg]?.amount || 0,
+          revPrev: rMap2[reg]?.amount || 0,
+          volCur:  rVolMap1[reg]?.ltrs || 0,
+          volPrev: rVolMap2[reg]?.ltrs || 0,
+          categories
+        };
+      });
+      window._scRegionCatGrand = {
+        revCur: grandTot1, revPrev: grandTot2,
+        volCur: d1.transactions.reduce((s,t)=>s+t.ltrs,0),
+        volPrev: d2.transactions.reduce((s,t)=>s+t.ltrs,0)
+      };
+
       document.getElementById('scTableRegionCat').innerHTML = thead + tbody + tfoot;
     })();
 
@@ -7958,6 +7986,117 @@ async function scExportExcel(tableId, label) {
     }
 
     const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click();
+    return;
+  }
+
+  // ─── BY LOCATION & PRODUCT CATEGORY — one sheet per region ────
+  if (tableId === 'scTableRegionCat') {
+    const p1   = window._scP1Lbl || 'Current Period';
+    const p2   = window._scP2Lbl || 'Previous Period';
+    const data  = window._scRegionCatData || [];
+    const grand = window._scRegionCatGrand || {};
+    if (!data.length) { alert('Run a comparison first.'); return; }
+
+    const HDRS = [
+      'Category',
+      'Rev Current\n' + p1 + '\n(KSH)',
+      'Rev Previous\n' + p2 + '\n(KSH)',
+      '% Rev Growth',
+      'Vol Current\n' + p1 + '\n(Ltrs/Kgs)',
+      'Vol Previous\n' + p2 + '\n(Ltrs/Kgs)',
+      '% Vol Growth'
+    ];
+    const COL_W = [20, 22, 22, 16, 22, 22, 16];
+
+    function pct(cur, prev) {
+      if (prev === 0) return cur > 0 ? '+100%' : '0%';
+      const p = Math.round(((cur - prev) / Math.abs(prev)) * 100);
+      return (p >= 0 ? '+' : '') + p + '%';
+    }
+
+    // Sheet builder
+    function buildRegSheet(ws, reg, categories, revCur, revPrev, volCur, volPrev, isAll) {
+      // Title
+      const ttl = 'By Location & Product Category' + (isAll ? ' — All Regions' : ' — ' + reg);
+      ws.addRow([ttl]);
+      applyCell(ws.getCell(1,1), ttl, { bold:true, size:12, color:WHITE, fill:NAVY });
+      ws.mergeCells(1,1,1,7);
+      const sub = p1 + ' (Current)  vs  ' + p2 + ' (Previous)   |   Exported: ' + new Date().toLocaleDateString();
+      ws.addRow([sub]);
+      applyCell(ws.getCell(2,1), sub, { size:9, color:{argb:'FF6B7280'} });
+      ws.mergeCells(2,1,2,7);
+      ws.addRow([]);
+
+      // Group header row 1
+      ws.addRow(['Category', 'SALES IN REVENUE', '', '', 'SALES IN VOLUME', '', '']);
+      applyCell(ws.getCell(4,1), 'Category', { bold:true, color:WHITE, fill:NAVY });
+      applyCell(ws.getCell(4,2), 'SALES IN REVENUE', { bold:true, color:PINK, fill:NAVY, center:true });
+      ws.mergeCells(4,2,4,4);
+      applyCell(ws.getCell(4,5), 'SALES IN VOLUME', { bold:true, color:BLUE, fill:NAVY, center:true });
+      ws.mergeCells(4,5,4,7);
+      ws.getRow(4).height = 20;
+
+      // Group header row 2
+      ws.addRow(HDRS);
+      hCell(ws.getCell(5,1), HDRS[0]);
+      hCell(ws.getCell(5,2), HDRS[1], { color:PINK,  right:true });
+      hCell(ws.getCell(5,3), HDRS[2], { color:PINK,  right:true });
+      hCell(ws.getCell(5,4), HDRS[3], { color:AMBER, right:true });
+      hCell(ws.getCell(5,5), HDRS[4], { color:BLUE,  right:true });
+      hCell(ws.getCell(5,6), HDRS[5], { color:BLUE,  right:true });
+      hCell(ws.getCell(5,7), HDRS[6], { color:AMBER, right:true });
+      ws.getRow(5).height = 52;
+
+      // Category data rows
+      categories.forEach(({ cat, a1, a2, v1, v2 }, idx) => {
+        const fill = idx % 2 === 1 ? LIGHT_ROW : undefined;
+        const dr = ws.addRow([cat, a1, a2, pct(a1,a2), v1, v2, pct(v1,v2)]);
+        applyCell(dr.getCell(1), cat,        { fill });
+        applyCell(dr.getCell(2), a1,         { fill });
+        applyCell(dr.getCell(3), a2,         { fill });
+        applyCell(dr.getCell(4), pct(a1,a2), { fill, right:true });
+        applyCell(dr.getCell(5), v1,         { fill });
+        applyCell(dr.getCell(6), v2,         { fill });
+        applyCell(dr.getCell(7), pct(v1,v2), { fill, right:true });
+      });
+
+      // Subtotal row
+      ws.addRow([]);
+      const sr = ws.addRow(['SUBTOTAL', revCur, revPrev, pct(revCur,revPrev), volCur, volPrev, pct(volCur,volPrev)]);
+      applyCell(sr.getCell(1), 'SUBTOTAL',         { bold:true, color:WHITE, fill:NAVY });
+      applyCell(sr.getCell(2), revCur,             { bold:true, color:WHITE, fill:NAVY });
+      applyCell(sr.getCell(3), revPrev,            { bold:true, color:WHITE, fill:NAVY });
+      applyCell(sr.getCell(4), pct(revCur,revPrev),{ bold:true, color:AMBER, fill:NAVY, right:true });
+      applyCell(sr.getCell(5), volCur,             { bold:true, color:WHITE, fill:NAVY });
+      applyCell(sr.getCell(6), volPrev,            { bold:true, color:WHITE, fill:NAVY });
+      applyCell(sr.getCell(7), pct(volCur,volPrev),{ bold:true, color:AMBER, fill:NAVY, right:true });
+
+      COL_W.forEach((w,i) => { ws.getColumn(i+1).width = w; });
+    }
+
+    // All Regions sheet first
+    const wsAll = wb.addWorksheet('All Regions');
+    // Combine all categories across regions for the All sheet
+    const allCatMap = {};
+    for (const r of data) {
+      for (const c of r.categories) {
+        if (!allCatMap[c.cat]) allCatMap[c.cat] = { cat:c.cat, a1:0, a2:0, v1:0, v2:0 };
+        allCatMap[c.cat].a1 += c.a1; allCatMap[c.cat].a2 += c.a2;
+        allCatMap[c.cat].v1 += c.v1; allCatMap[c.cat].v2 += c.v2;
+      }
+    }
+    buildRegSheet(wsAll, 'All Regions', Object.values(allCatMap),
+      grand.revCur||0, grand.revPrev||0, grand.volCur||0, grand.volPrev||0, true);
+
+    // One sheet per region
+    for (const { reg, revCur, revPrev, volCur, volPrev, categories } of data) {
+      const ws = wb.addWorksheet(reg.replace(/[:\/?*[\]]/g,'').slice(0,31));
+      buildRegSheet(ws, reg, categories, revCur, revPrev, volCur, volPrev, false);
+    }
+
+    const buf  = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click();
     return;
