@@ -1384,7 +1384,7 @@
     .proj-section-title { font-size:13px; font-weight:700; color:var(--text-head); flex:1; }
     .proj-table { width:100%; border-collapse:collapse; font-size:13px; }
     .proj-table thead tr { background:#0f2744; }
-    .proj-table thead th { padding:9px 14px; text-align:left; font-size:10px; font-weight:700; color:rgba(255,255,255,0.72); letter-spacing:0.07em; white-space:nowrap; }
+    .proj-table thead th { padding:9px 14px; text-align:left; font-size:10px; font-weight:700; color:rgba(255,255,255,0.72); letter-spacing:0.07em; white-space:nowrap; vertical-align:middle; }
     .proj-table thead th.r { text-align:right; }
     .proj-table thead th.proj-col { color:#f9a8d4; }
     .proj-table thead th.pace-col { color:#f59e0b; }
@@ -8780,16 +8780,25 @@ function exportProjRegCatCSV() {
 function exportProjSkuXLSX() {
   const d = window._projSkuData;
   if (!d) return;
-  const { skuMap, keys, totA, totV, totQ, projFactor, period } = d;
-  const header = ['SKU Code','Description','Category','Actual Rev (KSH)','Projected Rev (KSH)','Rev Share','Actual Qty','Projected Qty','Actual Vol (Ltrs/Kgs)','Projected Vol','Pace'];
+  const { skuMap, keys, regions, totA, totV, totQ, projFactor, period } = d;
+  const regHeaders = regions.flatMap(r => [r+' Act Rev', r+' Proj Rev']);
+  const header = ['SKU Code','Description','Category','Actual Rev (KSH)','Projected Rev (KSH)','Rev Share','Actual Qty','Projected Qty','Actual Vol (Ltrs/Kgs)','Projected Vol', ...regHeaders, 'Pace'];
   const avg = 1/Math.max(keys.length,1);
   const dataRows = keys.map(k => {
-    const { amount:a, ltrs:v, qty:q, description, category } = skuMap[k];
+    const { amount:a, ltrs:v, qty:q, description, category, byRegion } = skuMap[k];
     const share = totA>0?a/totA:0;
     const pace = share>avg*1.15?'Above avg':share<avg*0.85?'Below avg':'On track';
-    return [k, description||'', category||'', Math.round(a), Math.round(a*projFactor), ((share)*100).toFixed(1)+'%', Math.round(q), Math.round(q*projFactor), Math.round(v), Math.round(v*projFactor), pace];
+    const regVals = regions.flatMap(r => {
+      const ra = byRegion[r]?.amount||0;
+      return [Math.round(ra), Math.round(ra*projFactor)];
+    });
+    return [k, description||'', category||'', Math.round(a), Math.round(a*projFactor), ((share)*100).toFixed(1)+'%', Math.round(q), Math.round(q*projFactor), Math.round(v), Math.round(v*projFactor), ...regVals, pace];
   });
-  dataRows.push(['TOTAL','','',Math.round(totA),Math.round(totA*projFactor),'100%',Math.round(totQ),Math.round(totQ*projFactor),Math.round(totV),Math.round(totV*projFactor),'']);
+  const regTotals = regions.flatMap(r => {
+    const tR = keys.reduce((s,k)=>s+(skuMap[k].byRegion[r]?.amount||0),0);
+    return [Math.round(tR), Math.round(tR*projFactor)];
+  });
+  dataRows.push(['TOTAL','','',Math.round(totA),Math.round(totA*projFactor),'100%',Math.round(totQ),Math.round(totQ*projFactor),Math.round(totV),Math.round(totV*projFactor),...regTotals,'']);
   const ws = XLSX.utils.aoa_to_sheet([header,...dataRows]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Projection by SKU');
@@ -8799,14 +8808,16 @@ function exportProjSkuXLSX() {
 function exportProjSkuCSV() {
   const d = window._projSkuData;
   if (!d) return;
-  const { skuMap, keys, totA, totV, totQ, projFactor, period } = d;
-  const header = ['SKU Code','Description','Category','Actual Rev (KSH)','Projected Rev (KSH)','Rev Share','Actual Qty','Projected Qty','Actual Vol','Projected Vol','Pace'];
+  const { skuMap, keys, regions, totA, totV, totQ, projFactor, period } = d;
+  const regHeaders = regions.flatMap(r => [r+' Act Rev', r+' Proj Rev']);
+  const header = ['SKU Code','Description','Category','Actual Rev (KSH)','Projected Rev (KSH)','Rev Share','Actual Qty','Projected Qty','Actual Vol','Projected Vol',...regHeaders,'Pace'];
   const avg = 1/Math.max(keys.length,1);
   const rows = keys.map(k => {
-    const { amount:a, ltrs:v, qty:q, description, category } = skuMap[k];
+    const { amount:a, ltrs:v, qty:q, description, category, byRegion } = skuMap[k];
     const share = totA>0?a/totA:0;
     const pace = share>avg*1.15?'Above avg':share<avg*0.85?'Below avg':'On track';
-    return [k, description||'', category||'', Math.round(a), Math.round(a*projFactor), ((share)*100).toFixed(1)+'%', Math.round(q), Math.round(q*projFactor), Math.round(v), Math.round(v*projFactor), pace];
+    const regVals = regions.flatMap(r => { const ra=byRegion[r]?.amount||0; return [Math.round(ra),Math.round(ra*projFactor)]; });
+    return [k, description||'', category||'', Math.round(a), Math.round(a*projFactor), ((share)*100).toFixed(1)+'%', Math.round(q), Math.round(q*projFactor), Math.round(v), Math.round(v*projFactor), ...regVals, pace];
   });
   const lines = [header,...rows].map(r=>r.map(v=>JSON.stringify(v??'')).join(','));
   const blob = new Blob([lines.join('\n')],{type:'text/csv'});
@@ -9044,25 +9055,60 @@ function projRun() {
 
     // ── SKU table ────────────────────────────────────────────
     function buildProjTableSku(tblId) {
+      // pivot: skuCode → { meta, total, byRegion: { region: {amount,ltrs,qty} } }
       const skuMap = {};
+      const allRegions = new Set();
       for (const t of txns) {
-        const k = t.matCode || 'UNKNOWN';
+        const k   = t.matCode || 'UNKNOWN';
+        const reg = (t.region || 'UNKNOWN').toUpperCase();
+        allRegions.add(reg);
         if (!skuMap[k]) {
           const prod = refData.products[k] || {};
-          skuMap[k] = { amount:0, ltrs:0, qty:0, description: prod.description || '', category: (t.category||'').toUpperCase() };
+          skuMap[k] = { amount:0, ltrs:0, qty:0, description: prod.description || '', category: (t.category||'').toUpperCase(), byRegion:{} };
         }
         skuMap[k].amount += t.amount;
         skuMap[k].ltrs   += t.ltrs;
         skuMap[k].qty    += t.qty || 0;
+        if (!skuMap[k].byRegion[reg]) skuMap[k].byRegion[reg] = { amount:0, ltrs:0, qty:0 };
+        skuMap[k].byRegion[reg].amount += t.amount;
+        skuMap[k].byRegion[reg].ltrs   += t.ltrs;
+        skuMap[k].byRegion[reg].qty    += t.qty || 0;
       }
-      const keys = Object.keys(skuMap).sort((a,b) => skuMap[b].amount - skuMap[a].amount);
+      const keys    = Object.keys(skuMap).sort((a,b) => skuMap[b].amount - skuMap[a].amount);
+      const regions = [...allRegions].sort();
       const totA = keys.reduce((s,k)=>s+skuMap[k].amount,0);
       const totV = keys.reduce((s,k)=>s+skuMap[k].ltrs,0);
       const totQ = keys.reduce((s,k)=>s+skuMap[k].qty,0);
       const avg  = 1 / Math.max(keys.length,1);
 
+      // Two header rows: first merges static cols, then region sub-headers
+      const regGroupHeads = regions.map(r =>
+        `<th class="r proj-col" colspan="2" style="white-space:nowrap;border-left:2px solid rgba(255,255,255,0.15);">${r}</th>`
+      ).join('');
+      const regSubHeads = regions.map(r =>
+        `<th class="r" style="border-left:2px solid rgba(255,255,255,0.1);white-space:nowrap;font-size:9px;">Act Rev</th><th class="r proj-col" style="white-space:nowrap;font-size:9px;">Proj Rev</th>`
+      ).join('');
+
+      const head = `<thead>
+        <tr>
+          <th rowspan="2">SKU Code</th>
+          <th rowspan="2">Description</th>
+          <th rowspan="2">Category</th>
+          <th class="r" rowspan="2">Actual Rev (KSH)</th>
+          <th class="r proj-col" rowspan="2">Projected Rev (KSH)</th>
+          <th class="r" rowspan="2">Rev Share</th>
+          <th class="r" rowspan="2">Act Qty</th>
+          <th class="r proj-col" rowspan="2">Proj Qty</th>
+          <th class="r" rowspan="2">Act Vol</th>
+          <th class="r proj-col" rowspan="2">Proj Vol</th>
+          ${regGroupHeads}
+          <th class="r pace-col" rowspan="2">Pace</th>
+        </tr>
+        <tr>${regSubHeads}</tr>
+      </thead>`;
+
       const rows = keys.map(k => {
-        const a = skuMap[k].amount, v = skuMap[k].ltrs, q = skuMap[k].qty;
+        const { amount:a, ltrs:v, qty:q, description, category, byRegion } = skuMap[k];
         const pa = a*projFactor, pv = v*projFactor, pq = q*projFactor;
         const share = totA>0 ? a/totA : 0;
         const shareStr = (share*100).toFixed(1)+'%';
@@ -9071,10 +9117,17 @@ function projRun() {
           : share < avg*0.85
             ? '<span class="proj-pace-pill slow">▼ Below avg</span>'
             : '<span class="proj-pace-pill avg">≈ On track</span>';
+        const regCells = regions.map(r => {
+          const rv = byRegion[r];
+          const ra = rv ? rv.amount : 0;
+          const rpa = ra * projFactor;
+          return `<td class="r" style="border-left:2px solid var(--border2);font-size:11px;">${ra>0?fmt(ra):'—'}</td>`+
+                 `<td class="r" style="color:#E1245A;font-weight:600;font-size:11px;">${ra>0?fmt(rpa):'—'}</td>`;
+        }).join('');
         return `<tr>
-          <td><strong>${k}</strong></td>
-          <td style="color:var(--text-muted);font-size:12px;">${skuMap[k].description||'—'}</td>
-          <td style="color:var(--text-muted);font-size:11px;">${skuMap[k].category||'—'}</td>
+          <td><strong style="font-family:'DM Mono',monospace;font-size:12px;">${k}</strong></td>
+          <td style="color:var(--text-muted);font-size:12px;">${description||'—'}</td>
+          <td style="color:var(--text-muted);font-size:11px;">${category||'—'}</td>
           <td class="r">${fmt(a)}</td>
           <td class="r" style="color:#E1245A;font-weight:700;">${fmt(pa)}</td>
           <td class="r">${shareStr}</td>
@@ -9082,24 +9135,20 @@ function projRun() {
           <td class="r" style="color:#E1245A;font-weight:700;">${Math.round(pq).toLocaleString()}</td>
           <td class="r">${fmt(v)}</td>
           <td class="r" style="color:#E1245A;font-weight:700;">${fmt(pv)}</td>
+          ${regCells}
           <td class="r">${paceHtml}</td>
         </tr>`;
       }).join('');
 
+      // Footer totals per region
+      const regTotCells = regions.map(r => {
+        const totRegA = keys.reduce((s,k)=>(skuMap[k].byRegion[r]?.amount||0)+s,0);
+        return `<td class="r" style="border-left:2px solid rgba(255,255,255,0.15);">${fmt(totRegA)}</td>`+
+               `<td class="r">${fmt(totRegA*projFactor)}</td>`;
+      }).join('');
+
       document.getElementById(tblId).innerHTML = `
-        <thead><tr>
-          <th>SKU Code</th>
-          <th>Description</th>
-          <th>Category</th>
-          <th class="r">Actual Rev (KSH)</th>
-          <th class="r proj-col">Projected Rev (KSH)</th>
-          <th class="r">Rev Share</th>
-          <th class="r">Actual Qty</th>
-          <th class="r proj-col">Projected Qty</th>
-          <th class="r">Actual Vol (Ltrs/Kgs)</th>
-          <th class="r proj-col">Projected Vol</th>
-          <th class="r pace-col">Pace</th>
-        </tr></thead>
+        ${head}
         <tbody>${rows}</tbody>
         <tfoot><tr>
           <td>TOTAL</td><td></td><td></td>
@@ -9110,10 +9159,11 @@ function projRun() {
           <td class="r">${Math.round(totQ*projFactor).toLocaleString()}</td>
           <td class="r">${fmt(totV)}</td>
           <td class="r">${fmt(totV*projFactor)}</td>
+          ${regTotCells}
           <td></td>
         </tr></tfoot>`;
       // store for export
-      window._projSkuData = { skuMap, keys, totA, totV, totQ, projFactor, period: d.period };
+      window._projSkuData = { skuMap, keys, regions, totA, totV, totQ, projFactor, period: d.period };
     }
     // ─────────────────────────────────────────────────────────
 
