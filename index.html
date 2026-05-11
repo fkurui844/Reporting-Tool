@@ -1820,39 +1820,7 @@
 .login-btn:active { transform: scale(0.98); }
 .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .login-loading { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 12px; min-height: 18px; }
-/* Forgot password link */
-.forgot-link {
-  text-align: right; margin-top: -8px; margin-bottom: 14px;
-}
-.forgot-link button {
-  background: none; border: none; cursor: pointer;
-  font-size: 12px; color: #1e4d8c; font-family: 'DM Sans', sans-serif;
-  font-weight: 600; padding: 0; text-decoration: underline; text-underline-offset: 2px;
-  transition: opacity 0.15s;
-}
-.forgot-link button:hover { opacity: 0.7; }
-/* Reset panel — slides in over the login card */
-#resetPanel {
-  display: none; flex-direction: column;
-}
-#resetPanel.visible { display: flex; }
-.reset-back {
-  background: none; border: none; cursor: pointer; font-size: 12px;
-  color: var(--text-muted); font-family: 'DM Sans', sans-serif;
-  font-weight: 600; padding: 0; margin-bottom: 20px;
-  display: flex; align-items: center; gap: 4px; width: fit-content;
-  transition: color 0.15s;
-}
-.reset-back:hover { color: var(--text); }
-.reset-step { display: none; flex-direction: column; gap: 0; }
-.reset-step.active { display: flex; }
-#resetSuccess {
-  display: none; flex-direction: column; align-items: center;
-  gap: 8px; text-align: center; padding: 12px 0 8px;
-}
-#resetSuccess .rs-icon { font-size: 40px; }
-#resetSuccess .rs-title { font-size: 17px; font-weight: 700; color: var(--text-head); }
-#resetSuccess .rs-sub   { font-size: 13px; color: var(--text-muted); }
+
 /* User badge in header */
 #userBadge {
   display: none; align-items: center; gap: 8px;
@@ -1900,69 +1868,11 @@
         <input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password"
                onkeydown="if(event.key==='Enter')attemptLogin()">
       </div>
-      <div class="forgot-link">
-        <button onclick="showResetPanel()">Forgot password?</button>
-      </div>
       <div id="loginError"></div>
       <button class="login-btn" id="loginBtn" onclick="attemptLogin()">Sign In →</button>
       <div class="login-loading" id="loginLoading">🔄 Loading user directory…</div>
     </div>
 
-    <!-- ── RESET PASSWORD PANEL ── -->
-    <div id="resetPanel">
-      <button class="reset-back" onclick="hideResetPanel()">← Back to Sign In</button>
-      <div class="login-title">Reset Password 🔑</div>
-
-      <!-- Step 1+2 combined: payroll → name auto-fills → password -->
-      <div class="reset-step active" id="resetStep1">
-        <div class="login-sub">Enter your payroll number — your name will appear automatically, then set a new password.</div>
-
-        <div class="login-field">
-          <label>Payroll Number</label>
-          <input type="text" id="resetPayroll" placeholder="e.g. 4721" inputmode="numeric" autocomplete="off"
-                 oninput="onResetPayrollInput()" onkeydown="if(event.key==='Enter')document.getElementById('resetNewPwd').focus()">
-        </div>
-
-        <!-- Name auto-populates — read-only -->
-        <div class="login-field" id="resetNameRow" style="display:none;">
-          <label>Name</label>
-          <input type="text" id="resetFoundName" readonly
-                 style="background:var(--bg);color:#1e4d8c;font-weight:700;cursor:default;border-color:rgba(30,77,140,0.3);">
-        </div>
-
-        <!-- Password only shown after name is found -->
-        <div class="login-field" id="resetPwdRow" style="display:none;position:relative;">
-          <label>New Password</label>
-          <input type="password" id="resetNewPwd" placeholder="Enter new password"
-                 onkeydown="if(event.key==='Enter')document.getElementById('resetConfirmPwd').focus()">
-          <button onclick="toggleResetPwd('resetNewPwd','resetToggle1')" tabindex="-1" id="resetToggle1"
-                  style="position:absolute;right:10px;bottom:9px;background:none;border:none;cursor:pointer;font-size:15px;color:var(--text-muted);">👁</button>
-        </div>
-
-        <div class="login-field" id="resetConfirmRow" style="display:none;position:relative;">
-          <label>Confirm New Password</label>
-          <input type="password" id="resetConfirmPwd" placeholder="Re-enter new password"
-                 onkeydown="if(event.key==='Enter')submitPasswordReset()">
-          <button onclick="toggleResetPwd('resetConfirmPwd','resetToggle2')" tabindex="-1" id="resetToggle2"
-                  style="position:absolute;right:10px;bottom:9px;background:none;border:none;cursor:pointer;font-size:15px;color:var(--text-muted);">👁</button>
-        </div>
-
-        <div id="resetStep1Error" style="font-size:12px;color:#e1245a;font-weight:600;min-height:18px;margin-bottom:8px;display:none;"></div>
-        <button class="login-btn" id="resetSaveBtn" onclick="submitPasswordReset()" style="display:none;">Save New Password</button>
-        <div class="login-loading" id="resetLoading"></div>
-      </div>
-
-      <!-- kept empty for JS references -->
-      <div id="resetStep2"></div>
-
-      <!-- Step 3: success -->
-      <div id="resetSuccess">
-        <div class="rs-icon">✅</div>
-        <div class="rs-title">Password Updated!</div>
-        <div class="rs-sub">Your new password has been saved. You can now sign in.</div>
-        <button class="login-btn" style="margin-top:18px;" onclick="hideResetPanel()">Go to Sign In →</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -7710,143 +7620,6 @@ function showLoginError(msg) {
   el.style.display = 'block';
 }
 
-// ── Forgot / Reset Password ──────────────────────────────
-let _resetPayroll = '';
-
-function showResetPanel() {
-  document.getElementById('signInPanel').style.display = 'none';
-  document.getElementById('resetPanel').classList.add('visible');
-  _resetPayroll = '';
-  // Clear all fields
-  document.getElementById('resetPayroll').value = '';
-  document.getElementById('resetFoundName').value = '';
-  document.getElementById('resetNewPwd').value = '';
-  document.getElementById('resetConfirmPwd').value = '';
-  // Hide secondary rows and button
-  ['resetNameRow','resetPwdRow','resetConfirmRow'].forEach(id => document.getElementById(id).style.display = 'none');
-  document.getElementById('resetSaveBtn').style.display = 'none';
-  document.getElementById('resetStep1Error').style.display = 'none';
-  document.getElementById('resetLoading').textContent = '';
-  document.getElementById('resetSuccess').style.display = 'none';
-  document.getElementById('resetStep1').classList.add('active');
-  setTimeout(() => document.getElementById('resetPayroll').focus(), 80);
-}
-
-function hideResetPanel() {
-  document.getElementById('resetPanel').classList.remove('visible');
-  document.getElementById('signInPanel').style.display = '';
-  document.getElementById('loginError').style.display = 'none';
-  setTimeout(() => document.getElementById('loginPayroll').focus(), 80);
-}
-
-async function onResetPayrollInput() {
-  const payroll = document.getElementById('resetPayroll').value.trim().replace(/\.0$/, '');
-  const errEl   = document.getElementById('resetStep1Error');
-  errEl.style.display = 'none';
-
-  // Hide secondary fields whenever payroll changes
-  ['resetNameRow','resetPwdRow','resetConfirmRow'].forEach(id => document.getElementById(id).style.display = 'none');
-  document.getElementById('resetSaveBtn').style.display = 'none';
-  document.getElementById('resetFoundName').value = '';
-  document.getElementById('resetNewPwd').value = '';
-  document.getElementById('resetConfirmPwd').value = '';
-  _resetPayroll = '';
-
-  if (!payroll) return;
-
-  // Ensure users loaded
-  if (!_usersDb) await loadUsersSheet();
-
-  const user = _usersDb && _usersDb[payroll];
-  if (!user) {
-    // Only show error if they've typed something reasonable (4+ chars)
-    if (payroll.length >= 3) {
-      errEl.textContent = 'Payroll number not found.';
-      errEl.style.display = 'block';
-    }
-    return;
-  }
-
-  // ✅ Found — reveal name, then password fields
-  _resetPayroll = payroll;
-  document.getElementById('resetFoundName').value = user.name;
-  document.getElementById('resetNameRow').style.display = 'flex';
-
-  // Small delay so the name appearing feels natural before password shows
-  setTimeout(() => {
-    document.getElementById('resetPwdRow').style.display = 'flex';
-    document.getElementById('resetConfirmRow').style.display = 'flex';
-    document.getElementById('resetSaveBtn').style.display = 'block';
-    document.getElementById('resetNewPwd').focus();
-  }, 180);
-}
-
-// kept for backward compat (no longer wired to a button but called nowhere harmful)
-async function verifyResetPayroll() {}
-
-function toggleResetPwd(inputId, btnId) {
-  const inp = document.getElementById(inputId);
-  const btn = document.getElementById(btnId);
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
-}
-
-function submitPasswordReset() {
-  const newPwd     = document.getElementById('resetNewPwd').value.trim();
-  const confirmPwd = document.getElementById('resetConfirmPwd').value.trim();
-  const errEl      = document.getElementById('resetStep1Error');
-  const btn        = document.getElementById('resetSaveBtn');
-  const loading    = document.getElementById('resetLoading');
-  errEl.style.display = 'none';
-
-  if (!_resetPayroll) {
-    errEl.textContent = 'Please enter your payroll number first.';
-    errEl.style.display = 'block';
-    return;
-  }
-  if (!newPwd) {
-    errEl.textContent = 'Please enter a new password.';
-    errEl.style.display = 'block';
-    return;
-  }
-  if (newPwd.length < 4) {
-    errEl.textContent = 'Password must be at least 4 characters.';
-    errEl.style.display = 'block';
-    return;
-  }
-  if (newPwd !== confirmPwd) {
-    errEl.textContent = 'Passwords do not match. Please try again.';
-    errEl.style.display = 'block';
-    const el = document.getElementById('resetConfirmPwd');
-    el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
-    el.value = ''; el.focus();
-    return;
-  }
-
-  btn.disabled = true;
-  loading.textContent = '🔄 Saving new password…';
-
-  google.script.run
-    .withSuccessHandler(res => {
-      btn.disabled = false;
-      loading.textContent = '';
-      if (res.success) {
-        if (_usersDb && _usersDb[_resetPayroll]) _usersDb[_resetPayroll].password = newPwd;
-        document.getElementById('resetStep1').classList.remove('active');
-        document.getElementById('resetSuccess').style.display = 'flex';
-      } else {
-        errEl.textContent = res.message || 'Could not save password. Try again.';
-        errEl.style.display = 'block';
-      }
-    })
-    .withFailureHandler(e => {
-      btn.disabled = false;
-      loading.textContent = '';
-      errEl.textContent = 'Error: ' + e.message;
-      errEl.style.display = 'block';
-    })
-    .updateUserPassword(_resetPayroll, newPwd);
-}
 
 function completeLogin(payroll, name) {
   // Update header badge
