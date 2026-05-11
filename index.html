@@ -1820,6 +1820,39 @@
 .login-btn:active { transform: scale(0.98); }
 .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .login-loading { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 12px; min-height: 18px; }
+/* Forgot password link */
+.forgot-link {
+  text-align: right; margin-top: -8px; margin-bottom: 14px;
+}
+.forgot-link button {
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; color: #1e4d8c; font-family: 'DM Sans', sans-serif;
+  font-weight: 600; padding: 0; text-decoration: underline; text-underline-offset: 2px;
+  transition: opacity 0.15s;
+}
+.forgot-link button:hover { opacity: 0.7; }
+/* Reset panel — slides in over the login card */
+#resetPanel {
+  display: none; flex-direction: column;
+}
+#resetPanel.visible { display: flex; }
+.reset-back {
+  background: none; border: none; cursor: pointer; font-size: 12px;
+  color: var(--text-muted); font-family: 'DM Sans', sans-serif;
+  font-weight: 600; padding: 0; margin-bottom: 20px;
+  display: flex; align-items: center; gap: 4px; width: fit-content;
+  transition: color 0.15s;
+}
+.reset-back:hover { color: var(--text); }
+.reset-step { display: none; flex-direction: column; gap: 0; }
+.reset-step.active { display: flex; }
+#resetSuccess {
+  display: none; flex-direction: column; align-items: center;
+  gap: 8px; text-align: center; padding: 12px 0 8px;
+}
+#resetSuccess .rs-icon { font-size: 40px; }
+#resetSuccess .rs-title { font-size: 17px; font-weight: 700; color: var(--text-head); }
+#resetSuccess .rs-sub   { font-size: 13px; color: var(--text-muted); }
 /* User badge in header */
 #userBadge {
   display: none; align-items: center; gap: 8px;
@@ -1847,27 +1880,89 @@
 <!-- ══ LOGIN OVERLAY ══════════════════════════════════════════ -->
 <div id="loginOverlay">
   <div class="login-card">
-    <div class="login-logo">
-      <div class="login-logo-icon">
-        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    <!-- ── SIGN IN PANEL ── -->
+    <div id="signInPanel">
+      <div class="login-logo">
+        <div class="login-logo-icon">
+          <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        </div>
+        <div class="login-logo-text">Sales<span>DB</span></div>
       </div>
-      <div class="login-logo-text">Sales<span>DB</span></div>
+      <div class="login-title">Welcome back 👋</div>
+      <div class="login-sub">Sign in with your payroll number and password to continue.</div>
+      <div class="login-field">
+        <label>Payroll Number</label>
+        <input type="text" id="loginPayroll" placeholder="e.g. 4721" inputmode="numeric" autocomplete="username"
+               onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()">
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter')attemptLogin()">
+      </div>
+      <div class="forgot-link">
+        <button onclick="showResetPanel()">Forgot password?</button>
+      </div>
+      <div id="loginError"></div>
+      <button class="login-btn" id="loginBtn" onclick="attemptLogin()">Sign In →</button>
+      <div class="login-loading" id="loginLoading">🔄 Loading user directory…</div>
     </div>
-    <div class="login-title">Welcome back 👋</div>
-    <div class="login-sub">Sign in with your payroll number and password to continue.</div>
-    <div class="login-field">
-      <label>Payroll Number</label>
-      <input type="text" id="loginPayroll" placeholder="e.g. 4721" inputmode="numeric" autocomplete="username"
-             onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()">
+
+    <!-- ── RESET PASSWORD PANEL ── -->
+    <div id="resetPanel">
+      <button class="reset-back" onclick="hideResetPanel()">← Back to Sign In</button>
+      <div class="login-title">Reset Password 🔑</div>
+
+      <!-- Step 1+2 combined: payroll → name auto-fills → password -->
+      <div class="reset-step active" id="resetStep1">
+        <div class="login-sub">Enter your payroll number — your name will appear automatically, then set a new password.</div>
+
+        <div class="login-field">
+          <label>Payroll Number</label>
+          <input type="text" id="resetPayroll" placeholder="e.g. 4721" inputmode="numeric" autocomplete="off"
+                 oninput="onResetPayrollInput()" onkeydown="if(event.key==='Enter')document.getElementById('resetNewPwd').focus()">
+        </div>
+
+        <!-- Name auto-populates — read-only -->
+        <div class="login-field" id="resetNameRow" style="display:none;">
+          <label>Name</label>
+          <input type="text" id="resetFoundName" readonly
+                 style="background:var(--bg);color:#1e4d8c;font-weight:700;cursor:default;border-color:rgba(30,77,140,0.3);">
+        </div>
+
+        <!-- Password only shown after name is found -->
+        <div class="login-field" id="resetPwdRow" style="display:none;position:relative;">
+          <label>New Password</label>
+          <input type="password" id="resetNewPwd" placeholder="Enter new password"
+                 onkeydown="if(event.key==='Enter')document.getElementById('resetConfirmPwd').focus()">
+          <button onclick="toggleResetPwd('resetNewPwd','resetToggle1')" tabindex="-1" id="resetToggle1"
+                  style="position:absolute;right:10px;bottom:9px;background:none;border:none;cursor:pointer;font-size:15px;color:var(--text-muted);">👁</button>
+        </div>
+
+        <div class="login-field" id="resetConfirmRow" style="display:none;position:relative;">
+          <label>Confirm New Password</label>
+          <input type="password" id="resetConfirmPwd" placeholder="Re-enter new password"
+                 onkeydown="if(event.key==='Enter')submitPasswordReset()">
+          <button onclick="toggleResetPwd('resetConfirmPwd','resetToggle2')" tabindex="-1" id="resetToggle2"
+                  style="position:absolute;right:10px;bottom:9px;background:none;border:none;cursor:pointer;font-size:15px;color:var(--text-muted);">👁</button>
+        </div>
+
+        <div id="resetStep1Error" style="font-size:12px;color:#e1245a;font-weight:600;min-height:18px;margin-bottom:8px;display:none;"></div>
+        <button class="login-btn" id="resetSaveBtn" onclick="submitPasswordReset()" style="display:none;">Save New Password</button>
+        <div class="login-loading" id="resetLoading"></div>
+      </div>
+
+      <!-- kept empty for JS references -->
+      <div id="resetStep2"></div>
+
+      <!-- Step 3: success -->
+      <div id="resetSuccess">
+        <div class="rs-icon">✅</div>
+        <div class="rs-title">Password Updated!</div>
+        <div class="rs-sub">Your new password has been saved. You can now sign in.</div>
+        <button class="login-btn" style="margin-top:18px;" onclick="hideResetPanel()">Go to Sign In →</button>
+      </div>
     </div>
-    <div class="login-field">
-      <label>Password</label>
-      <input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password"
-             onkeydown="if(event.key==='Enter')attemptLogin()">
-    </div>
-    <div id="loginError"></div>
-    <button class="login-btn" id="loginBtn" onclick="attemptLogin()">Sign In →</button>
-    <div class="login-loading" id="loginLoading">🔄 Loading user directory…</div>
   </div>
 </div>
 
@@ -1887,7 +1982,6 @@
     <button class="nav-btn" id="navSalesComparison" onclick="switchPage('salesComparison')">📈 Sales Comparison</button>
     <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">📊 Charts</button>
     <button class="nav-btn" id="navSalesProjection" onclick="switchPage('salesProjection')">📈 Sales Projection</button>
-    <button class="nav-btn" id="navUsers" onclick="switchPage('users')">👥 Users</button>
     <div class="theme-toggle">
       <span class="theme-toggle-label" id="themeLabel">☀️</span>
       <label class="toggle-switch" title="Toggle Day / Night mode">
@@ -2960,101 +3054,6 @@
     <div class="del-foot">
       <button class="btn-cancel" onclick="closeDelModal()">Cancel</button>
       <button class="btn-confirm-del" id="delBtn" onclick="doDelete()">Yes, Delete</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════ USERS PAGE ══════════════════ -->
-<div class="page" id="pageUsers">
-  <div class="customers-page">
-
-    <!-- Header bar -->
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
-      <div>
-        <h2 style="font-size:18px;font-weight:700;color:var(--text-head);margin-bottom:3px;">👥 User Management</h2>
-        <p style="font-size:13px;color:var(--text-muted);">Add, edit or remove users who can log in to SalesDB.</p>
-      </div>
-      <button class="btn-green" onclick="openAddUserModal()" style="display:flex;align-items:center;gap:6px;">
-        <span style="font-size:16px;">＋</span> Add User
-      </button>
-    </div>
-
-    <!-- Stats bar -->
-    <div style="display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap;">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 20px;display:flex;flex-direction:column;gap:2px;min-width:120px;">
-        <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Total Users</span>
-        <span style="font-size:22px;font-weight:800;color:var(--text-head);" id="uTot">—</span>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 20px;display:flex;flex-direction:column;gap:2px;min-width:120px;">
-        <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Active Session</span>
-        <span style="font-size:13px;font-weight:700;color:#1e4d8c;" id="uActiveSession">—</span>
-      </div>
-    </div>
-
-    <!-- Search + refresh -->
-    <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
-      <input id="userSearch" type="text" placeholder="🔍  Search by payroll or name…"
-             oninput="filterUsers()"
-             style="flex:1;padding:9px 14px;border-radius:9px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;max-width:360px;">
-      <button onclick="loadUsersPage()" style="padding:8px 16px;background:var(--surface);border:1px solid var(--border);border-radius:9px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);cursor:pointer;">↻ Refresh</button>
-    </div>
-
-    <!-- Table -->
-    <div id="userTableWrap">
-      <div class="state-box"><div class="icon">👥</div><p>Click "Refresh" or navigate here to load users.</p></div>
-    </div>
-
-  </div>
-</div>
-
-<!-- ══ USER ADD/EDIT MODAL ══ -->
-<div class="overlay" id="userFormOverlay">
-  <div class="modal">
-    <div class="modal-head">
-      <h3 id="userModalTitle">Add User</h3>
-      <button class="modal-x" onclick="closeUserModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="fg">
-        <label>Payroll Number *</label>
-        <input type="text" id="uPayroll" placeholder="e.g. 4721" inputmode="numeric">
-      </div>
-      <div class="fg">
-        <label>Full Name *</label>
-        <input type="text" id="uName" placeholder="e.g. Festus Waweru">
-      </div>
-      <div class="fg" style="position:relative;">
-        <label>Password *</label>
-        <input type="password" id="uPassword" placeholder="Set a password for this user">
-        <button onclick="toggleUserPwdVisibility()" tabindex="-1"
-                style="position:absolute;right:10px;bottom:9px;background:none;border:none;cursor:pointer;font-size:15px;color:var(--text-muted);"
-                id="uPwdToggleBtn" title="Show/hide password">👁</button>
-      </div>
-      <div class="fg">
-        <label>Role / Notes <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
-        <input type="text" id="uRole" placeholder="e.g. Sales Manager, Admin…">
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn-cancel" onclick="closeUserModal()">Cancel</button>
-      <button class="btn-green" id="userSaveBtn" onclick="saveUser()">
-        <span id="userSaveBtnText">Add User</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ USER DELETE CONFIRM ══ -->
-<div class="overlay" id="userDelOverlay">
-  <div class="modal del-modal">
-    <div class="del-body">
-      <div class="del-icon">🗑️</div>
-      <h3>Remove User?</h3>
-      <p>Permanently removing<br><span class="del-name" id="uDelName"></span><br>They will no longer be able to log in.</p>
-    </div>
-    <div class="del-foot">
-      <button class="btn-cancel" onclick="closeUserDelModal()">Cancel</button>
-      <button class="btn-confirm-del" id="uDelBtn" onclick="doDeleteUser()">Yes, Remove</button>
     </div>
   </div>
 </div>
@@ -7711,6 +7710,144 @@ function showLoginError(msg) {
   el.style.display = 'block';
 }
 
+// ── Forgot / Reset Password ──────────────────────────────
+let _resetPayroll = '';
+
+function showResetPanel() {
+  document.getElementById('signInPanel').style.display = 'none';
+  document.getElementById('resetPanel').classList.add('visible');
+  _resetPayroll = '';
+  // Clear all fields
+  document.getElementById('resetPayroll').value = '';
+  document.getElementById('resetFoundName').value = '';
+  document.getElementById('resetNewPwd').value = '';
+  document.getElementById('resetConfirmPwd').value = '';
+  // Hide secondary rows and button
+  ['resetNameRow','resetPwdRow','resetConfirmRow'].forEach(id => document.getElementById(id).style.display = 'none');
+  document.getElementById('resetSaveBtn').style.display = 'none';
+  document.getElementById('resetStep1Error').style.display = 'none';
+  document.getElementById('resetLoading').textContent = '';
+  document.getElementById('resetSuccess').style.display = 'none';
+  document.getElementById('resetStep1').classList.add('active');
+  setTimeout(() => document.getElementById('resetPayroll').focus(), 80);
+}
+
+function hideResetPanel() {
+  document.getElementById('resetPanel').classList.remove('visible');
+  document.getElementById('signInPanel').style.display = '';
+  document.getElementById('loginError').style.display = 'none';
+  setTimeout(() => document.getElementById('loginPayroll').focus(), 80);
+}
+
+async function onResetPayrollInput() {
+  const payroll = document.getElementById('resetPayroll').value.trim().replace(/\.0$/, '');
+  const errEl   = document.getElementById('resetStep1Error');
+  errEl.style.display = 'none';
+
+  // Hide secondary fields whenever payroll changes
+  ['resetNameRow','resetPwdRow','resetConfirmRow'].forEach(id => document.getElementById(id).style.display = 'none');
+  document.getElementById('resetSaveBtn').style.display = 'none';
+  document.getElementById('resetFoundName').value = '';
+  document.getElementById('resetNewPwd').value = '';
+  document.getElementById('resetConfirmPwd').value = '';
+  _resetPayroll = '';
+
+  if (!payroll) return;
+
+  // Ensure users loaded
+  if (!_usersDb) await loadUsersSheet();
+
+  const user = _usersDb && _usersDb[payroll];
+  if (!user) {
+    // Only show error if they've typed something reasonable (4+ chars)
+    if (payroll.length >= 3) {
+      errEl.textContent = 'Payroll number not found.';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  // ✅ Found — reveal name, then password fields
+  _resetPayroll = payroll;
+  document.getElementById('resetFoundName').value = user.name;
+  document.getElementById('resetNameRow').style.display = 'flex';
+
+  // Small delay so the name appearing feels natural before password shows
+  setTimeout(() => {
+    document.getElementById('resetPwdRow').style.display = 'flex';
+    document.getElementById('resetConfirmRow').style.display = 'flex';
+    document.getElementById('resetSaveBtn').style.display = 'block';
+    document.getElementById('resetNewPwd').focus();
+  }, 180);
+}
+
+// kept for backward compat (no longer wired to a button but called nowhere harmful)
+async function verifyResetPayroll() {}
+
+function toggleResetPwd(inputId, btnId) {
+  const inp = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+function submitPasswordReset() {
+  const newPwd     = document.getElementById('resetNewPwd').value.trim();
+  const confirmPwd = document.getElementById('resetConfirmPwd').value.trim();
+  const errEl      = document.getElementById('resetStep1Error');
+  const btn        = document.getElementById('resetSaveBtn');
+  const loading    = document.getElementById('resetLoading');
+  errEl.style.display = 'none';
+
+  if (!_resetPayroll) {
+    errEl.textContent = 'Please enter your payroll number first.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!newPwd) {
+    errEl.textContent = 'Please enter a new password.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (newPwd.length < 4) {
+    errEl.textContent = 'Password must be at least 4 characters.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (newPwd !== confirmPwd) {
+    errEl.textContent = 'Passwords do not match. Please try again.';
+    errEl.style.display = 'block';
+    const el = document.getElementById('resetConfirmPwd');
+    el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+    el.value = ''; el.focus();
+    return;
+  }
+
+  btn.disabled = true;
+  loading.textContent = '🔄 Saving new password…';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      btn.disabled = false;
+      loading.textContent = '';
+      if (res.success) {
+        if (_usersDb && _usersDb[_resetPayroll]) _usersDb[_resetPayroll].password = newPwd;
+        document.getElementById('resetStep1').classList.remove('active');
+        document.getElementById('resetSuccess').style.display = 'flex';
+      } else {
+        errEl.textContent = res.message || 'Could not save password. Try again.';
+        errEl.style.display = 'block';
+      }
+    })
+    .withFailureHandler(e => {
+      btn.disabled = false;
+      loading.textContent = '';
+      errEl.textContent = 'Error: ' + e.message;
+      errEl.style.display = 'block';
+    })
+    .updateUserPassword(_resetPayroll, newPwd);
+}
+
 function completeLogin(payroll, name) {
   // Update header badge
   const badge = document.getElementById('userBadge');
@@ -7748,218 +7885,6 @@ loadUsersSheet().then(ok => {
   const loading = document.getElementById('loginLoading');
   if (loading) loading.textContent = ok ? '' : '⚠ Could not pre-load users — will retry on sign in.';
 });
-
-// Pre-load user directory silently so first login is instant
-loadUsersSheet().then(ok => {
-  const loading = document.getElementById('loginLoading');
-  if (loading) loading.textContent = ok ? '' : '⚠ Could not pre-load users — will retry on sign in.';
-});
-
-// ═══════════════════════════════════════════════════════
-// USERS PAGE — CRUD via Apps Script
-// ═══════════════════════════════════════════════════════
-let allUsersData    = [];
-let userEditMode    = false;
-let editingPayroll  = '';
-let pendingDelUser  = null;
-
-// ── Load ────────────────────────────────────────────────
-function loadUsersPage() {
-  document.getElementById('userTableWrap').innerHTML =
-    '<div class="state-box"><div class="spinner"></div><p>Loading users from Google Sheet…</p></div>';
-
-  const timeoutWarn = setTimeout(() => {
-    const w = document.getElementById('userTableWrap');
-    if (w && w.querySelector('.spinner'))
-      w.innerHTML = '<div class="state-box"><div class="icon">⏳</div><p>Still loading…</p><small>Please wait.</small></div>';
-  }, 8000);
-
-  google.script.run
-    .withSuccessHandler(data => { clearTimeout(timeoutWarn); onUsersLoaded(data); })
-    .withFailureHandler(e => {
-      clearTimeout(timeoutWarn);
-      document.getElementById('userTableWrap').innerHTML =
-        `<div class="state-box"><div class="icon">⚠️</div><p>Failed to load users</p><small>${e.message}</small></div>`;
-    })
-    .getAllUsers();
-}
-
-function onUsersLoaded(data) {
-  allUsersData = data;
-  document.getElementById('uTot').textContent = data.length.toLocaleString();
-  // Show current session user
-  const nameEl = document.getElementById('userName');
-  if (nameEl && nameEl.textContent)
-    document.getElementById('uActiveSession').textContent = nameEl.textContent;
-  buildUsersTable(data);
-  // Refresh in-memory users db for login
-  _usersDb = {};
-  data.forEach(u => { _usersDb[u.payroll] = { name: u.name, password: u.password }; });
-}
-
-function filterUsers() {
-  const q = document.getElementById('userSearch').value.toLowerCase().trim();
-  buildUsersTable(q
-    ? allUsersData.filter(u => u.payroll.toLowerCase().includes(q) || u.name.toLowerCase().includes(q))
-    : allUsersData);
-}
-
-function buildUsersTable(data) {
-  if (!data.length) {
-    document.getElementById('userTableWrap').innerHTML =
-      '<div class="state-box"><div class="icon">📭</div><p>No users found.</p></div>';
-    return;
-  }
-  const currentPayroll = document.getElementById('userPayroll')?.textContent?.replace('#','').trim() || '';
-  const rows = data.map((u, i) => {
-    const isMe = u.payroll === currentPayroll;
-    return `<tr style="${isMe ? 'background:rgba(30,77,140,0.05);' : ''}">
-      <td style="color:var(--text-muted);font-size:12px;">${i+1}</td>
-      <td><span class="sap-pill">${esc(u.payroll)}</span></td>
-      <td style="font-weight:600;">${esc(u.name)}${isMe ? ' <span style="font-size:10px;background:#d1fae5;color:#065f46;padding:1px 7px;border-radius:99px;font-weight:700;">YOU</span>' : ''}</td>
-      <td style="color:var(--text-muted);font-size:12px;">${esc(u.role||'—')}</td>
-      <td style="font-family:\'DM Mono\',monospace;font-size:12px;letter-spacing:0.1em;color:var(--text-muted);">••••••••</td>
-      <td>
-        <div class="action-btns">
-          <button class="btn-edit-sm" onclick='openEditUserModal(${JSON.stringify(u)})'>✏️ Edit</button>
-          <button class="btn-del-sm" ${isMe ? 'disabled title="Cannot delete your own account"' : `onclick="askDeleteUser('${esc(u.payroll)}','${esc(u.name.replace(/'/g,"\\'"))}')"`}>🗑️</button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-
-  document.getElementById('userTableWrap').innerHTML = `
-    <table>
-      <thead><tr>
-        <th>#</th>
-        <th>Payroll No</th>
-        <th>Name</th>
-        <th>Role / Notes</th>
-        <th>Password</th>
-        <th>Actions</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-}
-
-// ── Modals ───────────────────────────────────────────────
-function openAddUserModal() {
-  userEditMode = false;
-  editingPayroll = '';
-  document.getElementById('userModalTitle').textContent = 'Add New User';
-  document.getElementById('userSaveBtnText').textContent = 'Add User';
-  ['uPayroll','uName','uPassword','uRole'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('uPayroll').disabled = false;
-  document.getElementById('uPassword').type = 'password';
-  document.getElementById('userFormOverlay').classList.add('open');
-  setTimeout(() => document.getElementById('uPayroll').focus(), 100);
-}
-
-function openEditUserModal(u) {
-  userEditMode = true;
-  editingPayroll = u.payroll;
-  document.getElementById('userModalTitle').textContent = 'Edit User';
-  document.getElementById('userSaveBtnText').textContent = 'Save Changes';
-  document.getElementById('uPayroll').value = u.payroll;
-  document.getElementById('uPayroll').disabled = true;
-  document.getElementById('uName').value = u.name;
-  document.getElementById('uPassword').value = u.password;
-  document.getElementById('uPassword').type = 'text'; // show current pw on edit
-  document.getElementById('uRole').value = u.role || '';
-  document.getElementById('userFormOverlay').classList.add('open');
-  setTimeout(() => document.getElementById('uName').focus(), 100);
-}
-
-function closeUserModal() {
-  document.getElementById('userFormOverlay').classList.remove('open');
-  editingPayroll = '';
-}
-
-function toggleUserPwdVisibility() {
-  const inp = document.getElementById('uPassword');
-  const btn = document.getElementById('uPwdToggleBtn');
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
-}
-
-function saveUser() {
-  const payroll  = (userEditMode ? editingPayroll : document.getElementById('uPayroll').value).trim();
-  const name     = document.getElementById('uName').value.trim();
-  const password = document.getElementById('uPassword').value.trim();
-  const role     = document.getElementById('uRole').value.trim();
-
-  if (!payroll) { showToast('Payroll number is required.', 'err'); return; }
-  if (!name)    { showToast('Name is required.', 'err'); return; }
-  if (!password){ showToast('Password is required.', 'err'); return; }
-
-  const payload = { payroll, name, password, role };
-  const btn = document.getElementById('userSaveBtn');
-  btn.disabled = true;
-  document.getElementById('userSaveBtnText').textContent = 'Saving…';
-
-  const fn = userEditMode ? 'updateUser' : 'addUser';
-  google.script.run
-    .withSuccessHandler(res => {
-      btn.disabled = false;
-      document.getElementById('userSaveBtnText').textContent = userEditMode ? 'Save Changes' : 'Add User';
-      if (res.success) {
-        closeUserModal();
-        showToast(res.message, 'ok');
-        loadUsersPage();
-      } else {
-        showToast(res.message, 'err');
-      }
-    })
-    .withFailureHandler(e => {
-      btn.disabled = false;
-      document.getElementById('userSaveBtnText').textContent = userEditMode ? 'Save Changes' : 'Add User';
-      showToast('Error: ' + e.message, 'err');
-    })
-    [fn](payload);
-}
-
-// ── Delete ───────────────────────────────────────────────
-function askDeleteUser(payroll, name) {
-  pendingDelUser = payroll;
-  document.getElementById('uDelName').textContent = name + ' (#' + payroll + ')';
-  document.getElementById('userDelOverlay').classList.add('open');
-}
-function closeUserDelModal() {
-  pendingDelUser = null;
-  document.getElementById('userDelOverlay').classList.remove('open');
-}
-function doDeleteUser() {
-  if (!pendingDelUser) return;
-  const btn = document.getElementById('uDelBtn');
-  btn.textContent = 'Removing…';
-  btn.disabled = true;
-  google.script.run
-    .withSuccessHandler(res => {
-      btn.textContent = 'Yes, Remove';
-      btn.disabled = false;
-      closeUserDelModal();
-      showToast(res.message, res.success ? 'ok' : 'err');
-      if (res.success) loadUsersPage();
-    })
-    .withFailureHandler(e => {
-      btn.textContent = 'Yes, Remove';
-      btn.disabled = false;
-      showToast('Error: ' + e.message, 'err');
-    })
-    .deleteUser(pendingDelUser);
-}
-
-// Close modals on backdrop click
-document.getElementById('userFormOverlay').addEventListener('click', function(e) { if (e.target === this) closeUserModal(); });
-document.getElementById('userDelOverlay').addEventListener('click',  function(e) { if (e.target === this) closeUserDelModal(); });
-
-// Auto-load when navigating to Users tab
-const _origSwitchPage = switchPage;
-switchPage = function(page) {
-  _origSwitchPage(page);
-  if (page === 'users' && allUsersData.length === 0) loadUsersPage();
-};
-
 
 let _scData = { '1': null, '2': null };
 let _scChartInstances = {};
