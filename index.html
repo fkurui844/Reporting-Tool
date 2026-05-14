@@ -173,6 +173,50 @@
     .tgt-badge.on  { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
     .tgt-badge.off { background: var(--pill-bg); color: var(--text-muted); border: 1px solid var(--border); }
 
+    /* ── Volume Unit Toggle ── */
+    .vol-unit-toggle-wrap {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      margin-bottom: 14px;
+    }
+    .vol-unit-toggle-wrap.visible { display: inline-flex; }
+    .vol-unit-btn {
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .vol-unit-btn.active {
+      background: #0f2744;
+      color: #fff;
+      border-color: #0f2744;
+    }
+    .vol-unit-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .vol-unit-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
     /* Hide target-related elements when targets are off */
     body.targets-hidden .target-row,
     body.targets-hidden .pct-row,
@@ -1947,8 +1991,15 @@
         <h2 id="reportPeriod">Period: —</h2>
         <small id="reportGenerated"></small>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-left:auto;">
+      <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap;">
         <button class="btn-upload-again" onclick="resetUpload()" style="display:none">↑ Upload another file</button>
+        <!-- Volume Unit Toggle -->
+        <div class="vol-unit-toggle-wrap" id="volUnitToggleWrap">
+          <span class="vol-unit-label">📐 Volume:</span>
+          <button class="vol-unit-btn active" id="volBtnMixed" onclick="setVolUnit('mixed')" title="Show Butter, Powder, Ghee, Cheese in Kgs; all others in Litres">Ltrs / Kgs</button>
+          <button class="vol-unit-btn" id="volBtnLitres" onclick="setVolUnit('litres')" title="Convert all Kg-based categories to Litres (Butter×25, Powder×10, Ghee×10, Cheese×10)">All in Litres</button>
+          <span class="vol-unit-hint" id="volUnitHint"></span>
+        </div>
         <div class="target-toggle-wrap" id="targetToggleWrap" style="margin-bottom:0;border:none;padding:0;background:transparent;">
           <span class="target-toggle-label" style="display:none;">🎯 Show Targets</span>
           <span class="target-toggle-desc" style="display:none;">Toggle to compare sales against targets, or view clean sales numbers only</span>
@@ -1959,7 +2010,7 @@
             <div class="tgt-knob"></div>
           </label>
         </div>
-      </div>
+      </div><!-- /outer flex -->
     </div>
 
     <!-- Metrics -->
@@ -2982,6 +3033,47 @@ let isEditMode    = false;
 let editingSapCode = '';  // holds SAP code during edit — avoids reading disabled field
 let pendingDelete = null;
 
+// ── Volume unit mode ────────────────────────────────────
+// 'mixed'  = default: Ltrs/Kgs as stored in the data
+// 'litres' = convert Kg-based categories to Litres
+let _volUnit = 'mixed';
+let _lastSapData = null; // cached parsed SAP data for re-render on unit change
+
+// Kg→Ltr conversion factors (multiply the stored Kg volume by this)
+const KG_TO_LTR = { 'BUTTER': 25, 'POWDER': 10, 'GHEE': 10, 'CHEESE': 10 };
+
+/**
+ * Convert a volume value to display units.
+ * @param {number} ltrs - the stored volume (may be Kgs for certain categories)
+ * @param {string} category - the product category (uppercase)
+ * @returns {number} display volume in the current unit
+ */
+function toDisplayLtrs(ltrs, category) {
+  if (_volUnit === 'litres' && category) {
+    const cat = category.toUpperCase().trim();
+    const factor = KG_TO_LTR[cat];
+    if (factor) return ltrs * factor;
+  }
+  return ltrs;
+}
+
+/** Returns the display label for the volume column header */
+function volLabel() {
+  return _volUnit === 'litres' ? 'Volume (Ltrs)' : 'Volume (Ltrs/Kgs)';
+}
+
+function setVolUnit(mode) {
+  if (_volUnit === mode) return;
+  _volUnit = mode;
+  // Update toggle button styles
+  document.getElementById('volBtnMixed').classList.toggle('active', mode === 'mixed');
+  document.getElementById('volBtnLitres').classList.toggle('active', mode === 'litres');
+  document.getElementById('volUnitHint').textContent =
+    mode === 'litres' ? '(Butter×25, Powder×10, Ghee×10, Cheese×10)' : '';
+  // Re-render the report with the same data
+  if (_lastSapData) renderReport(_lastSapData);
+}
+
 // ═══════════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════════
@@ -3393,13 +3485,16 @@ function fmt(n){return Math.round(n).toLocaleString();}
 function pct(a,b){return b?Math.round((a/b)*100)+'%':'—';}
 
 function renderReport(data){
+  _lastSapData = data; // cache for unit-toggle re-render
   document.querySelector('.upload-page').style.display='none';
   document.getElementById('report').style.display='block';
+  // Show volume unit toggle
+  document.getElementById('volUnitToggleWrap').classList.add('visible');
   document.getElementById('reportPeriod').textContent='Period: '+(data.period||'—');
   document.getElementById('reportGenerated').textContent='As At: '+new Date().toLocaleString();
 
   const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
-  const totalLtrs = data.transactions.reduce((s,t)=>s+t.ltrs,0);
+  const totalLtrs = data.transactions.reduce((s,t)=>s+toDisplayLtrs(t.ltrs, t.category),0);
   const custCount = new Set(data.transactions.map(t=>t.custCode)).size;
 
   // Customer coverage banner
@@ -3523,7 +3618,7 @@ function renderReport(data){
 
   const mtdHtml = (mtdProAmt !== null || mtdProLtr !== null)
     ? metricRow('Revenue (KSH)', totalAmt,  mtdProAmt, overallTgtAmt, mtdRevPct)
-    + metricRow('Volume (Ltrs/Kgs)', totalLtrs, mtdProLtr, overallTgtLtr, mtdVolPct)
+    + metricRow(volLabel(), totalLtrs, mtdProLtr, overallTgtLtr, mtdVolPct)
     : `<div class="m-sub" style="color:#e53e3e;font-size:11px;">⚠ No target loaded — check Targets sheet</div>`;
 
   // Daily averages
@@ -3553,7 +3648,7 @@ function renderReport(data){
       ${revTgtHtml}
     </div>
     <div class="metric-card red">
-      <div class="m-label">Volume (Ltrs/Kgs)</div>
+      <div class="m-label" id="volMetricLabel">${volLabel()}</div>
       <div class="m-value">${fmt(totalLtrs)}</div>
       ${volTgtHtml}
     </div>
@@ -3566,7 +3661,7 @@ function renderReport(data){
       <div class="m-label">Daily Average</div>
       <div style="font-size:13px;color:var(--text-muted);margin-top:3px;">Based on ${elapsedDays || '—'} day${elapsedDays !== 1 ? 's' : ''} elapsed</div>
       ${dailyRow('Revenue (KSH)', dailyAvgAmt, reqDailyAmt)}
-      ${dailyRow('Volume (Ltrs/Kgs)', dailyAvgLtrs, reqDailyLtrs)}
+      ${dailyRow(volLabel(), dailyAvgLtrs, reqDailyLtrs)}
     </div>
   `;
 
@@ -3677,7 +3772,7 @@ function renderReport(data){
         <colgroup><col style="width:auto"><col style="width:90px"><col style="width:130px"></colgroup>
         <thead><tr>
           <th style="text-align:left;padding:5px 8px;">${title.replace('By ','')}</th>
-          <th style="text-align:right;white-space:nowrap;padding:5px 8px;width:90px">Ltrs/Kgs</th>
+          <th style="text-align:right;white-space:nowrap;padding:5px 8px;width:90px">${volLabel()}</th>
           <th style="text-align:right;white-space:nowrap;padding:5px 8px;width:130px">Amt KSH</th>
         </tr></thead>
         <tbody>${tRows}${foot}</tbody>
@@ -3715,7 +3810,7 @@ function renderReport(data){
           <th style="text-align:center;padding:5px 8px;">#</th>
           <th style="text-align:left;padding:5px 8px;">Channel Name</th>
           <th style="text-align:left;padding:5px 8px;">Channel Type</th>
-          <th style="text-align:right;padding:5px 8px;">Ltrs/Kgs</th>
+          <th style="text-align:right;padding:5px 8px;">${volLabel()}</th>
           <th style="text-align:right;padding:5px 8px;">Amt KSH</th>
           <th style="text-align:right;padding:5px 8px;">% Contri to Total Sales</th>
         </tr></thead>
@@ -3736,7 +3831,7 @@ function renderReport(data){
         amount: 0,
       };
     }
-    chanNameMap[key].ltrs   += t.ltrs;
+    chanNameMap[key].ltrs   += toDisplayLtrs(t.ltrs, (t.category||'').toUpperCase());
     chanNameMap[key].amount += t.amount;
   }
   window._chanNameRows  = Object.values(chanNameMap).sort((a, b) => b.amount - a.amount);
@@ -3757,7 +3852,7 @@ function renderReport(data){
   for (const t of data.transactions) {
     const k = t.custCode;
     if (!custMap[k]) custMap[k] = { name: t.custName, region: t.region, channel: t.channel, ltrs: 0, amount: 0 };
-    custMap[k].ltrs   += t.ltrs;
+    custMap[k].ltrs   += toDisplayLtrs(t.ltrs, (t.category||'').toUpperCase());
     custMap[k].amount += t.amount;
   }
   const top5 = Object.values(custMap).sort((a,b) => b.amount - a.amount).slice(0, 20);
@@ -3944,7 +4039,9 @@ function groupBy(arr,key){
   for(const item of arr){
     const k=(item[key]||'UNKNOWN').toUpperCase();
     if(!m[k])m[k]={ltrs:0,amount:0};
-    m[k].ltrs+=item.ltrs; m[k].amount+=item.amount;
+    // Use the raw category for conversion when grouping by non-category keys
+    const cat = (item.category||'').toUpperCase();
+    m[k].ltrs+=toDisplayLtrs(item.ltrs, cat); m[k].amount+=item.amount;
   }
   return m;
 }
@@ -4044,11 +4141,11 @@ function renderCharts(data) {
   for (const t of data.transactions) {
     if (!custMap[t.custCode]) custMap[t.custCode] = { name: t.custName, amount: 0, ltrs: 0 };
     custMap[t.custCode].amount += t.amount;
-    custMap[t.custCode].ltrs   += t.ltrs;
+    custMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs, (t.category||'').toUpperCase());
   }
   const top10 = Object.values(custMap).sort((a,b)=>b.amount-a.amount).slice(0,10);
   const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
-  const totalLtrs = data.transactions.reduce((s,t)=>s+t.ltrs,0);
+  const totalLtrs = data.transactions.reduce((s,t)=>s+toDisplayLtrs(t.ltrs,(t.category||'').toUpperCase()),0);
 
   // Category targets for grouped bar
   const hasCatTgt = Object.keys(refData.categoryTargets||{}).length > 0;
@@ -4928,9 +5025,9 @@ function buildLocSalesData(transactions) {
     catSet.add(cat);
     if (!pivot[reg]) pivot[reg] = {};
     if (!pivot[reg][cat]) pivot[reg][cat] = { ltrs: 0, amount: 0 };
-    pivot[reg][cat].ltrs   += t.ltrs;
+    pivot[reg][cat].ltrs   += toDisplayLtrs(t.ltrs, cat);
     pivot[reg][cat].amount += t.amount;
-    grandTotal.ltrs   += t.ltrs;
+    grandTotal.ltrs   += toDisplayLtrs(t.ltrs, cat);
     grandTotal.amount += t.amount;
   }
 
@@ -5279,7 +5376,7 @@ function populateLocSalesPage(data) {
   document.getElementById('locStatLocs').textContent = d.regions.length;
   document.getElementById('locStatCats').textContent = d.categories.length;
   document.getElementById('locStatRev').textContent  = 'KSH ' + fmtBig(d.grandTotal.amount);
-  document.getElementById('locStatVol').textContent  = fmtBig(d.grandTotal.ltrs) + ' L/Kg';
+  document.getElementById('locStatVol').textContent  = fmtBig(d.grandTotal.ltrs) + (_volUnit === 'litres' ? ' Ltrs' : ' L/Kg');
   document.getElementById('locSalesSummary').style.display = 'flex';
 
   // Target & % achieved pills — only show when toggle is active
@@ -6055,9 +6152,9 @@ function buildTypeSalesData(transactions) {
     typeSet.add(typ); catSet.add(cat);
     if (!pivot[typ]) pivot[typ] = {};
     if (!pivot[typ][cat]) pivot[typ][cat] = { ltrs: 0, amount: 0 };
-    pivot[typ][cat].ltrs   += t.ltrs;
+    pivot[typ][cat].ltrs   += toDisplayLtrs(t.ltrs, cat);
     pivot[typ][cat].amount += t.amount;
-    grand.ltrs   += t.ltrs;
+    grand.ltrs   += toDisplayLtrs(t.ltrs, cat);
     grand.amount += t.amount;
   }
 
@@ -6248,7 +6345,7 @@ function populateTypeSalesPage(data) {
   document.getElementById('typeStatChans').textContent = d.channels.length;
   document.getElementById('typeStatCats').textContent  = d.categories.length;
   document.getElementById('typeStatRev').textContent   = 'KSH ' + fmtBig(d.grand.amount);
-  document.getElementById('typeStatVol').textContent   = fmtBig(d.grand.ltrs) + ' L/Kg';
+  document.getElementById('typeStatVol').textContent   = fmtBig(d.grand.ltrs) + (_volUnit === 'litres' ? ' Ltrs' : ' L/Kg');
   document.getElementById('typeSalesSummary').style.display = 'flex';
 
   // Compute grand target from Type Targets sheet and show achievement pills
@@ -7294,7 +7391,7 @@ function populateSalesPerCustomerPage(data) {
   // Aggregate by customer then by product within each customer
   const custMap = {};
   const grandTotalAmt  = data.transactions.reduce((s, t) => s + t.amount, 0);
-  const grandTotalLtrs = data.transactions.reduce((s, t) => s + t.ltrs,   0);
+  const grandTotalLtrs = data.transactions.reduce((s, t) => s + toDisplayLtrs(t.ltrs, (t.category||'').toUpperCase()), 0);
 
   for (const tx of data.transactions) {
     const code = tx.custCode || '';
@@ -7302,7 +7399,7 @@ function populateSalesPerCustomerPage(data) {
       custMap[code] = { code, name: tx.custName || code, region: tx.region || '—', channel: tx.channel || '—', type: tx.type || '—', totalLtrs: 0, totalAmt: 0, products: {} };
     }
     const cust = custMap[code];
-    cust.totalLtrs += tx.ltrs   || 0;
+    cust.totalLtrs += toDisplayLtrs(tx.ltrs || 0, (tx.category||'').toUpperCase());
     cust.totalAmt  += tx.amount || 0;
 
     // Product level
@@ -7312,7 +7409,7 @@ function populateSalesPerCustomerPage(data) {
       cust.products[mat] = { matCode: mat, description: prod.description || mat, category: tx.category || '—', qty: 0, ltrs: 0, amount: 0 };
     }
     cust.products[mat].qty    += tx.qty    || 0;
-    cust.products[mat].ltrs   += tx.ltrs   || 0;
+    cust.products[mat].ltrs   += toDisplayLtrs(tx.ltrs || 0, (tx.category||'').toUpperCase());
     cust.products[mat].amount += tx.amount || 0;
   }
 
@@ -7323,7 +7420,7 @@ function populateSalesPerCustomerPage(data) {
   document.getElementById('spcPills').innerHTML = `
     <div class="spc-pill"><div class="spc-pill-label">Customers</div><div class="spc-pill-val">${_spcData.length}</div></div>
     <div class="spc-pill"><div class="spc-pill-label">Total Revenue (KSH)</div><div class="spc-pill-val green">KSH ${fmt(grandTotalAmt)}</div></div>
-    <div class="spc-pill"><div class="spc-pill-label">Total Volume (Ltrs/Kgs)</div><div class="spc-pill-val">${fmt(grandTotalLtrs)}</div></div>
+    <div class="spc-pill"><div class="spc-pill-label">Total Volume</div><div class="spc-pill-val">${fmt(grandTotalLtrs)}</div></div>
     <div class="spc-pill"><div class="spc-pill-label">Avg Revenue / Customer</div><div class="spc-pill-val">KSH ${fmt(grandTotalAmt / (_spcData.length || 1))}</div></div>`;
 
   document.getElementById('spcControls').style.display = 'flex';
@@ -7876,7 +7973,7 @@ function scRunComparison() {
         const k = (t[key] || 'UNKNOWN').toUpperCase();
         if (!m[k]) m[k] = { amount: 0, ltrs: 0, custs: new Set() };
         m[k].amount += t.amount;
-        m[k].ltrs   += t.ltrs;
+        m[k].ltrs   += toDisplayLtrs(t.ltrs, (t.category||'').toUpperCase());
         m[k].custs.add(t.custCode);
       }
       return m;
@@ -7886,12 +7983,12 @@ function scRunComparison() {
       for (const t of txns) {
         if (!m[t.custCode]) m[t.custCode] = { name: t.custName, amount: 0, ltrs: 0 };
         m[t.custCode].amount += t.amount;
-        m[t.custCode].ltrs   += t.ltrs;
+        m[t.custCode].ltrs   += toDisplayLtrs(t.ltrs, (t.category||'').toUpperCase());
       }
       return m;
     }
     const totAmt  = txns => txns.reduce((s, t) => s + t.amount, 0);
-    const totLtrs = txns => txns.reduce((s, t) => s + t.ltrs, 0);
+    const totLtrs = txns => txns.reduce((s, t) => s + toDisplayLtrs(t.ltrs, (t.category||'').toUpperCase()), 0);
     const uniqCusts = txns => new Set(txns.map(t => t.custCode)).size;
 
     const tot1Amt  = totAmt(d1.transactions);
@@ -9144,7 +9241,7 @@ function projRun() {
         const k = (t[dim] || 'UNKNOWN').toUpperCase();
         if (!m[k]) m[k] = { amount:0, ltrs:0 };
         m[k].amount += t.amount;
-        m[k].ltrs   += t.ltrs;
+        m[k].ltrs   += toDisplayLtrs(t.ltrs, (t.category||'').toUpperCase());
       }
       return m;
     }
@@ -9223,7 +9320,7 @@ function projRun() {
         if (!pivot[reg]) pivot[reg] = {};
         if (!pivot[reg][cat]) pivot[reg][cat] = { amount:0, ltrs:0 };
         pivot[reg][cat].amount += t.amount;
-        pivot[reg][cat].ltrs   += t.ltrs;
+        pivot[reg][cat].ltrs   += toDisplayLtrs(t.ltrs, cat);
       }
       const regions = Object.keys(pivot).sort((a,b) => {
         const sa = Object.values(pivot[a]).reduce((s,v)=>s+v.amount,0);
@@ -9232,7 +9329,7 @@ function projRun() {
       });
       const cats = [...allCats].sort();
       const grandA = txns.reduce((s,t)=>s+t.amount,0);
-      const grandV = txns.reduce((s,t)=>s+t.ltrs,0);
+      const grandV = txns.reduce((s,t)=>s+toDisplayLtrs(t.ltrs,(t.category||'UNKNOWN').toUpperCase()),0);
 
       // Header
       const catHeads = cats.map(c => `<th class="r proj-col" style="white-space:nowrap;">${c}</th>`).join('');
@@ -9305,11 +9402,11 @@ function projRun() {
           skuMap[k] = { amount:0, ltrs:0, qty:0, description: prod.description || '', category: (t.category||'').toUpperCase(), byRegion:{} };
         }
         skuMap[k].amount += t.amount;
-        skuMap[k].ltrs   += t.ltrs;
+        skuMap[k].ltrs   += toDisplayLtrs(t.ltrs, skuMap[k].category);
         skuMap[k].qty    += t.qty || 0;
         if (!skuMap[k].byRegion[reg]) skuMap[k].byRegion[reg] = { amount:0, ltrs:0, qty:0 };
         skuMap[k].byRegion[reg].amount += t.amount;
-        skuMap[k].byRegion[reg].ltrs   += t.ltrs;
+        skuMap[k].byRegion[reg].ltrs   += toDisplayLtrs(t.ltrs, skuMap[k].category);
         skuMap[k].byRegion[reg].qty    += t.qty || 0;
       }
       const keys    = Object.keys(skuMap).sort((a,b) => skuMap[b].amount - skuMap[a].amount);
