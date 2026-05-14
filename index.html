@@ -239,51 +239,7 @@
       box-shadow: 0 2px 12px rgba(15,39,68,0.3);
     }
 
-    /* Controls injected into the header after file load */
-    #headerControls {
-      display: none;
-      align-items: center;
-      gap: 10px;
-      margin-left: auto;
-      margin-right: 16px;
-    }
-    #headerControls.visible { display: flex; }
-
-    /* Vol-unit toggle styled for dark header */
-    #headerControls .vol-unit-toggle-wrap {
-      background: transparent;
-      border: none;
-      padding: 0;
-      margin-bottom: 0;
-      gap: 6px;
-    }
-    #headerControls .vol-unit-label {
-      color: rgba(255,255,255,0.55);
-      font-size: 11px;
-    }
-    #headerControls .vol-unit-btn {
-      background: rgba(255,255,255,0.10);
-      border: 1px solid rgba(255,255,255,0.18);
-      color: rgba(255,255,255,0.65);
-      font-size: 12px;
-      padding: 5px 11px;
-    }
-    #headerControls .vol-unit-btn.active {
-      background: #E1245A;
-      border-color: #E1245A;
-      color: #fff;
-    }
-    #headerControls .vol-unit-btn:hover:not(.active) {
-      background: rgba(255,255,255,0.18);
-      color: #fff;
-    }
-    #headerControls .vol-unit-hint { color: rgba(255,255,255,0.4); font-size: 10px; }
-
-    /* Target toggle in header */
-    #headerControls .tgt-badge.on  { background: rgba(29,184,122,0.2); color: #6ee7b7; border-color: rgba(29,184,122,0.4); }
-    #headerControls .tgt-badge.off { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.45); border-color: rgba(255,255,255,0.15); }
-
-    /* Period bar — sits just below the header, above the report content */
+    /* ── Header ── */
     .report-period-bar {
       display: flex;
       align-items: baseline;
@@ -1994,24 +1950,6 @@
     <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">📊 Charts</button>
     <button class="nav-btn" id="navSalesProjection" onclick="switchPage('salesProjection')">📈 Sales Projection</button>
 
-    <!-- ── Report Controls (shown after file upload) ── -->
-    <div id="headerControls">
-      <div class="vol-unit-toggle-wrap" id="volUnitToggleWrap">
-        <span class="vol-unit-label">📐 VOLUME:</span>
-        <button class="vol-unit-btn active" id="volBtnMixed" onclick="setVolUnit('mixed')" title="Butter, Powder, Ghee, Cheese in Kgs; rest in Litres">Ltrs / Kgs</button>
-        <button class="vol-unit-btn" id="volBtnLitres" onclick="setVolUnit('litres')" title="Convert all Kg categories to Litres (Butter×25, Powder×10, Ghee×10, Cheese×10)">All in Litres</button>
-        <span class="vol-unit-hint" id="volUnitHint"></span>
-      </div>
-      <div class="target-toggle-wrap" id="targetToggleWrap" style="margin-bottom:0;border:none;padding:0;background:transparent;">
-        <span class="tgt-badge off" id="tgtBadge">Targets Off</span>
-        <label class="tgt-switch" title="Toggle targets visibility">
-          <input type="checkbox" id="targetToggle" onchange="applyTargetToggle(this.checked)">
-          <div class="tgt-track"></div>
-          <div class="tgt-knob"></div>
-        </label>
-      </div>
-    </div>
-
     <div class="theme-toggle">
       <span class="theme-toggle-label" id="themeLabel">☀️</span>
       <label class="toggle-switch" title="Toggle Day / Night mode">
@@ -2033,7 +1971,23 @@
   </div>
 </header>
 
-<!-- ══════════════════ UPLOAD PAGE ══════════════════ -->
+<!-- ── Sub-header controls bar (shown after file upload, right-aligned) ── -->
+<div id="headerControls" style="display:none;align-items:center;justify-content:flex-end;gap:10px;padding:6px 28px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:49;flex-wrap:wrap;">
+  <div class="vol-unit-toggle-wrap" id="volUnitToggleWrap" style="margin-bottom:0;border:none;padding:0;background:transparent;">
+    <span class="vol-unit-label">📐 VOLUME:</span>
+    <button class="vol-unit-btn active" id="volBtnMixed" onclick="setVolUnit('mixed')" title="Butter, Powder, Ghee, Cheese in Kgs; rest in Litres">Ltrs / Kgs</button>
+    <button class="vol-unit-btn" id="volBtnLitres" onclick="setVolUnit('litres')" title="Convert all Kg categories to Litres (Butter×25, Powder×10, Ghee×10, Cheese×10)">All in Litres</button>
+    <span class="vol-unit-hint" id="volUnitHint"></span>
+  </div>
+  <div class="target-toggle-wrap" id="targetToggleWrap" style="margin-bottom:0;border:none;padding:0;background:transparent;">
+    <span class="tgt-badge off" id="tgtBadge">Targets Off</span>
+    <label class="tgt-switch" title="Toggle targets visibility">
+      <input type="checkbox" id="targetToggle" onchange="applyTargetToggle(this.checked)">
+      <div class="tgt-track"></div>
+      <div class="tgt-knob"></div>
+    </label>
+  </div>
+</div>
 <div class="page active" id="pageUpload">
   <div class="upload-page">
 
@@ -3544,8 +3498,8 @@ function renderReport(data){
   _lastSapData = data; // cache for unit-toggle re-render
   document.querySelector('.upload-page').style.display='none';
   document.getElementById('report').style.display='block';
-  // Show controls in the sticky header
-  document.getElementById('headerControls').classList.add('visible');
+  // Show controls in the sub-header bar
+  document.getElementById('headerControls').style.display = 'flex';
   document.getElementById('reportPeriod').textContent='Period: '+(data.period||'—');
   document.getElementById('reportGenerated').textContent='As At: '+new Date().toLocaleString();
 
@@ -4850,7 +4804,7 @@ ${styles}
 function resetUpload(){
   document.querySelector('.upload-page').style.display='block';
   document.getElementById('report').style.display='none';
-  document.getElementById('headerControls').classList.remove('visible');
+  document.getElementById('headerControls').style.display = 'none';
   document.getElementById('fileInput').value='';
 }
 
