@@ -1986,31 +1986,33 @@
 
   <!-- Report (full width) -->
   <div class="report" id="report">
-    <div class="report-topbar">
+    <!-- Row 1: Period & date (left side only — safe for screenshots) -->
+    <div class="report-topbar" style="border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:0;">
       <div>
         <h2 id="reportPeriod">Period: —</h2>
         <small id="reportGenerated"></small>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap;">
-        <button class="btn-upload-again" onclick="resetUpload()" style="display:none">↑ Upload another file</button>
-        <!-- Volume Unit Toggle -->
-        <div class="vol-unit-toggle-wrap" id="volUnitToggleWrap">
-          <span class="vol-unit-label">📐 Volume:</span>
-          <button class="vol-unit-btn active" id="volBtnMixed" onclick="setVolUnit('mixed')" title="Show Butter, Powder, Ghee, Cheese in Kgs; all others in Litres">Ltrs / Kgs</button>
-          <button class="vol-unit-btn" id="volBtnLitres" onclick="setVolUnit('litres')" title="Convert all Kg-based categories to Litres (Butter×25, Powder×10, Ghee×10, Cheese×10)">All in Litres</button>
-          <span class="vol-unit-hint" id="volUnitHint"></span>
-        </div>
-        <div class="target-toggle-wrap" id="targetToggleWrap" style="margin-bottom:0;border:none;padding:0;background:transparent;">
-          <span class="target-toggle-label" style="display:none;">🎯 Show Targets</span>
-          <span class="target-toggle-desc" style="display:none;">Toggle to compare sales against targets, or view clean sales numbers only</span>
-          <span class="tgt-badge off" id="tgtBadge">Targets Off</span>
-          <label class="tgt-switch" title="Toggle targets visibility">
-            <input type="checkbox" id="targetToggle" onchange="applyTargetToggle(this.checked)">
-            <div class="tgt-track"></div>
-            <div class="tgt-knob"></div>
-          </label>
-        </div>
-      </div><!-- /outer flex -->
+      <button class="btn-upload-again" onclick="resetUpload()" style="display:none;margin-left:auto;">↑ Upload another file</button>
+    </div>
+    <!-- Row 2: Controls (right-side toggles — kept on a separate row so screenshots of Row 1 don't include them) -->
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:8px 0 12px;flex-wrap:wrap;border-bottom:2px solid var(--border2);">
+      <!-- Volume Unit Toggle -->
+      <div class="vol-unit-toggle-wrap" id="volUnitToggleWrap">
+        <span class="vol-unit-label">📐 VOLUME:</span>
+        <button class="vol-unit-btn active" id="volBtnMixed" onclick="setVolUnit('mixed')" title="Show Butter, Powder, Ghee, Cheese in Kgs; all others in Litres">Ltrs / Kgs</button>
+        <button class="vol-unit-btn" id="volBtnLitres" onclick="setVolUnit('litres')" title="Convert all Kg-based categories to Litres (Butter×25, Powder×10, Ghee×10, Cheese×10)">All in Litres</button>
+        <span class="vol-unit-hint" id="volUnitHint"></span>
+      </div>
+      <div class="target-toggle-wrap" id="targetToggleWrap" style="margin-bottom:0;border:none;padding:0;background:transparent;">
+        <span class="target-toggle-label" style="display:none;">🎯 Show Targets</span>
+        <span class="target-toggle-desc" style="display:none;"></span>
+        <span class="tgt-badge off" id="tgtBadge">Targets Off</span>
+        <label class="tgt-switch" title="Toggle targets visibility">
+          <input type="checkbox" id="targetToggle" onchange="applyTargetToggle(this.checked)">
+          <div class="tgt-track"></div>
+          <div class="tgt-knob"></div>
+        </label>
+      </div>
     </div>
 
     <!-- Metrics -->
