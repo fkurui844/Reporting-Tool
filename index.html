@@ -1968,27 +1968,31 @@
       </div>
       <button class="ub-logout" onclick="logoutUser()" title="Sign out">⏻ Sign out</button>
     </div>
+
+    <!-- ── Report controls (visible after file upload) ── -->
+    <div id="headerControls" style="display:none;align-items:center;gap:8px;margin-left:12px;padding-left:12px;border-left:1px solid rgba(255,255,255,0.15);">
+      <!-- Volume toggle -->
+      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;">📐 Vol:</span>
+      <button id="volBtnMixed" onclick="setVolUnit('mixed')"
+        style="padding:4px 10px;border-radius:5px;border:1px solid #E1245A;background:#E1245A;color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all 0.15s;"
+        title="Butter, Powder, Ghee, Cheese in Kgs; rest in Litres">Ltrs / Kgs</button>
+      <button id="volBtnLitres" onclick="setVolUnit('litres')"
+        style="padding:4px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.5);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all 0.15s;"
+        title="Convert all Kg categories to Litres (Butter×25, Powder×10, Ghee×10, Cheese×10)">All in Litres</button>
+      <!-- Divider -->
+      <span style="width:1px;height:20px;background:rgba(255,255,255,0.15);flex-shrink:0;"></span>
+      <!-- Targets toggle -->
+      <span class="tgt-badge off" id="tgtBadge" style="font-size:11px;">Targets Off</span>
+      <label class="tgt-switch" id="targetToggleWrap" title="Toggle targets visibility" style="flex-shrink:0;">
+        <input type="checkbox" id="targetToggle" onchange="applyTargetToggle(this.checked)">
+        <div class="tgt-track"></div>
+        <div class="tgt-knob"></div>
+      </label>
+    </div>
   </div>
 </header>
 
-<!-- ── Sub-header controls bar (shown after file upload, right-aligned) ── -->
-<div id="headerControls" style="display:none;align-items:center;justify-content:flex-end;gap:10px;padding:6px 28px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:49;flex-wrap:wrap;">
-  <div class="vol-unit-toggle-wrap" id="volUnitToggleWrap" style="margin-bottom:0;border:none;padding:0;background:transparent;">
-    <span class="vol-unit-label">📐 VOLUME:</span>
-    <button class="vol-unit-btn active" id="volBtnMixed" onclick="setVolUnit('mixed')" title="Butter, Powder, Ghee, Cheese in Kgs; rest in Litres">Ltrs / Kgs</button>
-    <button class="vol-unit-btn" id="volBtnLitres" onclick="setVolUnit('litres')" title="Convert all Kg categories to Litres (Butter×25, Powder×10, Ghee×10, Cheese×10)">All in Litres</button>
-    <span class="vol-unit-hint" id="volUnitHint"></span>
-  </div>
-  <div class="target-toggle-wrap" id="targetToggleWrap" style="margin-bottom:0;border:none;padding:0;background:transparent;">
-    <span class="tgt-badge off" id="tgtBadge">Targets Off</span>
-    <label class="tgt-switch" title="Toggle targets visibility">
-      <input type="checkbox" id="targetToggle" onchange="applyTargetToggle(this.checked)">
-      <div class="tgt-track"></div>
-      <div class="tgt-knob"></div>
-    </label>
-  </div>
-</div>
-<div class="page active" id="pageUpload">
+<!-- ══════════════════ UPLOAD PAGE ══════════════════ -->
   <div class="upload-page">
 
     <!-- Sheet status -->
@@ -3075,11 +3079,17 @@ function volLabel() {
 function setVolUnit(mode) {
   if (_volUnit === mode) return;
   _volUnit = mode;
-  // Update toggle button styles
-  document.getElementById('volBtnMixed').classList.toggle('active', mode === 'mixed');
-  document.getElementById('volBtnLitres').classList.toggle('active', mode === 'litres');
-  document.getElementById('volUnitHint').textContent =
-    mode === 'litres' ? '(Butter×25, Powder×10, Ghee×10, Cheese×10)' : '';
+  // Update toggle button styles (inline-styled dark-header buttons)
+  const btnMixed  = document.getElementById('volBtnMixed');
+  const btnLitres = document.getElementById('volBtnLitres');
+  if (btnMixed && btnLitres) {
+    btnMixed.style.background  = mode === 'mixed'  ? '#E1245A' : 'rgba(255,255,255,0.12)';
+    btnMixed.style.borderColor = mode === 'mixed'  ? '#E1245A' : 'rgba(255,255,255,0.2)';
+    btnMixed.style.color       = mode === 'mixed'  ? '#fff'    : 'rgba(255,255,255,0.75)';
+    btnLitres.style.background  = mode === 'litres' ? '#E1245A' : 'transparent';
+    btnLitres.style.borderColor = mode === 'litres' ? '#E1245A' : 'rgba(255,255,255,0.2)';
+    btnLitres.style.color       = mode === 'litres' ? '#fff'    : 'rgba(255,255,255,0.5)';
+  }
   // Re-render the report with the same data
   if (_lastSapData) renderReport(_lastSapData);
 }
