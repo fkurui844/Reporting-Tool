@@ -2023,7 +2023,7 @@
     </div>
     <!-- Period bar — left side only, safe to screenshot -->
     <div class="report-period-bar">
-      <h2 id="reportPeriod">Period: —</h2>
+      <h2 id="reportPeriod">Sales Dashboard Period: —</h2>
       <small id="reportGenerated"></small>
       <button class="btn-upload-again" onclick="resetUpload()" style="display:none;margin-left:auto;">↑ Upload another file</button>
     </div>
@@ -3511,7 +3511,7 @@ function renderReport(data){
   document.getElementById('report').style.display='block';
   // Show controls in the sub-header bar
   document.getElementById('headerControls').style.display = 'flex';
-  document.getElementById('reportPeriod').textContent='Period: '+(data.period||'—');
+  document.getElementById('reportPeriod').textContent='Sales Dashboard Period: '+(data.period||'—');
   document.getElementById('reportGenerated').textContent='As At: '+new Date().toLocaleString();
 
   const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
