@@ -1969,26 +1969,6 @@
       <button class="ub-logout" onclick="logoutUser()" title="Sign out">⏻ Sign out</button>
     </div>
 
-    <!-- ── Report controls (visible after file upload) ── -->
-    <div id="headerControls" style="display:none;align-items:center;gap:8px;margin-left:12px;padding-left:12px;border-left:1px solid rgba(255,255,255,0.15);">
-      <!-- Volume toggle -->
-      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;">📐 Vol:</span>
-      <button id="volBtnMixed" onclick="setVolUnit('mixed')"
-        style="padding:4px 10px;border-radius:5px;border:1px solid #E1245A;background:#E1245A;color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all 0.15s;"
-        title="Butter, Powder, Ghee, Cheese in Kgs; rest in Litres">Ltrs / Kgs</button>
-      <button id="volBtnLitres" onclick="setVolUnit('litres')"
-        style="padding:4px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.5);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all 0.15s;"
-        title="Convert all Kg categories to Litres (Butter×25, Powder×10, Ghee×10, Cheese×10)">All in Litres</button>
-      <!-- Divider -->
-      <span style="width:1px;height:20px;background:rgba(255,255,255,0.15);flex-shrink:0;"></span>
-      <!-- Targets toggle -->
-      <span class="tgt-badge off" id="tgtBadge" style="font-size:11px;">Targets Off</span>
-      <label class="tgt-switch" id="targetToggleWrap" title="Toggle targets visibility" style="flex-shrink:0;">
-        <input type="checkbox" id="targetToggle" onchange="applyTargetToggle(this.checked)">
-        <div class="tgt-track"></div>
-        <div class="tgt-knob"></div>
-      </label>
-    </div>
   </div>
 </header>
 
@@ -2021,6 +2001,26 @@
 
   <!-- Report (full width) -->
   <div class="report" id="report">
+    <!-- ── Report controls (visible after file upload) ── -->
+    <div id="headerControls" style="display:none;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <!-- Volume toggle -->
+      <span style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;">📐 Vol:</span>
+      <button id="volBtnMixed" onclick="setVolUnit('mixed')"
+        style="padding:4px 10px;border-radius:5px;border:1px solid #E1245A;background:#E1245A;color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all 0.15s;"
+        title="Butter, Powder, Ghee, Cheese in Kgs; rest in Litres">Ltrs / Kgs</button>
+      <button id="volBtnLitres" onclick="setVolUnit('litres')"
+        style="padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all 0.15s;"
+        title="Convert all Kg categories to Litres (Butter×25, Powder×10, Ghee×10, Cheese×10)">All in Litres</button>
+      <!-- Divider -->
+      <span style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></span>
+      <!-- Targets toggle -->
+      <span class="tgt-badge off" id="tgtBadge" style="font-size:11px;">Targets Off</span>
+      <label class="tgt-switch" id="targetToggleWrap" title="Toggle targets visibility" style="flex-shrink:0;">
+        <input type="checkbox" id="targetToggle" onchange="applyTargetToggle(this.checked)">
+        <div class="tgt-track"></div>
+        <div class="tgt-knob"></div>
+      </label>
+    </div>
     <!-- Period bar — left side only, safe to screenshot -->
     <div class="report-period-bar">
       <h2 id="reportPeriod">Period: —</h2>
