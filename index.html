@@ -2775,12 +2775,13 @@
           <span class="sc-section-title">🗺️ By Location &amp; Product Category</span>
           <span class="sc-section-sub">Revenue per region broken down by category</span>
           <div class="sc-export-wrap" onclick="event.stopPropagation()">
-            <button class="btn-sc-export" onclick="scExportHTML('scTableRegionCat','By Location and Category')">⬇ Export</button>
+            <button class="btn-sc-export" onclick="scExportRegionCatHTML(false)">⬇ Export</button>
             <div class="sc-export-wrap" onclick="event.stopPropagation()">
               <button class="btn-sc-export" style="padding:6px 8px;min-width:unset;" onclick="scToggleExportMenu('scTableRegionCat_menu')">▾</button>
               <div class="sc-export-menu" id="scTableRegionCat_menu">
-                <button onclick="scExportExcel('scTableRegionCat','By Location and Category');scToggleExportMenu('scTableRegionCat_menu')">📗 Download Excel (.xlsx)</button>
-                <button onclick="scExportHTML('scTableRegionCat','By Location and Category');scToggleExportMenu('scTableRegionCat_menu')">🌐 Download HTML (web view)</button>
+                <button onclick="scExportExcel('scTableRegionCat','By Location and Category');scToggleExportMenu('scTableRegionCat_menu')">📗 Excel — Categories only (.xlsx)</button>
+                <button onclick="scExportRegionCatHTML(false);scToggleExportMenu('scTableRegionCat_menu')">🌐 HTML — Categories only</button>
+                <button onclick="scExportRegionCatHTML(true);scToggleExportMenu('scTableRegionCat_menu')">🌐 HTML — With all SKUs</button>
               </div>
             </div>
           </div>
@@ -8496,11 +8497,18 @@ function scRunComparison() {
         const vcats2 = volMat2[reg] || {};
         const regCats = [...new Set([...Object.keys(cats1), ...Object.keys(cats2)])]
           .sort((a,b) => ((cats1[b]||0)+(cats2[b]||0)) - ((cats1[a]||0)+(cats2[a]||0)));
-        const categories = regCats.map(cat => ({
-          cat,
-          a1: cats1[cat]||0,  a2: cats2[cat]||0,
-          v1: vcats1[cat]||0, v2: vcats2[cat]||0
-        }));
+        const categories = regCats.map(cat => {
+          const skuObj = skuMat[reg]?.[cat] || {};
+          const skus = Object.entries(skuObj)
+            .map(([code, sd]) => ({ code, desc: sd.desc||'', a1:sd.a1||0, a2:sd.a2||0, v1:sd.v1||0, v2:sd.v2||0 }))
+            .sort((a,b) => (b.a1+b.a2)-(a.a1+a.a2));
+          return {
+            cat,
+            a1: cats1[cat]||0,  a2: cats2[cat]||0,
+            v1: vcats1[cat]||0, v2: vcats2[cat]||0,
+            skus
+          };
+        });
         return {
           reg,
           revCur:  rMap1[reg]?.amount || 0,
@@ -8723,6 +8731,227 @@ function scToggleExportMenu(menuId) {
   const wasOpen = menu.classList.contains('open');
   document.querySelectorAll('.sc-export-menu.open').forEach(m => m.classList.remove('open'));
   if (!wasOpen) menu.classList.add('open');
+}
+
+function scExportRegionCatHTML(withSkus) {
+  const data  = window._scRegionCatData  || [];
+  const grand = window._scRegionCatGrand || {};
+  if (!data.length) { alert('Run a comparison first.'); return; }
+
+  const p1 = window._scP1Lbl || 'Current Period';
+  const p2 = window._scP2Lbl || 'Previous Period';
+  const isDark = document.body.classList.contains('dark');
+  const exportDate = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+  function pct(a, b) {
+    if (!b) return a > 0 ? '+100%' : '0%';
+    const p = Math.round(((a - b) / Math.abs(b)) * 100);
+    return (p >= 0 ? '+' : '') + p + '%';
+  }
+  function fmtN(n) { return Math.round(n).toLocaleString(); }
+  function deltaCls(a, b) { return a > b ? 'up' : a < b ? 'down' : 'flat'; }
+  function deltaArrow(a, b) { return a > b ? '▲' : a < b ? '▼' : '—'; }
+
+  const C = {
+    navy:'#0f2744', navy2:'#132d53', pink:'#E1245A',
+    pinkPale:'#f9a8d4', blue:'#93c5fd', amber:'#f59e0b',
+    bg:     isDark?'#0d1117':'#f4f6fb',
+    surf:   isDark?'#161b22':'#ffffff',
+    border: isDark?'#30363d':'#dde3ec',
+    text:   isDark?'#e6edf3':'#111827',
+    muted:  isDark?'#8b949e':'#718096',
+    rowAlt: isDark?'#1c2128':'#f0f2f5',
+    skuBg:  isDark?'#101820':'#f7f9fc',
+    skuBdr: isDark?'#1e2a38':'#e8ecf2',
+    codeBg: isDark?'#1a2538':'#e8edf5',
+    codeBdr:isDark?'#2a3d57':'#cdd5e0',
+    codeTxt:isDark?'#7ba7cc':'#3b5070',
+  };
+
+  const style = `
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;600&display=swap');
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans','Segoe UI',sans-serif;background:${C.bg};color:${C.text};font-size:13px;}
+    .page-wrap{max-width:1360px;margin:0 auto;padding:28px 20px;}
+    /* Header */
+    .hdr{background:${C.navy};border-radius:12px 12px 0 0;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;}
+    .hdr-left{display:flex;align-items:center;gap:12px;}
+    .hdr-icon{width:36px;height:36px;border-radius:8px;background:rgba(225,36,90,0.18);border:1.5px solid rgba(225,36,90,0.4);display:flex;align-items:center;justify-content:center;font-size:16px;}
+    .hdr-title{font-size:17px;font-weight:800;color:#fff;letter-spacing:0.02em;}
+    .hdr-sub{font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px;letter-spacing:0.04em;}
+    .hdr-meta{font-size:11px;color:rgba(255,255,255,0.4);text-align:right;line-height:1.7;}
+    /* Period strip */
+    .period-strip{background:${C.navy2};padding:8px 24px;display:flex;gap:32px;font-size:11px;border-bottom:2px solid rgba(225,36,90,0.35);}
+    .pi{display:flex;align-items:center;gap:8px;}
+    .dot{width:8px;height:8px;border-radius:99px;flex-shrink:0;}
+    .dot.cur{background:${C.pinkPale};} .dot.prev{background:${C.blue};}
+    .pi-lbl{color:rgba(255,255,255,0.45);font-weight:600;} .pi-val{color:rgba(255,255,255,0.85);font-weight:700;}
+    /* Table wrap */
+    .tbl-wrap{border-radius:0 0 10px 10px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.13);border:1px solid ${C.border};border-top:none;}
+    /* Table */
+    table{border-collapse:collapse;width:100%;font-size:12px;background:${C.surf};}
+    /* Thead */
+    thead tr.th1 th{background:${C.navy};color:rgba(255,255,255,0.9);padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:0.07em;text-align:left;white-space:nowrap;}
+    thead tr.th2 th{background:${C.navy2};color:rgba(255,255,255,0.72);padding:7px 14px;font-size:10px;font-weight:600;text-align:right;border-bottom:2px solid ${C.border};white-space:nowrap;line-height:1.4;}
+    thead tr.th2 th:nth-child(1),thead tr.th2 th:nth-child(2){text-align:left;}
+    .th-rev{color:${C.pinkPale}!important;} .th-vol{color:${C.blue}!important;} .th-pct{color:${C.amber}!important;}
+    /* Tbody */
+    tbody tr:nth-child(even){background:${C.rowAlt};}
+    tbody td{padding:9px 14px;border-bottom:1px solid ${C.border};vertical-align:middle;}
+    .num{text-align:right;font-family:'DM Mono','Courier New',monospace;}
+    /* Region cell */
+    .reg-cell{font-weight:800;font-size:13px;color:#fff!important;background:${C.navy}!important;text-align:center;border-right:4px solid ${C.pink};border-left:4px solid ${C.pink};letter-spacing:0.06em;white-space:nowrap;vertical-align:middle;padding:10px 14px;}
+    /* Region first-row border */
+    tr.region-first td{border-top:4px solid ${C.pink}!important;}
+    /* Category row */
+    .cat-row td{background:${C.surf}!important;}
+    .cat-name{font-size:11.5px;font-weight:700;letter-spacing:0.04em;color:${C.text};}
+    /* SKU rows */
+    .sku-row td{background:${C.skuBg}!important;border-bottom:1px solid ${C.skuBdr}!important;padding:7px 14px;}
+    .sku-row:last-child td{border-bottom:2px solid rgba(225,36,90,0.2)!important;}
+    .sku-cell{display:flex;align-items:flex-start;gap:9px;padding-left:28px;}
+    .sku-bar{flex-shrink:0;width:3px;align-self:stretch;min-height:26px;background:linear-gradient(to bottom,rgba(225,36,90,0.5),rgba(225,36,90,0.08));border-radius:2px;margin-top:2px;}
+    .sku-inner{display:flex;flex-direction:column;gap:3px;}
+    .sku-code{font-family:'DM Mono','Courier New',monospace;font-size:10px;background:${C.codeBg};border:1px solid ${C.codeBdr};padding:1px 6px;border-radius:3px;color:${C.codeTxt};display:inline-block;letter-spacing:0.03em;font-weight:600;}
+    .sku-desc{font-size:11px;font-weight:500;color:${C.text};line-height:1.3;}
+    .sku-num{font-size:11.5px;font-weight:600;color:${C.text};text-align:right;font-family:'DM Mono','Courier New',monospace;white-space:nowrap;}
+    .sku-num.muted{color:${C.muted};font-weight:400;}
+    /* Delta pills */
+    .dp{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;white-space:nowrap;}
+    .dp.up{background:#d1fae5;color:#065f46;} .dp.down{background:#fee2e2;color:#991b1b;} .dp.flat{background:#f3f4f6;color:#6b7280;}
+    /* Subtotal */
+    .sub-row td{background:${C.navy}!important;color:rgba(255,255,255,0.85)!important;font-weight:700;font-size:11px;border-top:3px solid ${C.pink}!important;border-bottom:4px solid ${C.pink}!important;}
+    .sub-row .num{color:#fff!important;}
+    /* Footer */
+    tfoot td{background:${C.navy};color:#fff;padding:10px 14px;font-weight:700;font-size:12px;border-top:3px solid rgba(225,36,90,0.6);}
+    tfoot .num{font-family:'DM Mono','Courier New',monospace;text-align:right;}
+    /* Page footer */
+    .pg-footer{margin-top:18px;font-size:11px;color:${C.muted};text-align:center;padding-bottom:8px;}
+    .sku-badge{display:inline-block;font-size:10px;font-weight:600;padding:1px 7px;border-radius:99px;background:rgba(225,36,90,0.1);color:${C.pink};border:1px solid rgba(225,36,90,0.2);margin-left:8px;vertical-align:middle;}
+  `;
+
+  // Build table rows from raw data
+  let rows = '';
+  for (const { reg, revCur, revPrev, volCur, volPrev, categories } of data) {
+    // count rowspan: categories + (sku rows if withSkus) + 1 subtotal
+    const skuTotal = withSkus ? categories.reduce((s, c) => s + c.skus.length, 0) : 0;
+    const rowspan  = categories.length + skuTotal + 1;
+
+    let firstCat = true;
+    for (const { cat, a1, a2, v1, v2, skus } of categories) {
+      const dc = deltaCls(a1,a2), da = deltaArrow(a1,a2), dp = pct(a1,a2);
+      const dvc = deltaCls(v1,v2), dva = deltaArrow(v1,v2), dvp = pct(v1,v2);
+      const skuHint = withSkus && skus.length ? `<span class="sku-badge">${skus.length} SKU${skus.length!==1?'s':''}</span>` : '';
+
+      rows += `<tr class="cat-row${firstCat?' region-first':''}">`;
+      if (firstCat) {
+        rows += `<td class="reg-cell" rowspan="${rowspan}">${reg}</td>`;
+        firstCat = false;
+      }
+      rows += `<td class="cat-name">${cat}${skuHint}</td>`;
+      rows += `<td class="num">${fmtN(a1)}</td><td class="num">${fmtN(a2)}</td>`;
+      rows += `<td class="num"><span class="dp ${dc}">${da} ${dp}</span></td>`;
+      rows += `<td class="num">${fmtN(v1)}</td><td class="num">${fmtN(v2)}</td>`;
+      rows += `<td class="num"><span class="dp ${dvc}">${dva} ${dvp}</span></td>`;
+      rows += '</tr>';
+
+      if (withSkus) {
+        for (const sk of skus) {
+          const sc = deltaCls(sk.a1,sk.a2), sa = deltaArrow(sk.a1,sk.a2), sp = pct(sk.a1,sk.a2);
+          const svc = deltaCls(sk.v1,sk.v2), sva = deltaArrow(sk.v1,sk.v2), svp = pct(sk.v1,sk.v2);
+          rows += `<tr class="sku-row">`;
+          rows += `<td><div class="sku-cell"><div class="sku-bar"></div><div class="sku-inner"><span class="sku-code">${sk.code}</span><span class="sku-desc">${sk.desc||'—'}</span></div></div></td>`;
+          rows += `<td class="num sku-num${sk.a1===0?' muted':''}">${sk.a1?fmtN(sk.a1):'—'}</td>`;
+          rows += `<td class="num sku-num${sk.a2===0?' muted':''}">${sk.a2?fmtN(sk.a2):'—'}</td>`;
+          rows += `<td class="num">${(sk.a1||sk.a2)?`<span class="dp ${sc}" style="font-size:10px;">${sa} ${sp}</span>`:'<span style="color:#9ca3af;">—</span>'}</td>`;
+          rows += `<td class="num sku-num${sk.v1===0?' muted':''}">${sk.v1?fmtN(sk.v1):'—'}</td>`;
+          rows += `<td class="num sku-num${sk.v2===0?' muted':''}">${sk.v2?fmtN(sk.v2):'—'}</td>`;
+          rows += `<td class="num">${(sk.v1||sk.v2)?`<span class="dp ${svc}" style="font-size:10px;">${sva} ${svp}</span>`:'<span style="color:#9ca3af;">—</span>'}</td>`;
+          rows += '</tr>';
+        }
+      }
+    }
+    // Subtotal
+    const rdc=deltaCls(revCur,revPrev),rda=deltaArrow(revCur,revPrev),rdp=pct(revCur,revPrev);
+    const vdc=deltaCls(volCur,volPrev),vda=deltaArrow(volCur,volPrev),vdp=pct(volCur,volPrev);
+    rows += `<tr class="sub-row">`;
+    rows += `<td>SUBTOTAL</td>`;
+    rows += `<td class="num">${fmtN(revCur)}</td><td class="num">${fmtN(revPrev)}</td>`;
+    rows += `<td class="num"><span class="dp ${rdc}">${rda} ${rdp}</span></td>`;
+    rows += `<td class="num">${fmtN(volCur)}</td><td class="num">${fmtN(volPrev)}</td>`;
+    rows += `<td class="num"><span class="dp ${vdc}">${vda} ${vdp}</span></td>`;
+    rows += '</tr>';
+  }
+
+  // Grand total
+  const gdc=deltaCls(grand.revCur,grand.revPrev),gda=deltaArrow(grand.revCur,grand.revPrev),gdp=pct(grand.revCur,grand.revPrev);
+  const gvc=deltaCls(grand.volCur,grand.volPrev),gva=deltaArrow(grand.volCur,grand.volPrev),gvp=pct(grand.volCur,grand.volPrev);
+
+  const suffix = withSkus ? ' (with SKUs)' : '';
+  const fname  = ('By_Location_and_Category' + (withSkus?'_with_SKUs':'') + '_' + (p1||'').replace(/[^a-zA-Z0-9]+/g,'-') + '.html');
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>By Location &amp; Product Category${suffix} — ${p1} vs ${p2}</title>
+  <style>${style}</style>
+</head>
+<body>
+<div class="page-wrap">
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-icon">📊</div>
+      <div>
+        <div class="hdr-title">By Location &amp; Product Category${suffix}</div>
+        <div class="hdr-sub">Revenue per region broken down by category${withSkus?' · All SKUs included':''}</div>
+      </div>
+    </div>
+    <div class="hdr-meta">Exported ${exportDate}<br>SalesDB Reporting Tool</div>
+  </div>
+  <div class="period-strip">
+    <div class="pi"><div class="dot cur"></div><span class="pi-lbl">Current:</span><span class="pi-val">${p1}</span></div>
+    <div class="pi"><div class="dot prev"></div><span class="pi-lbl">Previous:</span><span class="pi-val">${p2}</span></div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr class="th1">
+          <th rowspan="2">Region</th>
+          <th rowspan="2">Category${withSkus?' / SKU':''}</th>
+          <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(225,36,90,0.4);color:${C.pinkPale};">SALES IN REVENUE</th>
+          <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(59,130,246,0.4);color:${C.blue};">SALES IN VOLUME</th>
+        </tr>
+        <tr class="th2">
+          <th class="th-rev">Current<br>${p1}<br>(KSH)</th>
+          <th class="th-rev" style="color:rgba(255,255,255,0.55)!important;">Previous<br>${p2}<br>(KSH)</th>
+          <th class="th-pct">% Growth / Decline</th>
+          <th class="th-vol">Current<br>${p1}<br>(Ltrs/Kgs)</th>
+          <th class="th-vol" style="color:rgba(255,255,255,0.55)!important;">Previous<br>${p2}<br>(Ltrs/Kgs)</th>
+          <th class="th-pct">% Growth / Decline</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td colspan="2">GRAND TOTAL</td>
+        <td class="num">${fmtN(grand.revCur||0)}</td>
+        <td class="num">${fmtN(grand.revPrev||0)}</td>
+        <td class="num"><span class="dp ${gdc}">${gda} ${gdp}</span></td>
+        <td class="num">${fmtN(grand.volCur||0)}</td>
+        <td class="num">${fmtN(grand.volPrev||0)}</td>
+        <td class="num"><span class="dp ${gvc}">${gva} ${gvp}</span></td>
+      </tr></tfoot>
+    </table>
+  </div>
+  <div class="pg-footer">Generated by SalesDB Reporting Tool &nbsp;·&nbsp; ${exportDate}</div>
+</div>
+</body></html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fname;
+  a.click();
 }
 
 function scExportHTML(tableId, label) {
