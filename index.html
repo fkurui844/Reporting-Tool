@@ -2815,9 +2815,6 @@
           <select class="sc-mov-select" id="scMovFilterChannel" onchange="scFilterMovement()">
             <option value="">All Channels</option>
           </select>
-          <select class="sc-mov-select" id="scMovFilterType" onchange="scFilterMovement()">
-            <option value="">All Types</option>
-          </select>
           <button class="btn-sc-mov-clear" onclick="scMovClearFilters()">✕ Clear</button>
           <span class="sc-mov-filter-count" id="scMovCount"></span>
         </div>
@@ -7907,12 +7904,11 @@ function scRenderMovement(list) {
       changePill = `<span class="sc-delta-pill ${cls}">${arr} ${sign}${pct}%</span>`;
     }
 
-    const typePill = c.type ? pill(c.type) : "";
     return `<tr>
       <td><span style="${statusCSS[c.status]}">${statusLabel[c.status] || c.status}</span></td>
       <td>
         <div style="font-weight:700;font-size:12px;margin-bottom:3px;">${esc(c.name || c.code)}</div>
-        <div>${pill(c.region)}${pill(c.channel)}${typePill}</div>
+        <div>${pill(c.region)}${pill(c.channel)}</div>
       </td>
       <td class="num">${curCell}</td>
       <td class="num">${prevCell}</td>
@@ -7965,18 +7961,16 @@ function scFilterMovement() {
   const status  = document.getElementById("scMovFilterStatus").value;
   const region  = document.getElementById("scMovFilterRegion").value;
   const channel = document.getElementById("scMovFilterChannel").value;
-  const type    = document.getElementById("scMovFilterType").value;
   const filtered = all.filter(c =>
     (!status  || c.status  === status) &&
     (!region  || (c.region  || "UNKNOWN") === region) &&
-    (!channel || (c.channel || "UNKNOWN") === channel) &&
-    (!type    || (c.type    || "UNKNOWN") === type)
+    (!channel || (c.channel || "UNKNOWN") === channel)
   );
   scRenderMovement(filtered);
 }
 
 function scMovClearFilters() {
-  ["scMovFilterStatus","scMovFilterRegion","scMovFilterChannel","scMovFilterType"]
+  ["scMovFilterStatus","scMovFilterRegion","scMovFilterChannel"]
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   scRenderMovement(window._scMovementAll || []);
 }
@@ -8551,7 +8545,6 @@ function scRunComparison() {
       }
       populateSelect("scMovFilterRegion",  new Set(movList.map(c => c.region  || "UNKNOWN")));
       populateSelect("scMovFilterChannel", new Set(movList.map(c => c.channel || "UNKNOWN")));
-      populateSelect("scMovFilterType",    new Set(movList.map(c => c.type    || "UNKNOWN")));
 
       scRenderMovement(movList);
     }
@@ -8746,20 +8739,18 @@ async function scExportExcel(tableId, label) {
     const sS = (document.getElementById('scMovFilterStatus')?.value  ||'').trim();
     const rS = (document.getElementById('scMovFilterRegion')?.value  ||'').trim();
     const cS = (document.getElementById('scMovFilterChannel')?.value ||'').trim();
-    const tS = (document.getElementById('scMovFilterType')?.value    ||'').trim();
     const SL = { NEW:'TRADING', RETAINED:'RETAINED', LOST:'NOT TRADING' };
 
     const filtered = allData.filter(c =>
       (!sS || c.status === sS) &&
       (!rS || (c.region  ||'UNKNOWN') === rS) &&
-      (!cS || (c.channel ||'UNKNOWN') === cS) &&
-      (!tS || (c.type    ||'UNKNOWN') === tS)
+      (!cS || (c.channel ||'UNKNOWN') === cS)
     );
     const regions = [...new Set(filtered.map(c => c.region||'UNKNOWN'))].sort();
     const sheets  = [{ name:'All Regions', rows:filtered }, ...regions.map(r => ({ name:r, rows: filtered.filter(c=>(c.region||'UNKNOWN')===r) }))];
 
-    const COLS = [14,38,12,18,16,16,22,22,14];
-    const HDRS = ['Status','Customer','SAP Code','Region','Channel','Type', p1+'\n(Current) KSH', p2+'\n(Previous) KSH','% Change'];
+    const COLS = [14,38,12,18,16,22,22,14];
+    const HDRS = ['Status','Customer','SAP Code','Region','Channel', p1+'\n(Current) KSH', p2+'\n(Previous) KSH','% Change'];
 
     for (const { name, rows } of sheets) {
       const ws = wb.addWorksheet(name.replace(/[:\\/?*[\]]/g,'').slice(0,31));
@@ -8767,39 +8758,39 @@ async function scExportExcel(tableId, label) {
       const ttl = label + ' — ' + name + '   |   Exported: ' + new Date().toLocaleDateString();
       ws.addRow([ttl]);
       applyCell(ws.getCell(1,1), ttl, { bold:true, size:12, color:WHITE, fill:NAVY });
-      ws.mergeCells(1,1,1,9);
+      ws.mergeCells(1,1,1,8);
       const sub = p1+' (Current)  vs  '+p2+' (Previous)';
       ws.addRow([sub]);
       applyCell(ws.getCell(2,1), sub, { size:9, color:{argb:'FF6B7280'} });
-      ws.mergeCells(2,1,2,9);
+      ws.mergeCells(2,1,2,8);
       ws.addRow([]);
       // Header
       const hRow = ws.addRow(HDRS); hRow.height = 38;
-      [1,2,3,4,5,6].forEach(i => hCell(ws.getCell(4,i), HDRS[i-1]));
-      hCell(ws.getCell(4,7), HDRS[6], { color:PINK,  right:true });
-      hCell(ws.getCell(4,8), HDRS[7], { color:BLUE,  right:true });
-      hCell(ws.getCell(4,9), HDRS[8], { color:AMBER, right:true });
+      [1,2,3,4,5].forEach(i => hCell(ws.getCell(4,i), HDRS[i-1]));
+      hCell(ws.getCell(4,6), HDRS[5], { color:PINK,  right:true });
+      hCell(ws.getCell(4,7), HDRS[6], { color:BLUE,  right:true });
+      hCell(ws.getCell(4,8), HDRS[7], { color:AMBER, right:true });
       // Data
       rows.forEach((c,idx) => {
         const pct = c.prevAmt !== 0 ? Math.round(((c.curAmt-c.prevAmt)/Math.abs(c.prevAmt))*100) : (c.status==='NEW'?100:-100);
         const pStr = (pct>=0?'+':'')+pct+'%';
         const fill = idx%2===1 ? LIGHT_ROW : undefined;
-        const dr = ws.addRow([SL[c.status]||c.status, c.name||c.code, c.code, c.region||'', c.channel||'', c.type||'', c.curAmt||0, c.prevAmt||0, pStr]);
-        [1,2,3,4,5,6].forEach(i => applyCell(dr.getCell(i), dr.getCell(i).value, {fill}));
-        applyCell(dr.getCell(7), c.curAmt||0, {fill});
-        applyCell(dr.getCell(8), c.prevAmt||0, {fill});
-        applyCell(dr.getCell(9), pStr, {fill, right:true});
+        const dr = ws.addRow([SL[c.status]||c.status, c.name||c.code, c.code, c.region||'', c.channel||'', c.curAmt||0, c.prevAmt||0, pStr]);
+        [1,2,3,4,5].forEach(i => applyCell(dr.getCell(i), dr.getCell(i).value, {fill}));
+        applyCell(dr.getCell(6), c.curAmt||0, {fill});
+        applyCell(dr.getCell(7), c.prevAmt||0, {fill});
+        applyCell(dr.getCell(8), pStr, {fill, right:true});
       });
       // Totals
       ws.addRow([]);
       const tC = Math.round(rows.reduce((s,r)=>s+(r.curAmt||0),0));
       const tP = Math.round(rows.reduce((s,r)=>s+(r.prevAmt||0),0));
       const tPct = tP!==0 ? Math.round(((tC-tP)/Math.abs(tP))*100) : 0;
-      const tr = ws.addRow(['TOTAL','','','','','', tC, tP, (tPct>=0?'+':'')+tPct+'%']);
-      [1,2,3,4,5,6].forEach(i => applyCell(tr.getCell(i), tr.getCell(i).value, {bold:true,color:WHITE,fill:NAVY}));
-      applyCell(tr.getCell(7), tC,  {bold:true,color:WHITE,fill:NAVY});
-      applyCell(tr.getCell(8), tP,  {bold:true,color:WHITE,fill:NAVY});
-      applyCell(tr.getCell(9), tr.getCell(9).value, {bold:true,color:AMBER,fill:NAVY,right:true});
+      const tr = ws.addRow(['TOTAL','','','','', tC, tP, (tPct>=0?'+':'')+tPct+'%']);
+      [1,2,3,4,5].forEach(i => applyCell(tr.getCell(i), tr.getCell(i).value, {bold:true,color:WHITE,fill:NAVY}));
+      applyCell(tr.getCell(6), tC,  {bold:true,color:WHITE,fill:NAVY});
+      applyCell(tr.getCell(7), tP,  {bold:true,color:WHITE,fill:NAVY});
+      applyCell(tr.getCell(8), tr.getCell(8).value, {bold:true,color:AMBER,fill:NAVY,right:true});
       COLS.forEach((w,i) => { ws.getColumn(i+1).width = w; });
     }
 
