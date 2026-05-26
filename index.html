@@ -7119,14 +7119,16 @@ function exportSpcExcel() {
 
   /* ══════════════════════════════════════════════
      SHEET 4 — Raw Data Per Customer
-     Columns: SAP CODE | CUSTOMER NAME | LOCATION | CHANNEL | TYPE | MATERIAL CODE | PRODUCT | CATEGORY | QTY (UNITS) | VOLUME (LTRS/KGS) | REVENUE (KSH) | % CONTRI TO TOTAL SALES
+     Columns: SAP CODE | CUSTOMER NAME | LOCATION | CHANNEL | TYPE | MATERIAL CODE | PRODUCT | CATEGORY | UNIT OF MEASUREMENT | QTY (UNITS) | VOLUME (LTRS/KGS) | REVENUE (KSH) | % CONTRI TO TOTAL SALES
   ══════════════════════════════════════════════ */
   const s4rows = [];
+  const KG_CATS = new Set(['BUTTER','POWDER','GHEE','CHEESE']);
+  const getUoM = (cat) => KG_CATS.has((cat||'').toUpperCase().trim()) ? 'KGS' : 'LTRS';
 
-  // Title (12 cols now)
-  s4rows.push([ titleCell(`Raw Data Per Customer — ${period}`, navy, 14), ...Array(11).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
-  s4rows.push([ metaCell(`Generated: ${new Date().toLocaleString()}`), ...Array(11).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
-  s4rows.push(Array(12).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone}))); // spacer
+  // Title (13 cols now)
+  s4rows.push([ titleCell(`Raw Data Per Customer — ${period}`, navy, 14), ...Array(12).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s4rows.push([ metaCell(`Generated: ${new Date().toLocaleString()}`), ...Array(12).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s4rows.push(Array(13).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone}))); // spacer
 
   // Header row
   s4rows.push([
@@ -7138,6 +7140,7 @@ function exportSpcExcel() {
     hdrCell('MATERIAL CODE',           wh, navyFill, false),
     hdrCell('PRODUCT',                 wh, navyFill, false),
     hdrCell('CATEGORY',                wh, navyFill, true),
+    hdrCell('UNIT OF MEASUREMENT',     wh, navyFill, true),
     hdrCell('QTY (UNITS)',             wh, navyFill, true),
     hdrCell('VOLUME (LTRS/KGS)',       wh, navyFill, true),
     hdrCell('REVENUE (KSH)',           gold, navyFill, true),
@@ -7152,6 +7155,8 @@ function exportSpcExcel() {
       const contriShare = grandTotalAmt ? p.amount / grandTotalAmt : 0;
       const centerCell = (v) => ({ v: v || '—', t: 's', s: { font: { name: FONT, sz: 10, color: dark }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } });
       const mutedCenter = (v) => ({ v: v || '—', t: 's', s: { font: { name: FONT, sz: 10, color: muted }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } });
+      const uom = getUoM(p.category);
+      const uomCell = { v: uom, t: 's', s: { font: { name: FONT, sz: 10, bold: true, color: uom === 'KGS' ? { rgb: 'D97706' } : { rgb: '0369A1' } }, fill: { patternType:'solid', fgColor: bg }, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBdr } };
       s4rows.push([
         txtCell(c.code,                          muted, bg, false, 10),  // SAP CODE
         txtCell(c.name,                          navy,  bg, pi === 0, 10), // CUSTOMER NAME
@@ -7161,6 +7166,7 @@ function exportSpcExcel() {
         txtCell(p.matCode,                       muted, bg, false, 10),  // MATERIAL CODE
         txtCell(p.description || p.matCode,      dark,  bg, false, 10),  // PRODUCT
         mutedCenter(p.category),                                            // CATEGORY
+        uomCell,                                                            // UNIT OF MEASUREMENT
         numCell(p.qty,    dark, bg, decFmt),                              // QTY (UNITS)
         numCell(p.ltrs,   dark, bg, decFmt),                              // VOLUME
         numCell(p.amount, teal, bg),                                      // REVENUE
@@ -7168,7 +7174,7 @@ function exportSpcExcel() {
       ]);
     });
     // Spacer row between customers (no border)
-    s4rows.push(Array(12).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})));
+    s4rows.push(Array(13).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})));
   }
 
   // Grand total row
@@ -7181,6 +7187,7 @@ function exportSpcExcel() {
     emptyCell(tealFill.fgColor, totBdr),   // MATERIAL CODE
     emptyCell(tealFill.fgColor, totBdr),   // PRODUCT
     emptyCell(tealFill.fgColor, totBdr),   // CATEGORY
+    emptyCell(tealFill.fgColor, totBdr),   // UNIT OF MEASUREMENT
     totCell(sorted.reduce((s,c)=>s+Object.values(c.products).reduce((a,p)=>a+p.qty,0),0), wh, tealFill.fgColor, decFmt),
     totCell(grandTotalLtrs, wh, tealFill.fgColor, decFmt),
     totCell(grandTotalAmt, gold, tealFill.fgColor),
@@ -7197,6 +7204,7 @@ function exportSpcExcel() {
     { wch: 16 },  // MATERIAL CODE
     { wch: 34 },  // PRODUCT
     { wch: 14 },  // CATEGORY
+    { wch: 20 },  // UNIT OF MEASUREMENT
     { wch: 14 },  // QTY (UNITS)
     { wch: 18 },  // VOLUME (LTRS/KGS)
     { wch: 18 },  // REVENUE (KSH)
@@ -8799,10 +8807,29 @@ function scExportRegionCatHTML(withSkus) {
     tbody tr:nth-child(even){background:${C.rowAlt};}
     tbody td{padding:9px 14px;border-bottom:1px solid ${C.border};vertical-align:middle;}
     .num{text-align:right;font-family:'DM Mono','Courier New',monospace;}
-    /* Region cell */
-    .reg-cell{font-weight:800;font-size:13px;color:#fff!important;background:${C.navy}!important;text-align:center;border-right:4px solid ${C.pink};border-left:4px solid ${C.pink};letter-spacing:0.06em;white-space:nowrap;vertical-align:middle;padding:10px 14px;}
+    /* Region cell — must beat .sku-row td and striping overrides */
+    td.reg-cell,
+    .sku-row td.reg-cell,
+    tbody tr td.reg-cell{
+      font-weight:800;font-size:13px;
+      color:#fff!important;
+      background:${C.navy}!important;
+      text-align:center;
+      border-right:4px solid ${C.pink};
+      border-left:4px solid ${C.pink};
+      letter-spacing:0.06em;
+      white-space:nowrap;
+      vertical-align:middle;
+      padding:10px 14px;
+      min-width:110px;
+      position:sticky;
+      left:0;
+      z-index:2;
+      box-shadow:3px 0 8px rgba(0,0,0,0.15);
+    }
     /* Region first-row border */
     tr.region-first td{border-top:4px solid ${C.pink}!important;}
+    tr.region-first td.reg-cell{border-top:4px solid ${C.pink}!important;}
     /* Category row */
     .cat-row td{background:${C.surf}!important;}
     .cat-name{font-size:11.5px;font-weight:700;letter-spacing:0.04em;color:${C.text};}
@@ -8821,6 +8848,7 @@ function scExportRegionCatHTML(withSkus) {
     .dp.up{background:#d1fae5;color:#065f46;} .dp.down{background:#fee2e2;color:#991b1b;} .dp.flat{background:#f3f4f6;color:#6b7280;}
     /* Subtotal */
     .sub-row td{background:${C.navy}!important;color:rgba(255,255,255,0.85)!important;font-weight:700;font-size:11px;border-top:3px solid ${C.pink}!important;border-bottom:4px solid ${C.pink}!important;}
+    .sub-row td.reg-cell{color:#fff!important;font-size:13px!important;font-weight:800!important;}
     .sub-row .num{color:#fff!important;}
     /* Footer */
     tfoot td{background:${C.navy};color:#fff;padding:10px 14px;font-weight:700;font-size:12px;border-top:3px solid rgba(225,36,90,0.6);}
