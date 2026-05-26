@@ -1685,7 +1685,7 @@
     .sc-table thead th.num { text-align: right; }
     .sc-table thead th.p1h { color: #93c5fd; }
     .sc-table thead th.p2h { color: #f9a8d4; }
-    .sc-table tbody tr:nth-child(even) { background: var(--row-pct); }
+    .sc-table tbody tr:nth-child(even):not(.sc-sku-row) { background: var(--row-pct); }
     #scSecRegionCat .sc-table tbody td[rowspan] { background-color: #0f2744 !important; color: #fff !important; }
     .sc-table tbody tr:hover { background: var(--row-hover); }
     .sc-table tbody td { padding: 9px 14px; border-bottom: 1px solid var(--border2); color: var(--text); vertical-align: middle; }
@@ -1817,6 +1817,46 @@
     .sc-cust-badge.lost { background: #fee2e2; color: #991b1b; }
     body.dark .sc-cust-badge.new  { background: #0d2618; color: #6ee7b7; }
     body.dark .sc-cust-badge.lost { background: #2d0a0a; color: #fca5a5; }
+
+    /* ── Expandable Category Rows ── */
+    .sc-cat-row { cursor: pointer; transition: background 0.12s; }
+    .sc-cat-row:hover td { background: rgba(59,130,246,0.06) !important; }
+    .sc-cat-expand-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 4px;
+      background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7);
+      font-size: 10px; font-weight: 800; margin-right: 7px;
+      border: 1px solid rgba(255,255,255,0.18); flex-shrink: 0;
+      transition: transform 0.2s, background 0.15s;
+      vertical-align: middle;
+    }
+    .sc-cat-row.expanded .sc-cat-expand-icon { transform: rotate(90deg); background: rgba(225,36,90,0.35); }
+    .sc-cat-pill {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      padding: 2px 7px; border-radius: 99px;
+      background: #e0f7fa; color: #0c5464;
+      vertical-align: middle;
+    }
+    .sc-sku-row { display: none; }
+    .sc-sku-row.visible { display: table-row; }
+    .sc-sku-row td {
+      background: var(--inc-bg) !important;
+      font-size: 11px !important;
+      border-bottom: 1px solid var(--border2) !important;
+      padding: 6px 10px 6px 22px !important;
+    }
+    .sc-sku-row:hover td { background: var(--row-hover) !important; }
+    .sc-sku-code {
+      font-family: 'DM Mono', monospace; font-size: 10px;
+      background: var(--pill-bg); border: 1px solid var(--border);
+      padding: 1px 5px; border-radius: 4px; color: var(--text-head);
+      margin-right: 5px; display: inline-block;
+    }
+    .sc-sku-desc { font-size: 11px; color: var(--text-muted); }
+    .sc-expand-hint {
+      font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.4);
+      margin-left: 6px; font-style: italic; letter-spacing: 0.04em;
+    }
 
 /* ══ LOGIN OVERLAY ══════════════════════════════════════ */
 #loginOverlay {
@@ -8147,11 +8187,8 @@ function scRunComparison() {
       const regions = [...new Set([...Object.keys(rMap1), ...Object.keys(rMap2)])]
         .sort((a, b) => ((rMap2[b]?.amount||0)+(rMap1[b]?.amount||0)) - ((rMap2[a]?.amount||0)+(rMap1[a]?.amount||0)));
 
-      // Get all categories
-      const allCats = [...new Set([...d1.transactions.map(t=>t.category), ...d2.transactions.map(t=>t.category)])].sort();
-
-      // Build nested map: region → category → {a1, a2}
-      function buildMatrix(txns, period) {
+      // Build nested map: region → category → {amount}
+      function buildMatrix(txns) {
         const m = {};
         for (const t of txns) {
           const r = (t.region  || 'UNKNOWN').toUpperCase();
@@ -8165,11 +8202,54 @@ function scRunComparison() {
       const mat1 = buildMatrix(d1.transactions);
       const mat2 = buildMatrix(d2.transactions);
 
+      // Build SKU-level map: region → category → skuCode → {desc, a1, a2, v1, v2}
+      function buildSkuMatrix(txns, period) {
+        const m = {};
+        for (const t of txns) {
+          const r = (t.region  || 'UNKNOWN').toUpperCase();
+          const c = (t.category|| 'OTHER'  ).toUpperCase();
+          const s = t.matCode || 'UNKNOWN';
+          if (!m[r]) m[r] = {};
+          if (!m[r][c]) m[r][c] = {};
+          if (!m[r][c][s]) m[r][c][s] = { desc: t.description || (refData.products && refData.products[s] ? refData.products[s].description : '') || '', a1:0, a2:0, v1:0, v2:0 };
+          if (period === 1) { m[r][c][s].a1 += t.amount; m[r][c][s].v1 += (t.ltrs||0); }
+          else              { m[r][c][s].a2 += t.amount; m[r][c][s].v2 += (t.ltrs||0); }
+        }
+        return m;
+      }
+      const skuMat1 = buildSkuMatrix(d1.transactions, 1);
+      const skuMat2 = buildSkuMatrix(d2.transactions, 2);
+
+      // Merge sku matrices into combined: region → cat → sku → {desc,a1,a2,v1,v2}
+      function mergeSkuMats(m1, m2) {
+        const out = {};
+        const allR = [...new Set([...Object.keys(m1), ...Object.keys(m2)])];
+        for (const r of allR) {
+          out[r] = {};
+          const allC = [...new Set([...Object.keys(m1[r]||{}), ...Object.keys(m2[r]||{})])];
+          for (const c of allC) {
+            out[r][c] = {};
+            const s1 = (m1[r]||{})[c] || {};
+            const s2 = (m2[r]||{})[c] || {};
+            const allS = [...new Set([...Object.keys(s1), ...Object.keys(s2)])];
+            for (const s of allS) {
+              out[r][c][s] = {
+                desc: (s1[s]||s2[s]||{}).desc || '',
+                a1: (s1[s]||{}).a1||0, a2: (s2[s]||{}).a2||0,
+                v1: (s1[s]||{}).v1||0, v2: (s2[s]||{}).v2||0
+              };
+            }
+          }
+        }
+        return out;
+      }
+      const skuMat = mergeSkuMats(skuMat1, skuMat2);
+
       // Build grouped header: SALES IN REVENUE | SALES IN VOLUME
       let thead = `<thead>
         <tr>
           <th rowspan="2" style="min-width:130px;vertical-align:bottom;border-right:2px solid var(--border);background:#0f2744;color:rgba(255,255,255,0.9);font-size:11px;font-weight:700;letter-spacing:0.07em;padding:9px 14px;">Region</th>
-          <th rowspan="2" style="min-width:120px;vertical-align:bottom;background:#0f2744;color:rgba(255,255,255,0.9);font-size:11px;font-weight:700;letter-spacing:0.07em;padding:9px 14px;">Category</th>
+          <th rowspan="2" style="min-width:160px;vertical-align:bottom;background:#0f2744;color:rgba(255,255,255,0.9);font-size:11px;font-weight:700;letter-spacing:0.07em;padding:9px 14px;">Category / SKU</th>
           <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(225,36,90,0.5);color:#f9a8d4;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;background:#0f2744;">SALES IN REVENUE</th>
           <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(59,130,246,0.5);color:#93c5fd;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;background:#0f2744;">SALES IN VOLUME</th>
         </tr>
@@ -8183,7 +8263,7 @@ function scRunComparison() {
         </tr>
       </thead>`;
 
-      // Grand totals for share %
+      // Grand totals
       const grandTot1 = d1.transactions.reduce((s,t)=>s+t.amount, 0);
       const grandTot2 = d2.transactions.reduce((s,t)=>s+t.amount, 0);
 
@@ -8204,12 +8284,33 @@ function scRunComparison() {
       const rVolMap1=sumBy(d1.transactions,'region');
       const rVolMap2=sumBy(d2.transactions,'region');
 
+      // Toggle function for expanding/collapsing SKU rows
+      window.scToggleCatExpand = function(rowId) {
+        const catRow = document.getElementById(rowId);
+        if (!catRow) return;
+        const isExpanded = catRow.classList.contains('expanded');
+        catRow.classList.toggle('expanded');
+        const skuRows = document.querySelectorAll(`[data-cat-parent="${rowId}"]`);
+        const skuCount = skuRows.length;
+        skuRows.forEach(r => r.classList.toggle('visible', !isExpanded));
+        // Adjust region rowspan cell(s) in the same table to account for revealed/hidden rows
+        const table = catRow.closest('table');
+        if (!table) return;
+        const regionCells = table.querySelectorAll('td[rowspan]');
+        regionCells.forEach(cell => {
+          const cur = parseInt(cell.getAttribute('rowspan')) || 1;
+          cell.setAttribute('rowspan', isExpanded ? Math.max(1, cur - skuCount) : cur + skuCount);
+        });
+      };
+
+      let rowCounter = 0;
       let tbody = '<tbody>';
       for (const reg of regions) {
         const cats1  = mat1[reg]    || {};
         const cats2  = mat2[reg]    || {};
         const vcats1 = volMat1[reg] || {};
         const vcats2 = volMat2[reg] || {};
+        const regCatSkus = skuMat[reg] || {};
         const regCats = [...new Set([...Object.keys(cats1), ...Object.keys(cats2)])]
           .sort((a,b) => ((cats1[b]||0)+(cats2[b]||0)) - ((cats1[a]||0)+(cats2[a]||0)));
 
@@ -8230,6 +8331,9 @@ function scRunComparison() {
         const rVArr  = rVDiff>0?'▲':rVDiff<0?'▼':'—';
         const rVSign = rVDiff>0?'+':'';
 
+        // Count total rows for rowspan — only visible rows (cat rows + subtotal; SKU rows start hidden)
+        let totalSubRows = regCats.length + 1; // N category rows + 1 subtotal row
+
         let firstCat = true;
         for (const cat of regCats) {
           const a1=cats1[cat]||0, a2=cats2[cat]||0;
@@ -8238,15 +8342,52 @@ function scRunComparison() {
           const v1=vcats1[cat]||0, v2=vcats2[cat]||0;
           const vdif=v1-v2, vpct=v2?Math.round((vdif/Math.abs(v2))*100):(v1>0?100:0);
           const vcls=vdif>0?'up':vdif<0?'down':'flat', varr=vdif>0?'▲':vdif<0?'▼':'—', vsgn=vdif>0?'+':'';
-          tbody += firstCat ? '<tr style="border-top:3px solid #E1245A;">' : '<tr>';
+
+          const catRowId = `sc-cat-row-${rowCounter++}`;
+
+          // Get SKUs for this region+cat
+          const skus = Object.entries(regCatSkus[cat] || {})
+            .sort((a,b) => (b[1].a1+b[1].a2) - (a[1].a1+a[1].a2));
+          const hasSkus = skus.length > 0;
+
+          tbody += firstCat ? `<tr id="${catRowId}" class="sc-cat-row" style="border-top:3px solid #E1245A;" onclick="scToggleCatExpand('${catRowId}')">` : `<tr id="${catRowId}" class="sc-cat-row" onclick="scToggleCatExpand('${catRowId}')">`;
           if (firstCat) {
-            tbody += `<td rowspan="${regCats.length+1}" style="font-weight:800;font-size:13px;color:#fff !important;background-color:#0f2744 !important;background:#0f2744 !important;border-right:4px solid #E1245A;border-top:4px solid #E1245A;border-left:4px solid #E1245A;vertical-align:middle;text-align:center;letter-spacing:0.06em;padding:10px 14px;white-space:nowrap;">${reg}</td>`;
+            tbody += `<td rowspan="${totalSubRows}" style="font-weight:800;font-size:13px;color:#fff !important;background-color:#0f2744 !important;background:#0f2744 !important;border-right:4px solid #E1245A;border-top:4px solid #E1245A;border-left:4px solid #E1245A;vertical-align:middle;text-align:center;letter-spacing:0.06em;padding:10px 14px;white-space:nowrap;">${reg}</td>`;
             firstCat = false;
           }
-          tbody += `<td style="padding-left:14px;font-size:12px;"><span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;background:#e0f7fa;color:#0c5464;">${esc(cat)}</span></td>`;
+          tbody += `<td style="padding-left:10px;font-size:12px;">`;
+          if (hasSkus) {
+            tbody += `<span class="sc-cat-expand-icon">▶</span>`;
+          } else {
+            tbody += `<span style="display:inline-block;width:18px;margin-right:7px;"></span>`;
+          }
+          tbody += `<span class="sc-cat-pill">${esc(cat)}</span>`;
+          if (hasSkus) tbody += `<span class="sc-expand-hint">${skus.length} SKU${skus.length!==1?'s':''}</span>`;
+          tbody += `</td>`;
           tbody += `<td class="num">${fmt(a1)}</td><td class="num">${fmt(a2)}</td><td class="num"><span class="sc-delta-pill ${cls}">${arr} ${sgn}${pct2}%</span></td>`;
           tbody += `<td class="num">${fmt(v1)}</td><td class="num">${fmt(v2)}</td><td class="num"><span class="sc-delta-pill ${vcls}">${varr} ${vsgn}${vpct}%</span></td>`;
           tbody += '</tr>';
+
+          // SKU sub-rows (hidden by default)
+          for (const [skuCode, sd] of skus) {
+            const sa1=sd.a1, sa2=sd.a2, sv1=sd.v1, sv2=sd.v2;
+            const sdiff=sa1-sa2, spct=sa2?Math.round((sdiff/Math.abs(sa2))*100):(sa1>0?100:0);
+            const scls=sdiff>0?'up':sdiff<0?'down':'flat', sarr=sdiff>0?'▲':sdiff<0?'▼':'—', ssgn=sdiff>0?'+':'';
+            const svdif=sv1-sv2, svpct=sv2?Math.round((svdif/Math.abs(sv2))*100):(sv1>0?100:0);
+            const svcls=svdif>0?'up':svdif<0?'down':'flat', svarr=svdif>0?'▲':svdif<0?'▼':'—', svsgn=svdif>0?'+':'';
+            tbody += `<tr class="sc-sku-row" data-cat-parent="${catRowId}">`;
+            tbody += `<td style="padding-left:36px !important;">
+              <span class="sc-sku-code">${esc(skuCode)}</span>
+              <span class="sc-sku-desc">${esc(sd.desc||'—')}</span>
+            </td>`;
+            tbody += `<td class="num" style="font-size:11px !important;">${sa1>0?fmt(sa1):'—'}</td>`;
+            tbody += `<td class="num" style="font-size:11px !important;">${sa2>0?fmt(sa2):'—'}</td>`;
+            tbody += `<td class="num">${sa1||sa2?`<span class="sc-delta-pill ${scls}" style="font-size:10px;">${sarr} ${ssgn}${spct}%</span>`:'—'}</td>`;
+            tbody += `<td class="num" style="font-size:11px !important;">${sv1>0?fmt(sv1):'—'}</td>`;
+            tbody += `<td class="num" style="font-size:11px !important;">${sv2>0?fmt(sv2):'—'}</td>`;
+            tbody += `<td class="num">${sv1||sv2?`<span class="sc-delta-pill ${svcls}" style="font-size:10px;">${svarr} ${svsgn}${svpct}%</span>`:'—'}</td>`;
+            tbody += '</tr>';
+          }
         }
 
         // Subtotal row at BOTTOM of each region group
