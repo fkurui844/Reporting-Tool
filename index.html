@@ -1819,44 +1819,94 @@
     body.dark .sc-cust-badge.lost { background: #2d0a0a; color: #fca5a5; }
 
     /* ── Expandable Category Rows ── */
-    .sc-cat-row { cursor: pointer; transition: background 0.12s; }
-    .sc-cat-row:hover td { background: rgba(59,130,246,0.06) !important; }
+    /* ── Category row (clickable) ── */
+    .sc-cat-row { cursor: pointer; transition: background 0.15s; }
+    .sc-cat-row:hover td { background: rgba(59,130,246,0.07) !important; }
+    .sc-cat-row td { border-bottom: 1px solid var(--border) !important; }
+
+    /* ── Expand arrow icon ── */
     .sc-cat-expand-icon {
       display: inline-flex; align-items: center; justify-content: center;
-      width: 18px; height: 18px; border-radius: 4px;
-      background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7);
-      font-size: 10px; font-weight: 800; margin-right: 7px;
-      border: 1px solid rgba(255,255,255,0.18); flex-shrink: 0;
-      transition: transform 0.2s, background 0.15s;
-      vertical-align: middle;
+      width: 16px; height: 16px; border-radius: 3px;
+      background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.65);
+      font-size: 8px; font-weight: 900; margin-right: 8px;
+      border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0;
+      transition: transform 0.22s ease, background 0.18s;
+      vertical-align: middle; user-select: none;
     }
-    .sc-cat-row.expanded .sc-cat-expand-icon { transform: rotate(90deg); background: rgba(225,36,90,0.35); }
+    .sc-cat-row.expanded .sc-cat-expand-icon {
+      transform: rotate(90deg);
+      background: rgba(225,36,90,0.30);
+      border-color: rgba(225,36,90,0.5);
+    }
+
+    /* ── Category label pill ── */
     .sc-cat-pill {
-      display: inline-block; font-size: 10px; font-weight: 700;
-      padding: 2px 7px; border-radius: 99px;
-      background: #e0f7fa; color: #0c5464;
+      display: inline-block; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.04em; color: inherit;
       vertical-align: middle;
     }
+
+    /* ── SKU count hint ── */
+    .sc-expand-hint {
+      font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.35);
+      margin-left: 8px; font-style: italic; letter-spacing: 0.03em;
+      vertical-align: middle;
+    }
+
+    /* ── SKU sub-rows ── */
     .sc-sku-row { display: none; }
     .sc-sku-row.visible { display: table-row; }
     .sc-sku-row td {
-      background: var(--inc-bg) !important;
-      font-size: 11px !important;
-      border-bottom: 1px solid var(--border2) !important;
-      padding: 6px 10px 6px 22px !important;
+      background: #f7f9fc !important;
+      border-bottom: 1px solid #e8ecf2 !important;
+      padding-top: 7px !important;
+      padding-bottom: 7px !important;
+      vertical-align: middle !important;
     }
-    .sc-sku-row:hover td { background: var(--row-hover) !important; }
+    body.dark .sc-sku-row td { background: #101820 !important; border-bottom-color: #1e2a38 !important; }
+    .sc-sku-row:last-child td, .sc-sku-row + :not(.sc-sku-row) td { border-top: 2px solid var(--border) !important; }
+    .sc-sku-row:hover td { background: #eef2fb !important; }
+    body.dark .sc-sku-row:hover td { background: #151f2d !important; }
+
+    /* SKU name cell */
+    .sc-sku-name-cell {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding-left: 42px !important;
+    }
+    .sc-sku-indent-bar {
+      flex-shrink: 0; width: 3px; align-self: stretch; min-height: 28px;
+      background: linear-gradient(to bottom, #E1245A55, #E1245A11);
+      border-radius: 2px; margin-top: 1px;
+    }
+    .sc-sku-name-inner { display: flex; flex-direction: column; gap: 2px; }
     .sc-sku-code {
-      font-family: 'DM Mono', monospace; font-size: 10px;
-      background: var(--pill-bg); border: 1px solid var(--border);
-      padding: 1px 5px; border-radius: 4px; color: var(--text-head);
-      margin-right: 5px; display: inline-block;
+      font-family: 'DM Mono', 'Courier New', monospace; font-size: 10px;
+      background: #e8edf5; border: 1px solid #cdd5e0;
+      padding: 1px 6px; border-radius: 3px; color: #3b5070;
+      display: inline-block; letter-spacing: 0.03em; font-weight: 600;
     }
-    .sc-sku-desc { font-size: 11px; color: var(--text-muted); }
-    .sc-expand-hint {
-      font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.4);
-      margin-left: 6px; font-style: italic; letter-spacing: 0.04em;
+    body.dark .sc-sku-code { background: #1a2538; border-color: #2a3d57; color: #7ba7cc; }
+    .sc-sku-desc {
+      font-size: 11px; font-weight: 500;
+      color: #374151; line-height: 1.3;
     }
+    body.dark .sc-sku-desc { color: #9ca3af; }
+
+    /* SKU number cells */
+    .sc-sku-num {
+      font-size: 11.5px !important; font-weight: 600 !important;
+      color: #1f2937 !important; text-align: right !important;
+      padding-right: 14px !important; font-family: 'DM Mono','Courier New',monospace !important;
+      white-space: nowrap;
+    }
+    body.dark .sc-sku-num { color: #d1d5db !important; }
+    .sc-sku-num.muted { color: #9ca3af !important; font-weight: 400 !important; }
+    body.dark .sc-sku-num.muted { color: #4b5563 !important; }
+
+    /* Highlight bar at top of expanded group */
+    .sc-sku-first td { border-top: 2px solid rgba(225,36,90,0.25) !important; }
+    .sc-sku-last  td { border-bottom: 2px solid rgba(225,36,90,0.25) !important; }
 
 /* ══ LOGIN OVERLAY ══════════════════════════════════════ */
 #loginOverlay {
@@ -8284,17 +8334,29 @@ function scRunComparison() {
         if (!catRow) return;
         const isExpanded = catRow.classList.contains('expanded');
         catRow.classList.toggle('expanded');
+
         const skuRows = document.querySelectorAll(`[data-cat-parent="${rowId}"]`);
         const skuCount = skuRows.length;
-        skuRows.forEach(r => r.classList.toggle('visible', !isExpanded));
-        // Adjust region rowspan cell(s) in the same table to account for revealed/hidden rows
-        const table = catRow.closest('table');
-        if (!table) return;
-        const regionCells = table.querySelectorAll('td[rowspan]');
-        regionCells.forEach(cell => {
-          const cur = parseInt(cell.getAttribute('rowspan')) || 1;
-          cell.setAttribute('rowspan', isExpanded ? Math.max(1, cur - skuCount) : cur + skuCount);
+        skuRows.forEach((r, i) => {
+          r.classList.toggle('visible', !isExpanded);
+          // mark first/last for border styling
+          r.classList.toggle('sc-sku-first', i === 0);
+          r.classList.toggle('sc-sku-last',  i === skuCount - 1);
         });
+
+        // Adjust ONLY the region cell that belongs to this category row's group
+        // Walk backwards from catRow to find the nearest td[rowspan] in the same tbody
+        let row = catRow;
+        let regionCell = null;
+        while (row && row.tagName === 'TR') {
+          const td = row.querySelector('td[rowspan]');
+          if (td) { regionCell = td; break; }
+          row = row.previousElementSibling;
+        }
+        if (regionCell) {
+          const cur = parseInt(regionCell.getAttribute('rowspan')) || 1;
+          regionCell.setAttribute('rowspan', isExpanded ? Math.max(1, cur - skuCount) : cur + skuCount);
+        }
       };
 
       let rowCounter = 0;
@@ -8349,11 +8411,11 @@ function scRunComparison() {
             tbody += `<td rowspan="${totalSubRows}" style="font-weight:800;font-size:13px;color:#fff !important;background-color:#0f2744 !important;background:#0f2744 !important;border-right:4px solid #E1245A;border-top:4px solid #E1245A;border-left:4px solid #E1245A;vertical-align:middle;text-align:center;letter-spacing:0.06em;padding:10px 14px;white-space:nowrap;">${reg}</td>`;
             firstCat = false;
           }
-          tbody += `<td style="padding-left:10px;font-size:12px;">`;
+          tbody += `<td style="padding-left:12px;font-size:12px;vertical-align:middle;">`;
           if (hasSkus) {
             tbody += `<span class="sc-cat-expand-icon">▶</span>`;
           } else {
-            tbody += `<span style="display:inline-block;width:18px;margin-right:7px;"></span>`;
+            tbody += `<span style="display:inline-block;width:24px;"></span>`;
           }
           tbody += `<span class="sc-cat-pill">${esc(cat)}</span>`;
           if (hasSkus) tbody += `<span class="sc-expand-hint">${skus.length} SKU${skus.length!==1?'s':''}</span>`;
@@ -8363,23 +8425,30 @@ function scRunComparison() {
           tbody += '</tr>';
 
           // SKU sub-rows (hidden by default)
-          for (const [skuCode, sd] of skus) {
+          for (let si = 0; si < skus.length; si++) {
+            const [skuCode, sd] = skus[si];
             const sa1=sd.a1, sa2=sd.a2, sv1=sd.v1, sv2=sd.v2;
             const sdiff=sa1-sa2, spct=sa2?Math.round((sdiff/Math.abs(sa2))*100):(sa1>0?100:0);
             const scls=sdiff>0?'up':sdiff<0?'down':'flat', sarr=sdiff>0?'▲':sdiff<0?'▼':'—', ssgn=sdiff>0?'+':'';
             const svdif=sv1-sv2, svpct=sv2?Math.round((svdif/Math.abs(sv2))*100):(sv1>0?100:0);
             const svcls=svdif>0?'up':svdif<0?'down':'flat', svarr=svdif>0?'▲':svdif<0?'▼':'—', svsgn=svdif>0?'+':'';
-            tbody += `<tr class="sc-sku-row" data-cat-parent="${catRowId}">`;
-            tbody += `<td style="padding-left:36px !important;">
-              <span class="sc-sku-code">${esc(skuCode)}</span>
-              <span class="sc-sku-desc">${esc(sd.desc||'—')}</span>
+            const isFirst = si === 0, isLast = si === skus.length - 1;
+            tbody += `<tr class="sc-sku-row${isFirst?' sc-sku-first':''}${isLast?' sc-sku-last':''}" data-cat-parent="${catRowId}">`;
+            tbody += `<td style="padding:0 !important;">
+              <div class="sc-sku-name-cell">
+                <div class="sc-sku-indent-bar"></div>
+                <div class="sc-sku-name-inner">
+                  <span class="sc-sku-code">${esc(skuCode)}</span>
+                  <span class="sc-sku-desc">${esc(sd.desc || '—')}</span>
+                </div>
+              </div>
             </td>`;
-            tbody += `<td class="num" style="font-size:11px !important;">${sa1>0?fmt(sa1):'—'}</td>`;
-            tbody += `<td class="num" style="font-size:11px !important;">${sa2>0?fmt(sa2):'—'}</td>`;
-            tbody += `<td class="num">${sa1||sa2?`<span class="sc-delta-pill ${scls}" style="font-size:10px;">${sarr} ${ssgn}${spct}%</span>`:'—'}</td>`;
-            tbody += `<td class="num" style="font-size:11px !important;">${sv1>0?fmt(sv1):'—'}</td>`;
-            tbody += `<td class="num" style="font-size:11px !important;">${sv2>0?fmt(sv2):'—'}</td>`;
-            tbody += `<td class="num">${sv1||sv2?`<span class="sc-delta-pill ${svcls}" style="font-size:10px;">${svarr} ${svsgn}${svpct}%</span>`:'—'}</td>`;
+            tbody += `<td class="sc-sku-num${sa1===0?' muted':''}">${sa1!==0?fmt(sa1):'—'}</td>`;
+            tbody += `<td class="sc-sku-num${sa2===0?' muted':''}">${sa2!==0?fmt(sa2):'—'}</td>`;
+            tbody += `<td class="num">${(sa1||sa2)?`<span class="sc-delta-pill ${scls}" style="font-size:10px;">${sarr} ${ssgn}${spct}%</span>`:'<span style="color:#9ca3af;">—</span>'}</td>`;
+            tbody += `<td class="sc-sku-num${sv1===0?' muted':''}">${sv1!==0?fmt(sv1):'—'}</td>`;
+            tbody += `<td class="sc-sku-num${sv2===0?' muted':''}">${sv2!==0?fmt(sv2):'—'}</td>`;
+            tbody += `<td class="num">${(sv1||sv2)?`<span class="sc-delta-pill ${svcls}" style="font-size:10px;">${svarr} ${svsgn}${svpct}%</span>`:'<span style="color:#9ca3af;">—</span>'}</td>`;
             tbody += '</tr>';
           }
         }
