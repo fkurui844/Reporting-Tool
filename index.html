@@ -4416,21 +4416,46 @@ function renderCharts(data) {
     const rvActual     = regByVol.map(([,d])=>Math.round(d.ltrs));
     const rvTarget     = rvLabels.map(r => Math.round(getRegTgtLtrs(r)));
     const rvPcts       = rvLabels.map((_, i) => rvTarget[i] > 0 ? Math.round((rvActual[i]/rvTarget[i])*100) : null);
-    const rvPctCol     = p => p === null ? '#4f9cff' : p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
-    const rvActualBg   = (i) => { const p=rvPcts[i]; return p===null ? chartColors(rvLabels.length)[i] : p>=100 ? 'rgba(29,184,122,0.85)' : p>=70 ? 'rgba(246,173,43,0.85)' : 'rgba(225,36,90,0.85)'; };
-    const rvActualBadge= (i) => { const p=rvPcts[i]; return p===null ? '#3a6fd8' : p>=100 ? '#0d9e63' : p>=70 ? '#b45309' : '#c01048'; };
+    const rvPctCol     = p => p === null ? '#4f9cff' : p >= 100 ? '#059669' : p >= 70 ? '#d97706' : '#dc2626';
+    const isDarkMode   = document.body.classList.contains('dark');
+
+    // Actual bar colours — solid, high-contrast, readable on both modes
+    const rvActualBg = (i) => {
+      const p = rvPcts[i];
+      if (p === null) return chartColors(rvLabels.length)[i];
+      if (isDarkMode) {
+        // Dark mode: vivid but not washed out
+        return p >= 100 ? '#10b981' : p >= 70 ? '#f59e0b' : '#f43f5e';
+      } else {
+        // Light mode: deeper shades for contrast on white
+        return p >= 100 ? '#059669' : p >= 70 ? '#d97706' : '#e11d48';
+      }
+    };
+
+    // Badge colours (datalabel background) — always dark enough for white text
+    const rvActualBadge = (i) => {
+      const p = rvPcts[i];
+      if (p === null) return '#3a6fd8';
+      return p >= 100 ? '#047857' : p >= 70 ? '#b45309' : '#be123c';
+    };
+
+    // Target bar — clearly visible outline bar on both modes
+    const rvTargetBg     = isDarkMode ? 'rgba(148,163,184,0.15)' : 'rgba(15,39,68,0.08)';
+    const rvTargetBorder = isDarkMode ? 'rgba(148,163,184,0.55)' : 'rgba(15,39,68,0.40)';
 
     const rvDatasets = [{
       label: 'Actual (Ltrs/Kgs)',
       data: rvActual,
       backgroundColor: rvLabels.map((_,i)=>rvActualBg(i)),
+      borderColor:     rvLabels.map((_,i)=>rvActualBadge(i)),
+      borderWidth: 0,
       borderRadius: 4,
       borderSkipped: false,
       categoryPercentage: hasVolRegTgts ? 0.7 : 0.6,
       barPercentage: hasVolRegTgts ? 0.5 : 0.85,
       datalabels: {
         anchor: 'end', align: 'right', offset: 5, clip: false,
-        color: '#fff',
+        color: '#ffffff',
         backgroundColor: ctx => rvActualBadge(ctx.dataIndex),
         borderRadius: 4,
         padding: { top:3, bottom:3, left:5, right:5 },
@@ -4446,16 +4471,19 @@ function renderCharts(data) {
       rvDatasets.push({
         label: 'Target (Ltrs/Kgs)',
         data: rvTarget,
-        backgroundColor: document.body.classList.contains('dark') ? 'rgba(255,255,255,0.09)' : 'rgba(15,39,68,0.10)',
-        borderColor: document.body.classList.contains('dark') ? 'rgba(255,255,255,0.25)' : 'rgba(15,39,68,0.25)',
-        borderWidth: 1.5,
+        backgroundColor: rvTargetBg,
+        borderColor:     rvTargetBorder,
+        borderWidth: 2,
         borderRadius: 4,
         borderSkipped: false,
         categoryPercentage: 0.7,
         barPercentage: 0.5,
         datalabels: {
           anchor: 'end', align: 'right', offset: 5, clip: false,
-          color: tc,
+          color: isDarkMode ? 'rgba(203,213,225,0.85)' : 'rgba(15,39,68,0.70)',
+          backgroundColor: isDarkMode ? 'rgba(30,42,56,0.75)' : 'rgba(241,245,249,0.85)',
+          borderRadius: 3,
+          padding: { top:2, bottom:2, left:5, right:5 },
           font: { family:"'DM Sans',sans-serif", size:9, weight:'600' },
           formatter: v => v > 0 ? fmtLbl(v) : ''
         }
