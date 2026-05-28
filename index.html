@@ -2503,16 +2503,13 @@
         </select>
         <div style="position:relative;display:inline-block;" id="typeExportDropWrap">
           <div style="display:flex;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.2);">
-            <button class="locsales-export-btn" style="border-radius:0;border-right:1px solid rgba(255,255,255,0.2);" onclick="exportTypeSalesHTML('type-cat')">⬇ Export</button>
+            <button class="locsales-export-btn" style="border-radius:0;border-right:1px solid rgba(255,255,255,0.2);" onclick="exportTypeSalesHTML()">⬇ Export Report</button>
             <button class="locsales-export-btn" style="border-radius:0;padding:8px 10px;" onclick="toggleTypeExportMenu()" title="More export options">▾</button>
           </div>
-          <div id="typeExportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;min-width:250px;overflow:hidden;">
-            <div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase;border-bottom:1px solid var(--border2);">HTML Reports</div>
-            <button onclick="exportTypeSalesHTML('type-cat');toggleTypeExportMenu();" class="type-exp-btn">🏷 By Type × Category</button>
-            <button onclick="exportTypeSalesHTML('loc-cat');toggleTypeExportMenu();"  class="type-exp-btn">📍 By Location × Category</button>
-            <button onclick="exportTypeSalesHTML('type-loc');toggleTypeExportMenu();" class="type-exp-btn">🔀 By Type × Location</button>
-            <div style="border-top:1px solid var(--border2);padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase;">Raw Data</div>
-            <button onclick="exportTypeSalesCSV();toggleTypeExportMenu();" class="type-exp-btn">📊 Download CSV (all data)</button>
+          <div id="typeExportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;min-width:240px;overflow:hidden;">
+            <button onclick="exportTypeSalesHTML();toggleTypeExportMenu();" class="type-exp-btn">🌐 Full Report (HTML) — all 3 views</button>
+            <div style="border-top:1px solid var(--border2);"></div>
+            <button onclick="exportTypeSalesCSV();toggleTypeExportMenu();" class="type-exp-btn">📊 Raw Data (CSV)</button>
           </div>
         </div>
       </div>
@@ -6798,20 +6795,17 @@ function exportTypeSalesCSV() {
   showToast('CSV exported ✓', 'ok');
 }
 
-function exportTypeSalesHTML(mode) {
-  // mode: 'type-cat' | 'loc-cat' | 'type-loc'
+function exportTypeSalesHTML() {
   if (!_typeSalesData) { showToast('No data — upload a SAP file first.', 'err'); return; }
-  mode = mode || 'type-cat';
 
   const { channels, categories, pivot, byLoc, allRegions } = _typeSalesData;
-  const q   = (document.getElementById('typeSearch').value || '').toLowerCase().trim();
-  const cat = document.getElementById('typeCatFilter').value;
+  const q        = (document.getElementById('typeSearch').value || '').toLowerCase().trim();
+  const cat      = document.getElementById('typeCatFilter').value;
   const visChans = q   ? channels.filter(ch => ch.toLowerCase().includes(q)) : channels;
   const visCats  = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
   const visRegs  = allRegions || [];
   const period   = document.getElementById('typeSalesPeriod').textContent.replace('Period: ','');
   const fmt      = v => Math.round(v).toLocaleString();
-  const fmtN     = v => Math.round(v);
   const pctCol   = p => p >= 100 ? '#059669' : p >= 70 ? '#d97706' : '#dc2626';
 
   const typeTgts    = refData.typeCategoryTargets || {};
@@ -6821,230 +6815,255 @@ function exportTypeSalesHTML(mode) {
     const chU = ch.toUpperCase(), cU = normalizeCat(c);
     if (typeTgts[chU]) return typeTgts[chU][cU] || typeTgts[chU][c.toUpperCase()] || null;
     for (const k of Object.keys(typeTgts)) {
-      const normK = normaliseType(k) || k;
-      if (normK === chU || k === chU || chU.includes(k) || k.includes(chU))
+      const nk = normaliseType(k) || k;
+      if (nk === chU || k === chU || chU.includes(k) || k.includes(chU))
         return typeTgts[k][cU] || typeTgts[k][c.toUpperCase()] || null;
     }
     return null;
   }
 
-  // ── Shared HTML helpers ────────────────────────────────
-  const modeLabels = { 'type-cat': 'By Type × Category', 'loc-cat': 'By Location × Category', 'type-loc': 'By Type × Location' };
-  const modeLabel  = modeLabels[mode];
-  const filename   = `Type_Sales_${mode}_${(period||'').replace(/\s|–|\/|\./g,'_')}.html`;
-
-  function dataCell(ltrs, amount, tgtL, tgtK, darkBg) {
-    const bg   = darkBg ? '#0f5f5a' : '#ffffff';
-    const nc   = darkBg ? '#f6ad2b' : '#0f2744';
-    const lc   = darkBg ? 'rgba(255,255,255,0.5)' : '#718096';
-    const mu   = darkBg ? 'rgba(255,255,255,0.4)' : '#a0aec0';
-    const bdr  = `1px solid ${darkBg ? '#0a3d3a' : '#e2e8f0'}`;
-    const div  = darkBg ? 'rgba(255,255,255,0.12)' : '#e2e8f0';
+  // ── Cell builders ─────────────────────────────────────
+  function fullCell(ltrs, amount, tgtL, tgtK, dark) {
+    const bg  = dark ? '#0f5f5a' : '#ffffff';
+    const nc  = dark ? '#f6ad2b' : '#0f2744';
+    const lc  = dark ? 'rgba(255,255,255,0.5)' : '#718096';
+    const mu  = dark ? 'rgba(255,255,255,0.38)' : '#a0aec0';
+    const bdr = `1px solid ${dark ? '#0a3d3a' : '#e8ecf2'}`;
+    const dv  = dark ? 'rgba(255,255,255,0.1)' : '#e8ecf2';
     if (!ltrs && !amount && !tgtL && !tgtK)
-      return `<td style="text-align:center;background:${bg};border:${bdr};padding:6px 8px;color:#ccc;font-size:11px;">—</td>`;
+      return `<td style="text-align:center;background:${bg};border:${bdr};padding:6px 8px;color:#bbb;font-size:11px;">—</td>`;
     const pL = tgtL ? Math.round((ltrs/tgtL)*100) : null;
     const pK = tgtK ? Math.round((amount/tgtK)*100) : null;
-    const cL = pL !== null ? pctCol(pL) : nc;
-    const cK = pK !== null ? pctCol(pK) : nc;
+    const cL = pL != null ? pctCol(pL) : nc;
+    const cK = pK != null ? pctCol(pK) : nc;
+    const barL = pL != null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;"><div style="flex:1;max-width:30px;height:3px;background:${dark?'rgba(255,255,255,0.15)':'#e2e8f0'};border-radius:99px;overflow:hidden;"><div style="height:3px;width:${Math.min(pL,100)}%;background:${cL};border-radius:99px;"></div></div><span style="font-size:10px;font-weight:800;color:${cL};">${pL}%</span></div>` : '';
+    const barK = pK != null ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;"><div style="flex:1;max-width:30px;height:3px;background:${dark?'rgba(255,255,255,0.15)':'#e2e8f0'};border-radius:99px;overflow:hidden;"><div style="height:3px;width:${Math.min(pK,100)}%;background:${cK};border-radius:99px;"></div></div><span style="font-size:10px;font-weight:800;color:${cK};">${pK}%</span></div>` : '';
     return `<td style="padding:7px 9px;vertical-align:top;background:${bg};border:${bdr};min-width:120px;">
-      <div style="font-size:10px;font-weight:700;color:${lc};letter-spacing:0.04em;margin-bottom:1px;">V (Ltrs/Kgs)</div>
+      <div style="font-size:9px;font-weight:700;color:${lc};letter-spacing:0.05em;margin-bottom:1px;">V (Ltrs/Kgs)</div>
       <div style="font-size:12px;font-weight:700;color:${nc};text-align:right;">${fmt(ltrs)}</div>
-      ${tgtL?`<div style="font-size:10px;color:${mu};text-align:right;">tgt: ${fmt(tgtL)}</div>`:''}
-      ${pL!==null?`<div style="font-size:10px;font-weight:800;color:${cL};text-align:right;">${pL}%</div>`:''}
-      <div style="border-top:1px dashed ${div};margin:4px 0 3px;"></div>
-      <div style="font-size:10px;font-weight:700;color:${lc};letter-spacing:0.04em;margin-bottom:1px;">R (KSH)</div>
+      ${tgtL?`<div style="font-size:9px;color:${mu};text-align:right;">tgt: ${fmt(tgtL)}</div>`:''}
+      ${barL}
+      <div style="border-top:1px dashed ${dv};margin:4px 0 3px;"></div>
+      <div style="font-size:9px;font-weight:700;color:${lc};letter-spacing:0.05em;margin-bottom:1px;">R (KSH)</div>
       <div style="font-size:12px;font-weight:700;color:${nc};text-align:right;">${fmt(amount)}</div>
-      ${tgtK?`<div style="font-size:10px;color:${mu};text-align:right;">tgt: ${fmt(tgtK)}</div>`:''}
-      ${pK!==null?`<div style="font-size:10px;font-weight:800;color:${cK};text-align:right;">${pK}%</div>`:''}
+      ${tgtK?`<div style="font-size:9px;color:${mu};text-align:right;">tgt: ${fmt(tgtK)}</div>`:''}
+      ${barK}
     </td>`;
   }
 
-  function compactCell(ltrs, amount, darkBg) {
-    const bg  = darkBg ? '#0f5f5a' : '#ffffff';
-    const nc  = darkBg ? '#f6ad2b' : '#0f2744';
-    const gc  = darkBg ? '#1db87a' : '#0f5f5a';
-    const lc  = darkBg ? 'rgba(255,255,255,0.45)' : '#718096';
-    const bdr = `1px solid ${darkBg ? '#0a3d3a' : '#e2e8f0'}`;
+  function compCell(ltrs, amount, dark) {
+    const bg  = dark ? '#0f5f5a' : '#ffffff';
+    const nc  = dark ? '#f6ad2b' : '#0f2744';
+    const gc  = dark ? '#10b981' : '#0f5f5a';
+    const lc  = dark ? 'rgba(255,255,255,0.45)' : '#718096';
+    const bdr = `1px solid ${dark ? '#0a3d3a' : '#e8ecf2'}`;
+    const dv  = dark ? 'rgba(255,255,255,0.1)' : '#e8ecf2';
     if (!ltrs && !amount)
-      return `<td style="text-align:center;background:${bg};border:${bdr};padding:5px 7px;color:#ccc;font-size:11px;">—</td>`;
-    return `<td style="padding:6px 8px;vertical-align:top;background:${bg};border:${bdr};min-width:110px;">
-      <div style="font-size:9px;font-weight:700;color:${lc};letter-spacing:0.04em;">V</div>
-      <div style="font-size:11.5px;font-weight:700;color:${nc};text-align:right;">${fmt(ltrs)}</div>
-      <div style="border-top:1px dashed ${darkBg?'rgba(255,255,255,0.12)':'#e2e8f0'};margin:3px 0 2px;"></div>
-      <div style="font-size:9px;font-weight:700;color:${lc};letter-spacing:0.04em;">R</div>
-      <div style="font-size:11.5px;font-weight:700;color:${gc};text-align:right;">${fmt(amount)}</div>
+      return `<td style="text-align:center;background:${bg};border:${bdr};padding:6px 8px;color:#bbb;font-size:11px;">—</td>`;
+    return `<td style="padding:6px 8px;vertical-align:top;background:${bg};border:${bdr};min-width:105px;">
+      <div style="font-size:9px;font-weight:700;color:${lc};letter-spacing:0.04em;">V (Ltrs/Kgs)</div>
+      <div style="font-size:12px;font-weight:700;color:${nc};text-align:right;">${fmt(ltrs)}</div>
+      <div style="border-top:1px dashed ${dv};margin:3px 0 2px;"></div>
+      <div style="font-size:9px;font-weight:700;color:${lc};letter-spacing:0.04em;">R (KSH)</div>
+      <div style="font-size:12px;font-weight:700;color:${gc};text-align:right;">${fmt(amount)}</div>
     </td>`;
   }
 
-  function thStyle(amber) { return `padding:9px 10px;text-align:center;font-size:10px;font-weight:700;color:${amber?'#f6ad2b':'rgba(255,255,255,0.85)'};border:1px solid rgba(255,255,255,0.12);background:${amber?'#0a3d3a':'#0f5f5a'};min-width:${amber?'110':'120'}px;`; }
-  const th1Style = 'padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.85);letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.12);background:#0f5f5a;white-space:nowrap;';
-  const rowStyle = (i) => `background:${i%2===1?'#f8fafc':'#fff'};`;
+  const thDk = (amber) => `padding:9px 10px;text-align:center;font-size:10px;font-weight:700;letter-spacing:0.04em;color:${amber?'#f6ad2b':'rgba(255,255,255,0.85)'};border:1px solid rgba(255,255,255,0.1);background:${amber?'#0a3d3a':'#0f5f5a'};white-space:nowrap;`;
+  const th1  = `padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.85);letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.1);background:#0f5f5a;white-space:nowrap;`;
+  const rowBg = i => i%2===1 ? '#f8fafc' : '#ffffff';
+  const rowLbl = (txt, i, bold) => `<td style="padding:9px 12px;font-weight:${bold?'800':'700'};font-size:${bold?'13':'12'}px;color:#0f5f5a;border:1px solid #e8ecf2;white-space:nowrap;vertical-align:middle;background:${rowBg(i)};">${txt}</td>`;
+  const gtLbl = txt => `<td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f5f5a;border:1px solid #0f5f5a;vertical-align:middle;letter-spacing:0.05em;white-space:nowrap;">${txt}</td>`;
 
-  // ── Build header + rows per mode ──────────────────────
-  let hdr = '', rows = '';
-  let gtL = 0, gtA = 0, gtTL = 0, gtTK = 0;
+  // ── VIEW 1: Type × Category ───────────────────────────
+  let h1 = `<tr><th style="${th1}">TYPE</th>`;
+  visCats.forEach(c => h1 += `<th style="${thDk(false)}">${c}</th>`);
+  h1 += `<th style="${thDk(true)}">TOTAL</th></tr>`;
+  let r1 = '', v1L=0, v1A=0, v1TL=0, v1TK=0;
+  const c1L={},c1A={},c1TL={},c1TK={};
+  visCats.forEach(c=>{c1L[c]=0;c1A[c]=0;c1TL[c]=0;c1TK[c]=0;});
+  visChans.forEach((ch,ri)=>{
+    let cL=0,cA=0,cTL=0,cTK=0,cells='';
+    visCats.forEach(c=>{
+      const l=pivot[ch]?.[c]?.ltrs||0, a=pivot[ch]?.[c]?.amount||0;
+      const tgt=hasTypeTgts?getTypeCatTgt(ch,c):null, tL=tgt?.ltrs||0, tK=tgt?.ksh||0;
+      cL+=l;cA+=a;cTL+=tL;cTK+=tK;c1L[c]+=l;c1A[c]+=a;c1TL[c]+=tL;c1TK[c]+=tK;
+      cells+=fullCell(l,a,tL,tK,false);
+    });
+    cells+=fullCell(cL,cA,cTL,cTK,false);
+    v1L+=cL;v1A+=cA;v1TL+=cTL;v1TK+=cTK;
+    r1+=`<tr>${rowLbl(ch,ri,true)}${cells}</tr>`;
+  });
+  let gt1=''; visCats.forEach(c=>gt1+=fullCell(c1L[c],c1A[c],c1TL[c],c1TK[c],true)); gt1+=fullCell(v1L,v1A,v1TL,v1TK,true);
+  r1+=`<tr>${gtLbl('GRAND TOTAL')}${gt1}</tr>`;
 
-  if (mode === 'type-cat') {
-    // Rows = Types, Cols = Categories
-    hdr = `<tr><th style="${th1Style}">TYPE</th>`;
-    for (const c of visCats) hdr += `<th style="${thStyle(false)}">${c}</th>`;
-    hdr += `<th style="${thStyle(true)}">TOTAL</th></tr>`;
+  // ── VIEW 2: Location × Category ──────────────────────
+  let h2 = `<tr><th style="${th1}">LOCATION</th>`;
+  visCats.forEach(c => h2 += `<th style="${thDk(false)}">${c}</th>`);
+  h2 += `<th style="${thDk(true)}">TOTAL</th></tr>`;
+  let r2='', v2L=0, v2A=0;
+  const c2L={},c2A={};
+  visCats.forEach(c=>{c2L[c]=0;c2A[c]=0;});
+  visRegs.forEach((reg,ri)=>{
+    let rL=0,rA=0,cells='';
+    visCats.forEach(c=>{
+      let l=0,a=0;
+      visChans.forEach(ch=>{l+=byLoc?.[ch]?.[c]?.[reg]?.ltrs||0;a+=byLoc?.[ch]?.[c]?.[reg]?.amount||0;});
+      rL+=l;rA+=a;c2L[c]+=l;c2A[c]+=a;cells+=compCell(l,a,false);
+    });
+    cells+=compCell(rL,rA,false);v2L+=rL;v2A+=rA;
+    r2+=`<tr>${rowLbl(reg,ri,false)}${cells}</tr>`;
+  });
+  let gt2=''; visCats.forEach(c=>gt2+=compCell(c2L[c],c2A[c],true)); gt2+=compCell(v2L,v2A,true);
+  r2+=`<tr>${gtLbl('GRAND TOTAL')}${gt2}</tr>`;
 
-    const catGtL={},catGtA={},catGtTL={},catGtTK={};
-    for (const c of visCats){catGtL[c]=0;catGtA[c]=0;catGtTL[c]=0;catGtTK[c]=0;}
+  // ── VIEW 3: Type × Location ───────────────────────────
+  let h3 = `<tr><th style="${th1}">TYPE</th>`;
+  visRegs.forEach(reg => h3 += `<th style="${thDk(false)}">${reg}</th>`);
+  h3 += `<th style="${thDk(true)}">TOTAL</th></tr>`;
+  let r3='', v3L=0, v3A=0;
+  const rGL={},rGA={};
+  visRegs.forEach(reg=>{rGL[reg]=0;rGA[reg]=0;});
+  visChans.forEach((ch,ri)=>{
+    let cL=0,cA=0,cells='';
+    visRegs.forEach(reg=>{
+      let l=0,a=0;
+      visCats.forEach(c=>{l+=byLoc?.[ch]?.[c]?.[reg]?.ltrs||0;a+=byLoc?.[ch]?.[c]?.[reg]?.amount||0;});
+      cL+=l;cA+=a;rGL[reg]+=l;rGA[reg]+=a;cells+=compCell(l,a,false);
+    });
+    cells+=compCell(cL,cA,false);v3L+=cL;v3A+=cA;
+    r3+=`<tr>${rowLbl(ch,ri,true)}${cells}</tr>`;
+  });
+  let gt3=''; visRegs.forEach(reg=>gt3+=compCell(rGL[reg],rGA[reg],true)); gt3+=compCell(v3L,v3A,true);
+  r3+=`<tr>${gtLbl('GRAND TOTAL')}${gt3}</tr>`;
 
-    for (let ri=0;ri<visChans.length;ri++) {
-      const ch=visChans[ri];
-      let chL=0,chA=0,chTL=0,chTK=0,cells='';
-      for (const c of visCats) {
-        const l=pivot[ch]?.[c]?.ltrs||0, a=pivot[ch]?.[c]?.amount||0;
-        const tgt=hasTypeTgts?getTypeCatTgt(ch,c):null;
-        const tL=tgt?.ltrs||0,tK=tgt?.ksh||0;
-        chL+=l;chA+=a;chTL+=tL;chTK+=tK;
-        catGtL[c]+=l;catGtA[c]+=a;catGtTL[c]+=tL;catGtTK[c]+=tK;
-        cells+=dataCell(l,a,tL,tK,false);
-      }
-      cells+=dataCell(chL,chA,chTL,chTK,false);
-      gtL+=chL;gtA+=chA;gtTL+=chTL;gtTK+=chTK;
-      rows+=`<tr style="${rowStyle(ri)}"><td style="padding:9px 12px;font-weight:800;font-size:13px;color:#0f5f5a;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;">${ch}</td>${cells}</tr>`;
-    }
-    let gtCells='';
-    for (const c of visCats) gtCells+=dataCell(catGtL[c],catGtA[c],catGtTL[c],catGtTK[c],true);
-    gtCells+=dataCell(gtL,gtA,gtTL,gtTK,true);
-    rows+=`<tr><td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f5f5a;border:1px solid #0f5f5a;vertical-align:middle;letter-spacing:0.05em;white-space:nowrap;">GRAND TOTAL</td>${gtCells}</tr>`;
-
-  } else if (mode === 'loc-cat') {
-    // Rows = Locations, Cols = Categories
-    hdr = `<tr><th style="${th1Style}">LOCATION</th>`;
-    for (const c of visCats) hdr += `<th style="${thStyle(false)}">${c}</th>`;
-    hdr += `<th style="${thStyle(true)}">TOTAL</th></tr>`;
-
-    const catGtL={},catGtA={};
-    for (const c of visCats){catGtL[c]=0;catGtA[c]=0;}
-
-    for (let ri=0;ri<visRegs.length;ri++) {
-      const reg=visRegs[ri];
-      let regL=0,regA=0,cells='';
-      for (const c of visCats) {
-        let l=0,a=0;
-        for (const ch of visChans){l+=byLoc?.[ch]?.[c]?.[reg]?.ltrs||0;a+=byLoc?.[ch]?.[c]?.[reg]?.amount||0;}
-        regL+=l;regA+=a;catGtL[c]+=l;catGtA[c]+=a;
-        cells+=compactCell(l,a,false);
-      }
-      cells+=compactCell(regL,regA,false);
-      gtL+=regL;gtA+=regA;
-      rows+=`<tr style="${rowStyle(ri)}"><td style="padding:9px 12px;font-weight:700;font-size:13px;color:#0f5f5a;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;">${reg}</td>${cells}</tr>`;
-    }
-    let gtCells='';
-    for (const c of visCats) gtCells+=compactCell(catGtL[c],catGtA[c],true);
-    gtCells+=compactCell(gtL,gtA,true);
-    rows+=`<tr><td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f5f5a;border:1px solid #0f5f5a;vertical-align:middle;letter-spacing:0.05em;white-space:nowrap;">GRAND TOTAL</td>${gtCells}</tr>`;
-
-  } else if (mode === 'type-loc') {
-    // Rows = Types, Cols = Locations
-    hdr = `<tr><th style="${th1Style}">TYPE</th>`;
-    for (const reg of visRegs) hdr += `<th style="${thStyle(false)}">${reg}</th>`;
-    hdr += `<th style="${thStyle(true)}">TOTAL</th></tr>`;
-
-    const regGtL={},regGtA={};
-    for (const reg of visRegs){regGtL[reg]=0;regGtA[reg]=0;}
-
-    for (let ri=0;ri<visChans.length;ri++) {
-      const ch=visChans[ri];
-      let chL=0,chA=0,cells='';
-      for (const reg of visRegs) {
-        let l=0,a=0;
-        for (const c of visCats){l+=byLoc?.[ch]?.[c]?.[reg]?.ltrs||0;a+=byLoc?.[ch]?.[c]?.[reg]?.amount||0;}
-        chL+=l;chA+=a;regGtL[reg]+=l;regGtA[reg]+=a;
-        cells+=compactCell(l,a,false);
-      }
-      cells+=compactCell(chL,chA,false);
-      gtL+=chL;gtA+=chA;
-      rows+=`<tr style="${rowStyle(ri)}"><td style="padding:9px 12px;font-weight:800;font-size:13px;color:#0f5f5a;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;">${ch}</td>${cells}</tr>`;
-    }
-    let gtCells='';
-    for (const reg of visRegs) gtCells+=compactCell(regGtL[reg],regGtA[reg],true);
-    gtCells+=compactCell(gtL,gtA,true);
-    rows+=`<tr><td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f5f5a;border:1px solid #0f5f5a;vertical-align:middle;letter-spacing:0.05em;white-space:nowrap;">GRAND TOTAL</td>${gtCells}</tr>`;
+  // ── Summary pills ─────────────────────────────────────
+  let tgtHtml='';
+  if (hasTypeTgts && v1TK>0) {
+    const ap=Math.round((v1A/v1TK)*100);
+    tgtHtml=`<div class="pill"><div class="pill-lbl">Target (KSH)</div><div class="pill-val">KSH ${Math.round(v1TK).toLocaleString()}</div></div>
+    <div class="pill"><div class="pill-lbl">% Achieved</div><div class="pill-val" style="color:${pctCol(ap)};font-size:22px;">${ap}%</div></div>`;
   }
 
-  // ── Target summary pills ───────────────────────────────
-  let tgtPillHtml = '';
-  if (hasTypeTgts && gtTK > 0) {
-    const achPct = Math.round((gtA/gtTK)*100);
-    const achCol = pctCol(achPct);
-    tgtPillHtml = `
-      <div class="pill"><div class="pill-label">Target (KSH)</div><div class="pill-value">KSH ${Math.round(gtTK).toLocaleString()}</div></div>
-      <div class="pill"><div class="pill-label">% Achieved</div><div class="pill-value" style="color:${achCol};font-size:22px;">${achPct}%</div></div>`;
-  }
+  // ── Full HTML document with 3 tabs ────────────────────
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Type Sales Report — ${period}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI','DM Sans',Arial,sans-serif;background:#f0f2f5;color:#1a202c;padding:0;}
+  /* ── Header ── */
+  .rpt-hdr{background:#0f5f5a;padding:22px 28px 18px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+  .rpt-hdr-left h1{font-size:22px;font-weight:800;color:#fff;margin-bottom:3px;}
+  .rpt-hdr-left .sub{font-size:12px;color:rgba(255,255,255,0.55);}
+  .rpt-hdr-right{font-size:11px;color:rgba(255,255,255,0.45);text-align:right;line-height:1.8;}
+  /* ── Pills ── */
+  .pills{display:flex;gap:12px;padding:18px 28px 0;flex-wrap:wrap;}
+  .pill{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:12px 18px;}
+  .pill-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:3px;}
+  .pill-val{font-size:19px;font-weight:800;color:#0f5f5a;}
+  /* ── Key box ── */
+  .key-box{margin:16px 28px;background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:12px 18px;display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;}
+  .key-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#718096;margin-bottom:4px;}
+  .key-val{font-size:12px;font-weight:600;color:#0f2744;}
+  .key-badge{background:#1a3c5e;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.78);white-space:nowrap;}
+  .key-desc{font-size:12px;color:#718096;}
+  .key-div{width:1px;background:#dde3ec;align-self:stretch;flex-shrink:0;}
+  .cg-row{display:flex;align-items:center;gap:8px;margin-top:4px;}
+  .cg-bar{width:22px;height:4px;border-radius:99px;}
+  /* ── Tabs ── */
+  .tabs{display:flex;gap:0;padding:0 28px;margin-top:18px;border-bottom:2px solid #dde3ec;}
+  .tab-btn{padding:10px 20px;font-size:12px;font-weight:700;color:#718096;background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;margin-bottom:-2px;transition:color 0.15s,border-color 0.15s;white-space:nowrap;font-family:inherit;}
+  .tab-btn:hover{color:#0f5f5a;}
+  .tab-btn.active{color:#0f5f5a;border-bottom-color:#0f5f5a;}
+  /* ── Table panel ── */
+  .tab-panel{display:none;padding:16px 28px 28px;}
+  .tab-panel.active{display:block;}
+  .panel-title{font-size:13px;font-weight:700;color:#0f5f5a;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .panel-badge{background:#e6f4f1;color:#0f5f5a;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:0.04em;}
+  .tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid #dde3ec;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
+  table{border-collapse:collapse;width:100%;font-size:12px;}
+  /* ── Footer ── */
+  .rpt-footer{text-align:center;padding:16px;font-size:11px;color:#a0aec0;border-top:1px solid #e8ecf2;margin-top:8px;}
+</style>
+</head><body>
 
-  // ── Full HTML document ─────────────────────────────────
-  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
-  <title>Type Sales — ${modeLabel} — ${period}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'Segoe UI','DM Sans',Arial,sans-serif;background:#f0f2f5;color:#1a202c;padding:28px;}
-    h1{font-size:22px;font-weight:800;color:#0f5f5a;margin-bottom:2px;}
-    .mode-badge{display:inline-block;background:#0f5f5a;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;margin-bottom:4px;letter-spacing:0.05em;}
-    .sub{font-size:13px;color:#718096;margin-bottom:20px;}
-    .pills{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
-    .pill{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:12px 18px;}
-    .pill-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:3px;}
-    .pill-value{font-size:20px;font-weight:800;color:#0f5f5a;}
-    .key-box{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;}
-    .key-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#718096;margin-bottom:5px;}
-    .key-sub{font-size:12px;font-weight:600;color:#0f2744;}
-    .key-item{display:flex;align-items:center;gap:8px;}
-    .key-badge{background:#1a3c5e;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.75);white-space:nowrap;}
-    .key-desc{font-size:12px;color:#718096;}
-    .key-div{width:1px;background:#dde3ec;align-self:stretch;flex-shrink:0;}
-    .col-guide{display:flex;flex-direction:column;gap:5px;}
-    .col-row{display:flex;align-items:center;gap:8px;}
-    .col-bar{width:26px;height:5px;border-radius:99px;}
-    .col-lbl{font-size:12px;color:#718096;}
-    .tbl-wrap{overflow-x:auto;background:#fff;border-radius:12px;border:1px solid #dde3ec;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
-    table{border-collapse:collapse;width:100%;font-size:12px;}
-    .footer{margin-top:16px;font-size:11px;color:#a0aec0;text-align:center;}
-  </style></head><body>
-  <div class="mode-badge">${modeLabel}</div>
-  <h1>🏷 Type Sales Report</h1>
-  <div class="sub">${period} &nbsp;·&nbsp; Generated ${new Date().toLocaleString()}</div>
-  <div class="pills">
-    <div class="pill"><div class="pill-label">Types</div><div class="pill-value">${document.getElementById('typeStatChans').textContent}</div></div>
-    <div class="pill"><div class="pill-label">Categories</div><div class="pill-value">${document.getElementById('typeStatCats').textContent}</div></div>
-    <div class="pill"><div class="pill-label">Total Revenue</div><div class="pill-value">${document.getElementById('typeStatRev').textContent}</div></div>
-    <div class="pill"><div class="pill-label">Total Volume</div><div class="pill-value">${document.getElementById('typeStatVol').textContent}</div></div>
-    ${tgtPillHtml}
+<div class="rpt-hdr">
+  <div class="rpt-hdr-left">
+    <h1>🏷 Type Sales Report</h1>
+    <div class="sub">${period} &nbsp;·&nbsp; Three views: Type, Location, Category</div>
   </div>
-  <div class="key-box">
-    <div><div class="key-title">Report Key</div><div class="key-sub">How to read each cell</div></div>
-    <div class="key-div"></div>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
-      <div class="key-item"><span class="key-badge">V (Ltrs/Kgs)</span><span class="key-desc">Volume sold</span></div>
-      <div class="key-item"><span class="key-badge">R (KSH)</span><span class="key-desc">Revenue in KSH</span></div>
-      ${hasTypeTgts?`<div class="key-item"><span style="font-size:11px;color:#718096;font-weight:600;">tgt: n</span><span class="key-desc">Period target</span></div>
-      <div class="key-item"><span style="font-size:11px;font-weight:800;color:#888;">nn%</span><span class="key-desc">Actual as % of target</span></div>`:''}
-    </div>
-    <div class="key-div"></div>
-    <div><div class="key-title" style="margin-bottom:7px;">% Achievement</div>
-      <div class="col-guide">
-        <div class="col-row"><div class="col-bar" style="background:#059669;"></div><span class="col-lbl">≥100% On/Above Target</span></div>
-        <div class="col-row"><div class="col-bar" style="background:#d97706;"></div><span class="col-lbl">70–99% Close to Target</span></div>
-        <div class="col-row"><div class="col-bar" style="background:#dc2626;"></div><span class="col-lbl">&lt;70% Below Target</span></div>
-      </div>
-    </div>
-  </div>
-  <div class="tbl-wrap"><table><thead>${hdr}</thead><tbody>${rows}</tbody></table></div>
-  <div class="footer">SalesDB Reporting Tool &nbsp;·&nbsp; ${new Date().toLocaleDateString()}</div>
-  </body></html>`;
+  <div class="rpt-hdr-right">Generated ${new Date().toLocaleString()}<br>SalesDB Reporting Tool</div>
+</div>
 
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+<div class="pills">
+  <div class="pill"><div class="pill-lbl">Types</div><div class="pill-val">${visChans.length}</div></div>
+  <div class="pill"><div class="pill-lbl">Categories</div><div class="pill-val">${visCats.length}</div></div>
+  <div class="pill"><div class="pill-lbl">Locations</div><div class="pill-val">${visRegs.length}</div></div>
+  <div class="pill"><div class="pill-lbl">Total Revenue</div><div class="pill-val">KSH ${fmt(v1A)}</div></div>
+  <div class="pill"><div class="pill-lbl">Total Volume</div><div class="pill-val">${fmt(v1L)} L/Kg</div></div>
+  ${tgtHtml}
+</div>
+
+<div class="key-box">
+  <div><div class="key-lbl">Cell Key</div><div class="key-val">How to read each cell</div></div>
+  <div class="key-div"></div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
+    <div style="display:flex;align-items:center;gap:7px;"><span class="key-badge">V (Ltrs/Kgs)</span><span class="key-desc">Volume sold</span></div>
+    <div style="display:flex;align-items:center;gap:7px;"><span class="key-badge">R (KSH)</span><span class="key-desc">Revenue in KSH</span></div>
+    ${hasTypeTgts?`<div style="display:flex;align-items:center;gap:7px;"><span style="font-size:11px;color:#718096;font-weight:600;">tgt: n</span><span class="key-desc">Period target</span></div>
+    <div style="display:flex;align-items:center;gap:7px;"><span style="font-size:11px;font-weight:800;color:#888;">nn%</span><span class="key-desc">% of target</span></div>`:''}
+  </div>
+  <div class="key-div"></div>
+  <div>
+    <div class="key-lbl" style="margin-bottom:2px;">% Achievement</div>
+    <div class="cg-row"><div class="cg-bar" style="background:#059669;"></div><span style="font-size:11px;color:#718096;">≥100% On/Above Target</span></div>
+    <div class="cg-row"><div class="cg-bar" style="background:#d97706;"></div><span style="font-size:11px;color:#718096;">70–99% Close to Target</span></div>
+    <div class="cg-row"><div class="cg-bar" style="background:#dc2626;"></div><span style="font-size:11px;color:#718096;">&lt;70% Below Target</span></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('v1',this)">🏷 By Type × Category</button>
+  <button class="tab-btn"        onclick="showTab('v2',this)">📍 By Location × Category</button>
+  <button class="tab-btn"        onclick="showTab('v3',this)">🔀 By Type × Location</button>
+</div>
+
+<div id="v1" class="tab-panel active">
+  <div class="panel-title">Type vs Category <span class="panel-badge">Full detail${hasTypeTgts?' · with targets':''}</span></div>
+  <div class="tbl-wrap"><table><thead>${h1}</thead><tbody>${r1}</tbody></table></div>
+</div>
+<div id="v2" class="tab-panel">
+  <div class="panel-title">Location vs Category <span class="panel-badge">All ${visRegs.length} regions · ${visCats.length} categories</span></div>
+  <div class="tbl-wrap"><table><thead>${h2}</thead><tbody>${r2}</tbody></table></div>
+</div>
+<div id="v3" class="tab-panel">
+  <div class="panel-title">Type vs Location <span class="panel-badge">All ${visChans.length} types · ${visRegs.length} locations</span></div>
+  <div class="tbl-wrap"><table><thead>${h3}</thead><tbody>${r3}</tbody></table></div>
+</div>
+
+<div class="rpt-footer">SalesDB Reporting Tool &nbsp;·&nbsp; ${period} &nbsp;·&nbsp; ${new Date().toLocaleDateString()}</div>
+
+\x3Cscript>
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+\x3C/script>
+</body></html>`;
+
+  const blob = new Blob([html], { type:'text/html;charset=utf-8' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
+  a.href = url;
+  a.download = `Type_Sales_Report_${(period||'').replace(/\s|–|\/|\./g,'_')}.html`;
+  a.click();
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
-  showToast(`${modeLabel} report downloaded ✓`, 'ok');
+  showToast('Full report downloaded ✓', 'ok');
 }
+
 // ── Sales Per Customer Page ────────────────────────────
 // ── SPC Export helpers ─────────────────────────────────
 
