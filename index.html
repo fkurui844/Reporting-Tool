@@ -1335,7 +1335,13 @@
     body.dark #typeSalesTable tbody td { border-bottom-color:var(--border2); }
 
     /* ── Type row expand button ── */
-    .type-expand-btn {
+    .type-exp-btn {
+      width:100%;text-align:left;padding:9px 14px;background:none;border:none;
+      cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;
+      color:var(--text);display:flex;align-items:center;gap:9px;
+      transition:background 0.12s;
+    }
+    .type-exp-btn:hover { background:var(--bg); }
       display:inline-flex; align-items:center; justify-content:center;
       width:18px; height:18px; border-radius:4px; margin-right:8px;
       background:rgba(15,95,90,0.18); border:1.5px solid rgba(15,95,90,0.45);
@@ -2497,12 +2503,16 @@
         </select>
         <div style="position:relative;display:inline-block;" id="typeExportDropWrap">
           <div style="display:flex;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.2);">
-            <button class="locsales-export-btn" style="border-radius:0;border-right:1px solid rgba(255,255,255,0.2);" onclick="exportTypeSalesCSV()">⬇ Export CSV</button>
+            <button class="locsales-export-btn" style="border-radius:0;border-right:1px solid rgba(255,255,255,0.2);" onclick="exportTypeSalesHTML('type-cat')">⬇ Export</button>
             <button class="locsales-export-btn" style="border-radius:0;padding:8px 10px;" onclick="toggleTypeExportMenu()" title="More export options">▾</button>
           </div>
-          <div id="typeExportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;min-width:160px;overflow:hidden;">
-            <button onclick="exportTypeSalesCSV();toggleTypeExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">📊 Download CSV</button>
-            <button onclick="exportTypeSalesHTML();toggleTypeExportMenu();" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);display:flex;align-items:center;gap:8px;border-top:1px solid var(--border2);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">🌐 Download HTML</button>
+          <div id="typeExportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:200;min-width:250px;overflow:hidden;">
+            <div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase;border-bottom:1px solid var(--border2);">HTML Reports</div>
+            <button onclick="exportTypeSalesHTML('type-cat');toggleTypeExportMenu();" class="type-exp-btn">🏷 By Type × Category</button>
+            <button onclick="exportTypeSalesHTML('loc-cat');toggleTypeExportMenu();"  class="type-exp-btn">📍 By Location × Category</button>
+            <button onclick="exportTypeSalesHTML('type-loc');toggleTypeExportMenu();" class="type-exp-btn">🔀 By Type × Location</button>
+            <div style="border-top:1px solid var(--border2);padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase;">Raw Data</div>
+            <button onclick="exportTypeSalesCSV();toggleTypeExportMenu();" class="type-exp-btn">📊 Download CSV (all data)</button>
           </div>
         </div>
       </div>
@@ -6788,20 +6798,26 @@ function exportTypeSalesCSV() {
   showToast('CSV exported ✓', 'ok');
 }
 
-function exportTypeSalesHTML() {
+function exportTypeSalesHTML(mode) {
+  // mode: 'type-cat' | 'loc-cat' | 'type-loc'
   if (!_typeSalesData) { showToast('No data — upload a SAP file first.', 'err'); return; }
-  const { channels, categories, pivot } = _typeSalesData;
+  mode = mode || 'type-cat';
+
+  const { channels, categories, pivot, byLoc, allRegions } = _typeSalesData;
   const q   = (document.getElementById('typeSearch').value || '').toLowerCase().trim();
   const cat = document.getElementById('typeCatFilter').value;
   const visChans = q   ? channels.filter(ch => ch.toLowerCase().includes(q)) : channels;
   const visCats  = cat ? categories.filter(c => c === cat.toUpperCase()) : categories;
+  const visRegs  = allRegions || [];
   const period   = document.getElementById('typeSalesPeriod').textContent.replace('Period: ','');
-  const fmt = v => Math.round(v).toLocaleString();
+  const fmt      = v => Math.round(v).toLocaleString();
+  const fmtN     = v => Math.round(v);
+  const pctCol   = p => p >= 100 ? '#059669' : p >= 70 ? '#d97706' : '#dc2626';
 
   const typeTgts    = refData.typeCategoryTargets || {};
   const hasTypeTgts = Object.keys(typeTgts).length > 0;
 
-  function getTypeCatTgtH(ch, c) {
+  function getTypeCatTgt(ch, c) {
     const chU = ch.toUpperCase(), cU = normalizeCat(c);
     if (typeTgts[chU]) return typeTgts[chU][cU] || typeTgts[chU][c.toUpperCase()] || null;
     for (const k of Object.keys(typeTgts)) {
@@ -6812,89 +6828,185 @@ function exportTypeSalesHTML() {
     return null;
   }
 
-  function pctColor(p) { return p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A'; }
+  // ── Shared HTML helpers ────────────────────────────────
+  const modeLabels = { 'type-cat': 'By Type × Category', 'loc-cat': 'By Location × Category', 'type-loc': 'By Type × Location' };
+  const modeLabel  = modeLabels[mode];
+  const filename   = `Type_Sales_${mode}_${(period||'').replace(/\s|–|\/|\./g,'_')}.html`;
 
-  function cell(ltrs, amount, tgtL, tgtK, darkBg) {
-    const bg  = darkBg ? '#0f5f5a' : '#fff';
-    const nc  = darkBg ? '#f6ad2b' : '#0f2744';
-    const lc  = darkBg ? 'rgba(255,255,255,0.55)' : '#718096';
-    const bdr = darkBg ? '1px solid #0a3d3a' : '1px solid #e2e8f0';
-    const muted = darkBg ? 'rgba(255,255,255,0.45)' : '#a0aec0';
-    if (!ltrs && !amount && !tgtL && !tgtK) return `<td style="text-align:center;background:${bg};border:${bdr};padding:6px 8px;color:#ccc;font-size:11px;">—</td>`;
-    const pL = tgtL ? Math.round((ltrs   / tgtL) * 100) : null;
-    const pK = tgtK ? Math.round((amount / tgtK) * 100) : null;
-    const cL = pL !== null ? pctColor(pL) : nc;
-    const cK = pK !== null ? pctColor(pK) : nc;
+  function dataCell(ltrs, amount, tgtL, tgtK, darkBg) {
+    const bg   = darkBg ? '#0f5f5a' : '#ffffff';
+    const nc   = darkBg ? '#f6ad2b' : '#0f2744';
+    const lc   = darkBg ? 'rgba(255,255,255,0.5)' : '#718096';
+    const mu   = darkBg ? 'rgba(255,255,255,0.4)' : '#a0aec0';
+    const bdr  = `1px solid ${darkBg ? '#0a3d3a' : '#e2e8f0'}`;
+    const div  = darkBg ? 'rgba(255,255,255,0.12)' : '#e2e8f0';
+    if (!ltrs && !amount && !tgtL && !tgtK)
+      return `<td style="text-align:center;background:${bg};border:${bdr};padding:6px 8px;color:#ccc;font-size:11px;">—</td>`;
+    const pL = tgtL ? Math.round((ltrs/tgtL)*100) : null;
+    const pK = tgtK ? Math.round((amount/tgtK)*100) : null;
+    const cL = pL !== null ? pctCol(pL) : nc;
+    const cK = pK !== null ? pctCol(pK) : nc;
     return `<td style="padding:7px 9px;vertical-align:top;background:${bg};border:${bdr};min-width:120px;">
       <div style="font-size:10px;font-weight:700;color:${lc};letter-spacing:0.04em;margin-bottom:1px;">V (Ltrs/Kgs)</div>
       <div style="font-size:12px;font-weight:700;color:${nc};text-align:right;">${fmt(ltrs)}</div>
-      ${tgtL ? `<div style="font-size:10px;color:${muted};text-align:right;">tgt: ${fmt(tgtL)}</div>` : ''}
-      ${pL !== null ? `<div style="font-size:10px;font-weight:800;color:${cL};text-align:right;">${pL}%</div>` : ''}
-      <div style="border-top:1px dashed #e2e8f0;margin:4px 0 3px;"></div>
+      ${tgtL?`<div style="font-size:10px;color:${mu};text-align:right;">tgt: ${fmt(tgtL)}</div>`:''}
+      ${pL!==null?`<div style="font-size:10px;font-weight:800;color:${cL};text-align:right;">${pL}%</div>`:''}
+      <div style="border-top:1px dashed ${div};margin:4px 0 3px;"></div>
       <div style="font-size:10px;font-weight:700;color:${lc};letter-spacing:0.04em;margin-bottom:1px;">R (KSH)</div>
       <div style="font-size:12px;font-weight:700;color:${nc};text-align:right;">${fmt(amount)}</div>
-      ${tgtK ? `<div style="font-size:10px;color:${muted};text-align:right;">tgt: ${fmt(tgtK)}</div>` : ''}
-      ${pK !== null ? `<div style="font-size:10px;font-weight:800;color:${cK};text-align:right;">${pK}%</div>` : ''}
+      ${tgtK?`<div style="font-size:10px;color:${mu};text-align:right;">tgt: ${fmt(tgtK)}</div>`:''}
+      ${pK!==null?`<div style="font-size:10px;font-weight:800;color:${cK};text-align:right;">${pK}%</div>`:''}
     </td>`;
   }
 
-  let hdr = `<tr style="background:#0f5f5a;">
-    <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.12);white-space:nowrap;">TYPE</th>`;
-  for (const c of visCats) hdr += `<th style="padding:9px 10px;text-align:center;font-size:10px;font-weight:700;color:rgba(255,255,255,0.8);border:1px solid rgba(255,255,255,0.12);min-width:120px;">${c}</th>`;
-  hdr += `<th style="padding:9px 10px;text-align:center;font-size:11px;font-weight:700;color:#f6ad2b;border:1px solid rgba(255,255,255,0.12);background:#0a3d3a;">TOTAL</th></tr>`;
+  function compactCell(ltrs, amount, darkBg) {
+    const bg  = darkBg ? '#0f5f5a' : '#ffffff';
+    const nc  = darkBg ? '#f6ad2b' : '#0f2744';
+    const gc  = darkBg ? '#1db87a' : '#0f5f5a';
+    const lc  = darkBg ? 'rgba(255,255,255,0.45)' : '#718096';
+    const bdr = `1px solid ${darkBg ? '#0a3d3a' : '#e2e8f0'}`;
+    if (!ltrs && !amount)
+      return `<td style="text-align:center;background:${bg};border:${bdr};padding:5px 7px;color:#ccc;font-size:11px;">—</td>`;
+    return `<td style="padding:6px 8px;vertical-align:top;background:${bg};border:${bdr};min-width:110px;">
+      <div style="font-size:9px;font-weight:700;color:${lc};letter-spacing:0.04em;">V</div>
+      <div style="font-size:11.5px;font-weight:700;color:${nc};text-align:right;">${fmt(ltrs)}</div>
+      <div style="border-top:1px dashed ${darkBg?'rgba(255,255,255,0.12)':'#e2e8f0'};margin:3px 0 2px;"></div>
+      <div style="font-size:9px;font-weight:700;color:${lc};letter-spacing:0.04em;">R</div>
+      <div style="font-size:11.5px;font-weight:700;color:${gc};text-align:right;">${fmt(amount)}</div>
+    </td>`;
+  }
 
-  let rows = '';
-  const catGtL = {}, catGtA = {}, catGtTL = {}, catGtTK = {};
-  for (const c of visCats) { catGtL[c]=0; catGtA[c]=0; catGtTL[c]=0; catGtTK[c]=0; }
+  function thStyle(amber) { return `padding:9px 10px;text-align:center;font-size:10px;font-weight:700;color:${amber?'#f6ad2b':'rgba(255,255,255,0.85)'};border:1px solid rgba(255,255,255,0.12);background:${amber?'#0a3d3a':'#0f5f5a'};min-width:${amber?'110':'120'}px;`; }
+  const th1Style = 'padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.85);letter-spacing:0.06em;border:1px solid rgba(255,255,255,0.12);background:#0f5f5a;white-space:nowrap;';
+  const rowStyle = (i) => `background:${i%2===1?'#f8fafc':'#fff'};`;
+
+  // ── Build header + rows per mode ──────────────────────
+  let hdr = '', rows = '';
   let gtL = 0, gtA = 0, gtTL = 0, gtTK = 0;
 
-  for (let ri = 0; ri < visChans.length; ri++) {
-    const ch = visChans[ri];
-    const bg = ri % 2 === 1 ? '#f8fafc' : '#fff';
-    let chL = 0, chA = 0, chTL = 0, chTK = 0, cells = '';
-    for (const c of visCats) {
-      const ltrs   = pivot[ch]?.[c]?.ltrs   || 0;
-      const amount = pivot[ch]?.[c]?.amount || 0;
-      const tgt    = hasTypeTgts ? getTypeCatTgtH(ch, c) : null;
-      const tL = tgt?.ltrs || 0, tK = tgt?.ksh || 0;
-      chL+=ltrs; chA+=amount; chTL+=tL; chTK+=tK;
-      catGtL[c]+=ltrs; catGtA[c]+=amount; catGtTL[c]+=tL; catGtTK[c]+=tK;
-      cells += cell(ltrs, amount, tL, tK, false);
-    }
-    gtL+=chL; gtA+=chA; gtTL+=chTL; gtTK+=chTK;
-    cells += cell(chL, chA, chTL, chTK, false);
-    rows += `<tr><td style="padding:9px 12px;font-weight:800;font-size:13px;color:#0f5f5a;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;background:${bg};">${ch}</td>${cells}</tr>`;
-  }
-  let gtCells = '';
-  for (const c of visCats) gtCells += cell(catGtL[c], catGtA[c], catGtTL[c], catGtTK[c], true);
-  gtCells += cell(gtL, gtA, gtTL, gtTK, true);
-  rows += `<tr><td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f5f5a;border:1px solid #0f5f5a;vertical-align:middle;white-space:nowrap;letter-spacing:0.05em;">GRAND TOTAL</td>${gtCells}</tr>`;
+  if (mode === 'type-cat') {
+    // Rows = Types, Cols = Categories
+    hdr = `<tr><th style="${th1Style}">TYPE</th>`;
+    for (const c of visCats) hdr += `<th style="${thStyle(false)}">${c}</th>`;
+    hdr += `<th style="${thStyle(true)}">TOTAL</th></tr>`;
 
-  // Grand target summary pill for exported HTML
+    const catGtL={},catGtA={},catGtTL={},catGtTK={};
+    for (const c of visCats){catGtL[c]=0;catGtA[c]=0;catGtTL[c]=0;catGtTK[c]=0;}
+
+    for (let ri=0;ri<visChans.length;ri++) {
+      const ch=visChans[ri];
+      let chL=0,chA=0,chTL=0,chTK=0,cells='';
+      for (const c of visCats) {
+        const l=pivot[ch]?.[c]?.ltrs||0, a=pivot[ch]?.[c]?.amount||0;
+        const tgt=hasTypeTgts?getTypeCatTgt(ch,c):null;
+        const tL=tgt?.ltrs||0,tK=tgt?.ksh||0;
+        chL+=l;chA+=a;chTL+=tL;chTK+=tK;
+        catGtL[c]+=l;catGtA[c]+=a;catGtTL[c]+=tL;catGtTK[c]+=tK;
+        cells+=dataCell(l,a,tL,tK,false);
+      }
+      cells+=dataCell(chL,chA,chTL,chTK,false);
+      gtL+=chL;gtA+=chA;gtTL+=chTL;gtTK+=chTK;
+      rows+=`<tr style="${rowStyle(ri)}"><td style="padding:9px 12px;font-weight:800;font-size:13px;color:#0f5f5a;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;">${ch}</td>${cells}</tr>`;
+    }
+    let gtCells='';
+    for (const c of visCats) gtCells+=dataCell(catGtL[c],catGtA[c],catGtTL[c],catGtTK[c],true);
+    gtCells+=dataCell(gtL,gtA,gtTL,gtTK,true);
+    rows+=`<tr><td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f5f5a;border:1px solid #0f5f5a;vertical-align:middle;letter-spacing:0.05em;white-space:nowrap;">GRAND TOTAL</td>${gtCells}</tr>`;
+
+  } else if (mode === 'loc-cat') {
+    // Rows = Locations, Cols = Categories
+    hdr = `<tr><th style="${th1Style}">LOCATION</th>`;
+    for (const c of visCats) hdr += `<th style="${thStyle(false)}">${c}</th>`;
+    hdr += `<th style="${thStyle(true)}">TOTAL</th></tr>`;
+
+    const catGtL={},catGtA={};
+    for (const c of visCats){catGtL[c]=0;catGtA[c]=0;}
+
+    for (let ri=0;ri<visRegs.length;ri++) {
+      const reg=visRegs[ri];
+      let regL=0,regA=0,cells='';
+      for (const c of visCats) {
+        let l=0,a=0;
+        for (const ch of visChans){l+=byLoc?.[ch]?.[c]?.[reg]?.ltrs||0;a+=byLoc?.[ch]?.[c]?.[reg]?.amount||0;}
+        regL+=l;regA+=a;catGtL[c]+=l;catGtA[c]+=a;
+        cells+=compactCell(l,a,false);
+      }
+      cells+=compactCell(regL,regA,false);
+      gtL+=regL;gtA+=regA;
+      rows+=`<tr style="${rowStyle(ri)}"><td style="padding:9px 12px;font-weight:700;font-size:13px;color:#0f5f5a;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;">${reg}</td>${cells}</tr>`;
+    }
+    let gtCells='';
+    for (const c of visCats) gtCells+=compactCell(catGtL[c],catGtA[c],true);
+    gtCells+=compactCell(gtL,gtA,true);
+    rows+=`<tr><td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f5f5a;border:1px solid #0f5f5a;vertical-align:middle;letter-spacing:0.05em;white-space:nowrap;">GRAND TOTAL</td>${gtCells}</tr>`;
+
+  } else if (mode === 'type-loc') {
+    // Rows = Types, Cols = Locations
+    hdr = `<tr><th style="${th1Style}">TYPE</th>`;
+    for (const reg of visRegs) hdr += `<th style="${thStyle(false)}">${reg}</th>`;
+    hdr += `<th style="${thStyle(true)}">TOTAL</th></tr>`;
+
+    const regGtL={},regGtA={};
+    for (const reg of visRegs){regGtL[reg]=0;regGtA[reg]=0;}
+
+    for (let ri=0;ri<visChans.length;ri++) {
+      const ch=visChans[ri];
+      let chL=0,chA=0,cells='';
+      for (const reg of visRegs) {
+        let l=0,a=0;
+        for (const c of visCats){l+=byLoc?.[ch]?.[c]?.[reg]?.ltrs||0;a+=byLoc?.[ch]?.[c]?.[reg]?.amount||0;}
+        chL+=l;chA+=a;regGtL[reg]+=l;regGtA[reg]+=a;
+        cells+=compactCell(l,a,false);
+      }
+      cells+=compactCell(chL,chA,false);
+      gtL+=chL;gtA+=chA;
+      rows+=`<tr style="${rowStyle(ri)}"><td style="padding:9px 12px;font-weight:800;font-size:13px;color:#0f5f5a;border:1px solid #e2e8f0;white-space:nowrap;vertical-align:middle;">${ch}</td>${cells}</tr>`;
+    }
+    let gtCells='';
+    for (const reg of visRegs) gtCells+=compactCell(regGtL[reg],regGtA[reg],true);
+    gtCells+=compactCell(gtL,gtA,true);
+    rows+=`<tr><td style="padding:10px 12px;font-weight:800;font-size:12px;color:#fff;background:#0f5f5a;border:1px solid #0f5f5a;vertical-align:middle;letter-spacing:0.05em;white-space:nowrap;">GRAND TOTAL</td>${gtCells}</tr>`;
+  }
+
+  // ── Target summary pills ───────────────────────────────
   let tgtPillHtml = '';
   if (hasTypeTgts && gtTK > 0) {
-    const achPct  = Math.round((gtA / gtTK) * 100);
-    const achCol  = achPct >= 100 ? '#1db87a' : achPct >= 70 ? '#b45309' : '#E1245A';
+    const achPct = Math.round((gtA/gtTK)*100);
+    const achCol = pctCol(achPct);
     tgtPillHtml = `
-    <div class="pill"><div class="pill-label">Target (KSH)</div><div class="pill-value">KSH ${Math.round(gtTK).toLocaleString()}</div></div>
-    <div class="pill"><div class="pill-label">% Achieved</div><div class="pill-value" style="color:${achCol};font-size:22px;">${achPct}%</div></div>`;
+      <div class="pill"><div class="pill-label">Target (KSH)</div><div class="pill-value">KSH ${Math.round(gtTK).toLocaleString()}</div></div>
+      <div class="pill"><div class="pill-label">% Achieved</div><div class="pill-value" style="color:${achCol};font-size:22px;">${achPct}%</div></div>`;
   }
 
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Type Sales — ${period}</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a202c;padding:28px;}
-  h1{font-size:22px;font-weight:800;color:#0f5f5a;margin-bottom:3px;}.sub{font-size:13px;color:#718096;margin-bottom:20px;}
-  .pills{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;}.pill{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:12px 18px;}
-  .pill-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:3px;}
-  .pill-value{font-size:20px;font-weight:800;color:#0f5f5a;}
-  .key-box{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;}
-  .key-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#718096;margin-bottom:5px;}
-  .key-sub{font-size:12px;font-weight:600;color:#0f2744;}.key-item{display:flex;align-items:center;gap:8px;}
-  .key-badge{background:#1a3c5e;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.75);white-space:nowrap;}
-  .key-desc{font-size:12px;color:#718096;}.key-div{width:1px;background:#dde3ec;align-self:stretch;flex-shrink:0;}
-  .col-guide{display:flex;flex-direction:column;gap:5px;}.col-row{display:flex;align-items:center;gap:8px;}
-  .col-bar{width:26px;height:5px;border-radius:99px;}.col-lbl{font-size:12px;color:#718096;}
-  .tbl-wrap{overflow-x:auto;background:#fff;border-radius:12px;border:1px solid #dde3ec;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
-  table{border-collapse:collapse;width:100%;font-size:12px;}</style></head><body>
+  // ── Full HTML document ─────────────────────────────────
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+  <title>Type Sales — ${modeLabel} — ${period}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Segoe UI','DM Sans',Arial,sans-serif;background:#f0f2f5;color:#1a202c;padding:28px;}
+    h1{font-size:22px;font-weight:800;color:#0f5f5a;margin-bottom:2px;}
+    .mode-badge{display:inline-block;background:#0f5f5a;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;margin-bottom:4px;letter-spacing:0.05em;}
+    .sub{font-size:13px;color:#718096;margin-bottom:20px;}
+    .pills{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
+    .pill{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:12px 18px;}
+    .pill-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#718096;margin-bottom:3px;}
+    .pill-value{font-size:20px;font-weight:800;color:#0f5f5a;}
+    .key-box{background:#fff;border:1px solid #dde3ec;border-radius:10px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;}
+    .key-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#718096;margin-bottom:5px;}
+    .key-sub{font-size:12px;font-weight:600;color:#0f2744;}
+    .key-item{display:flex;align-items:center;gap:8px;}
+    .key-badge{background:#1a3c5e;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.75);white-space:nowrap;}
+    .key-desc{font-size:12px;color:#718096;}
+    .key-div{width:1px;background:#dde3ec;align-self:stretch;flex-shrink:0;}
+    .col-guide{display:flex;flex-direction:column;gap:5px;}
+    .col-row{display:flex;align-items:center;gap:8px;}
+    .col-bar{width:26px;height:5px;border-radius:99px;}
+    .col-lbl{font-size:12px;color:#718096;}
+    .tbl-wrap{overflow-x:auto;background:#fff;border-radius:12px;border:1px solid #dde3ec;box-shadow:0 2px 10px rgba(0,0,0,0.06);}
+    table{border-collapse:collapse;width:100%;font-size:12px;}
+    .footer{margin-top:16px;font-size:11px;color:#a0aec0;text-align:center;}
+  </style></head><body>
+  <div class="mode-badge">${modeLabel}</div>
   <h1>🏷 Type Sales Report</h1>
   <div class="sub">${period} &nbsp;·&nbsp; Generated ${new Date().toLocaleString()}</div>
   <div class="pills">
@@ -6910,29 +7022,29 @@ function exportTypeSalesHTML() {
     <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
       <div class="key-item"><span class="key-badge">V (Ltrs/Kgs)</span><span class="key-desc">Volume sold</span></div>
       <div class="key-item"><span class="key-badge">R (KSH)</span><span class="key-desc">Revenue in KSH</span></div>
-      <div class="key-item"><span style="font-size:11px;color:#718096;font-weight:600;">tgt: n</span><span class="key-desc">Period target</span></div>
-      <div class="key-item"><span style="font-size:11px;font-weight:800;color:#888;">nn%</span><span class="key-desc">Actual as % of target</span></div>
+      ${hasTypeTgts?`<div class="key-item"><span style="font-size:11px;color:#718096;font-weight:600;">tgt: n</span><span class="key-desc">Period target</span></div>
+      <div class="key-item"><span style="font-size:11px;font-weight:800;color:#888;">nn%</span><span class="key-desc">Actual as % of target</span></div>`:''}
     </div>
     <div class="key-div"></div>
-    <div><div class="key-title" style="margin-bottom:7px;">% Achievement Colour Guide</div>
+    <div><div class="key-title" style="margin-bottom:7px;">% Achievement</div>
       <div class="col-guide">
-        <div class="col-row"><div class="col-bar" style="background:#1db87a;"></div><span class="col-lbl">≥100% On/Above Target</span></div>
-        <div class="col-row"><div class="col-bar" style="background:#f6ad2b;"></div><span class="col-lbl">70–99% Close to Target</span></div>
-        <div class="col-row"><div class="col-bar" style="background:#E1245A;"></div><span class="col-lbl">&lt;70% Below Target</span></div>
+        <div class="col-row"><div class="col-bar" style="background:#059669;"></div><span class="col-lbl">≥100% On/Above Target</span></div>
+        <div class="col-row"><div class="col-bar" style="background:#d97706;"></div><span class="col-lbl">70–99% Close to Target</span></div>
+        <div class="col-row"><div class="col-bar" style="background:#dc2626;"></div><span class="col-lbl">&lt;70% Below Target</span></div>
       </div>
     </div>
   </div>
   <div class="tbl-wrap"><table><thead>${hdr}</thead><tbody>${rows}</tbody></table></div>
+  <div class="footer">SalesDB Reporting Tool &nbsp;·&nbsp; ${new Date().toLocaleDateString()}</div>
   </body></html>`;
 
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = `Type_Sales_${period.replace(/\s|–|\/|\./g,'_')}.html`; a.click();
+  a.href = url; a.download = filename; a.click();
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
-  showToast('HTML file downloaded ✓', 'ok');
+  showToast(`${modeLabel} report downloaded ✓`, 'ok');
 }
-
 // ── Sales Per Customer Page ────────────────────────────
 // ── SPC Export helpers ─────────────────────────────────
 
