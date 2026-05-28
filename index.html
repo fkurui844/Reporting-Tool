@@ -1334,6 +1334,57 @@
     body.dark #typeSalesTable tbody tr:hover td:first-child { background:var(--row-hover); }
     body.dark #typeSalesTable tbody td { border-bottom-color:var(--border2); }
 
+    /* ── Type row expand button ── */
+    .type-expand-btn {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:18px; height:18px; border-radius:4px; margin-right:8px;
+      background:rgba(15,95,90,0.18); border:1.5px solid rgba(15,95,90,0.45);
+      color:#0f5f5a; font-size:9px; font-weight:900; cursor:pointer;
+      transition:transform 0.2s, background 0.15s; vertical-align:middle;
+      flex-shrink:0; user-select:none;
+    }
+    body.dark .type-expand-btn { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:rgba(255,255,255,0.7); }
+    tr.type-row-expanded .type-expand-btn { transform:rotate(90deg); background:rgba(15,95,90,0.35); border-color:#0f5f5a; color:#0f5f5a; }
+    body.dark tr.type-row-expanded .type-expand-btn { background:rgba(255,255,255,0.15); color:#fff; }
+    .type-row-label { cursor:pointer; }
+    .type-loc-hint { font-size:10px; font-weight:500; color:var(--text-muted); margin-left:4px; font-style:italic; }
+
+    /* ── Location sub-rows ── */
+    .type-loc-row { display:none; }
+    .type-loc-row.visible { display:table-row; }
+    .type-loc-row td:first-child {
+      padding:6px 10px 6px 38px !important;
+      background:var(--inc-bg) !important;
+      border-right:2px solid var(--border) !important;
+      position:sticky; left:0; z-index:5;
+    }
+    .type-loc-row td {
+      background:var(--inc-bg) !important;
+      border-bottom:1px solid var(--border2) !important;
+    }
+    .type-loc-row:hover td { background:var(--row-hover) !important; }
+    .type-loc-name {
+      display:inline-flex; align-items:center; gap:6px;
+      font-size:11px; font-weight:600; color:var(--text-head);
+    }
+    .type-loc-dot {
+      width:6px; height:6px; border-radius:99px; flex-shrink:0;
+      background:linear-gradient(135deg, #0f5f5a, #1db87a);
+    }
+    /* Compact cell for location rows */
+    .type-loc-cell {
+      padding:5px 8px !important; vertical-align:top !important;
+      border-bottom:1px solid var(--border2) !important;
+      border-right:1px solid var(--border2) !important;
+    }
+    .type-loc-cell .lc-v { font-size:11px; font-weight:600; color:var(--text-head); text-align:right; }
+    .type-loc-cell .lc-r { font-size:11px; font-weight:600; color:#0f5f5a; text-align:right; }
+    body.dark .type-loc-cell .lc-r { color:#1db87a; }
+    .type-loc-cell .lc-lbl { font-size:9px; font-weight:700; color:var(--text-muted); letter-spacing:0.05em; }
+    .type-loc-cell .lc-div { border-top:1px dashed var(--border2); margin:3px 0 2px; }
+    /* Last location row before next type gets a stronger border */
+    .type-loc-last td { border-bottom:2px solid rgba(15,95,90,0.3) !important; }
+
     /* ══ SALES PROJECTION PAGE ══ */
     .proj-page { max-width:1200px; margin:0 auto; padding:24px 16px; }
 
@@ -6284,7 +6335,8 @@ function exportLocSalesHTML() {
 let _typeSalesData = null;
 
 function buildTypeSalesData(transactions) {
-  const pivot   = {};
+  const pivot   = {};   // type → cat → { ltrs, amount }
+  const byLoc   = {};   // type → cat → region → { ltrs, amount }
   const typeSet = new Set();
   const catSet  = new Set();
   const grand   = { ltrs: 0, amount: 0 };
@@ -6293,17 +6345,25 @@ function buildTypeSalesData(transactions) {
     const typ = normaliseType(t.type);
     if (!typ) continue;
     const cat = (t.category || 'UNKNOWN').toUpperCase();
+    const reg = (t.region   || 'UNKNOWN').toUpperCase();
     typeSet.add(typ); catSet.add(cat);
+
     if (!pivot[typ]) pivot[typ] = {};
     if (!pivot[typ][cat]) pivot[typ][cat] = { ltrs: 0, amount: 0 };
     pivot[typ][cat].ltrs   += toDisplayLtrs(t.ltrs, cat);
     pivot[typ][cat].amount += t.amount;
+
+    if (!byLoc[typ]) byLoc[typ] = {};
+    if (!byLoc[typ][cat]) byLoc[typ][cat] = {};
+    if (!byLoc[typ][cat][reg]) byLoc[typ][cat][reg] = { ltrs: 0, amount: 0 };
+    byLoc[typ][cat][reg].ltrs   += toDisplayLtrs(t.ltrs, cat);
+    byLoc[typ][cat][reg].amount += t.amount;
+
     grand.ltrs   += toDisplayLtrs(t.ltrs, cat);
     grand.amount += t.amount;
   }
 
-  // Also include types/categories that have TARGETS but zero sales
-  // so they appear with 0 actuals vs their target (e.g. EXPORTS with no transactions yet)
+  // Include types/categories that have TARGETS but zero sales
   const typeTgts = refData.typeCategoryTargets || {};
   for (const rawKey of Object.keys(typeTgts)) {
     const canon = normaliseType(rawKey) || rawKey.toUpperCase();
@@ -6315,7 +6375,6 @@ function buildTypeSalesData(transactions) {
     }
   }
 
-  // Canonical order for known types; any extras appended alphabetically
   const knownInOrder = TYPE_CANONICAL.filter(t => typeSet.has(t));
   const extras = [...typeSet].filter(t => !TYPE_CANONICAL.includes(t)).sort();
   const channels = [...knownInOrder, ...extras];
@@ -6335,11 +6394,22 @@ function buildTypeSalesData(transactions) {
     }
   }
 
-  return { channels, categories, pivot, catTotals, grand };
+  // Collect all regions sorted by total revenue desc
+  const regSet = new Set();
+  for (const typ of Object.keys(byLoc))
+    for (const cat of Object.keys(byLoc[typ]))
+      for (const reg of Object.keys(byLoc[typ][cat])) regSet.add(reg);
+  const allRegions = [...regSet].sort((a, b) => {
+    const aA = channels.reduce((s, ch) => s + categories.reduce((s2, c) => s2 + (byLoc[ch]?.[c]?.[a]?.amount || 0), 0), 0);
+    const bA = channels.reduce((s, ch) => s + categories.reduce((s2, c) => s2 + (byLoc[ch]?.[c]?.[b]?.amount || 0), 0), 0);
+    return bA - aA;
+  });
+
+  return { channels, categories, pivot, byLoc, allRegions, catTotals, grand };
 }
 
 function renderTypeSalesTable(data, filterChan, filterCat) {
-  const { channels, categories, pivot } = data;
+  const { channels, categories, pivot, byLoc, allRegions } = data;
   const fmt = v => Math.round(v).toLocaleString();
 
   const typeTgts    = refData.typeCategoryTargets || {};
@@ -6348,15 +6418,12 @@ function renderTypeSalesTable(data, filterChan, filterCat) {
   const visChans = filterChan ? channels.filter(ch => ch.toLowerCase().includes(filterChan)) : channels;
   const visCats  = filterCat  ? categories.filter(c => c === filterCat.toUpperCase()) : categories;
 
-  // Look up type-category target using canonical type name
   function getTypeCatTgt(ch, c) {
     const chU = ch.toUpperCase(), cU = normalizeCat(c);
-    // Direct match on canonical name first
     if (typeTgts[chU]) return typeTgts[chU][cU] || typeTgts[chU][c.toUpperCase()] || null;
-    // Fuzzy: try normalising the key as well
     for (const k of Object.keys(typeTgts)) {
       const normK = normaliseType(k) || k;
-      if (normK === chU || chU === normK || k === chU || chU.includes(k) || k.includes(chU))
+      if (normK === chU || k === chU || chU.includes(k) || k.includes(chU))
         return typeTgts[k][cU] || typeTgts[k][c.toUpperCase()] || null;
     }
     return null;
@@ -6368,6 +6435,7 @@ function renderTypeSalesTable(data, filterChan, filterCat) {
     return p >= 100 ? '#1db87a' : p >= 70 ? '#f6ad2b' : '#E1245A';
   }
 
+  // Full data cell (type row)
   function dataCell(ltrs, amount, tgtL, tgtK, isDark, isTotCol) {
     const pL = pV(ltrs, tgtL), pK = pV(amount, tgtK);
     const cL = pctColor(pL), cK = pctColor(pK);
@@ -6404,19 +6472,44 @@ function renderTypeSalesTable(data, filterChan, filterCat) {
     </td>`;
   }
 
-  // Header
+  // Compact cell for location sub-rows
+  function locCell(ltrs, amount, isTotCol) {
+    const extra = isTotCol ? 'background:rgba(15,95,90,0.15);' : '';
+    if (!ltrs && !amount) {
+      return `<td class="type-loc-cell" style="${extra}text-align:center;"><span style="color:var(--text-muted);font-size:11px;">—</span></td>`;
+    }
+    return `<td class="type-loc-cell" style="${extra}">
+      <div class="lc-lbl">V</div>
+      <div class="lc-v">${fmt(ltrs)}</div>
+      <div class="lc-div"></div>
+      <div class="lc-lbl">R</div>
+      <div class="lc-r">${fmt(amount)}</div>
+    </td>`;
+  }
+
+  // Toggle expand/collapse for a type's location rows
+  window.tsToggleLocExpand = function(typeId) {
+    const typeRow = document.getElementById(typeId);
+    if (!typeRow) return;
+    typeRow.classList.toggle('type-row-expanded');
+    const isNowExpanded = typeRow.classList.contains('type-row-expanded');
+    document.querySelectorAll(`[data-type-parent="${typeId}"]`)
+      .forEach(r => r.classList.toggle('visible', isNowExpanded));
+  };
+
+  // ── Header ──────────────────────────────────────────
   let headHtml = '<tr>';
-  headHtml += `<th style="vertical-align:middle;min-width:160px;text-align:left;border-right:2px solid rgba(255,255,255,0.2);padding:10px 14px;position:sticky;left:0;z-index:20;background:#0f5f5a;font-size:11px;letter-spacing:0.08em;">TYPE</th>`;
+  headHtml += `<th style="vertical-align:middle;min-width:160px;text-align:left;border-right:2px solid rgba(255,255,255,0.2);padding:10px 14px;position:sticky;left:0;z-index:20;background:#0f5f5a;font-size:11px;letter-spacing:0.08em;">TYPE / LOCATION</th>`;
   for (const c of visCats)
     headHtml += `<th class="type-cat-head" style="min-width:115px;text-align:center;padding:10px 8px;border-right:1px solid rgba(255,255,255,0.08);font-size:11px;letter-spacing:0.04em;">${c}</th>`;
   headHtml += `<th style="background:#0a3d3a;min-width:115px;text-align:center;padding:10px 8px;border-left:2px solid rgba(255,255,255,0.2);font-size:11px;letter-spacing:0.06em;color:#f6ad2b;font-weight:700;">TOTAL</th>`;
   headHtml += '</tr>';
   document.getElementById('typeSalesHead').innerHTML = headHtml;
 
-  // Pre-compute cat totals (actuals + targets)
-  const catTotals = {};
-  for (const c of visCats) catTotals[c] = { ltrs: 0, amount: 0, tgtL: 0, tgtK: 0 };
+  // ── Pre-compute cat totals ──────────────────────────
+  const catTotals   = {};
   const grandTotals = { ltrs: 0, amount: 0, tgtL: 0, tgtK: 0 };
+  for (const c of visCats) catTotals[c] = { ltrs: 0, amount: 0, tgtL: 0, tgtK: 0 };
 
   for (const ch of visChans) {
     for (const c of visCats) {
@@ -6436,20 +6529,39 @@ function renderTypeSalesTable(data, filterChan, filterCat) {
     grandTotals.tgtK   += catTotals[c].tgtK;
   }
 
-  // Body rows
+  // ── Body rows ───────────────────────────────────────
   let bodyHtml = '';
+  let rowCounter = 0;
+
   for (let ri = 0; ri < visChans.length; ri++) {
-    const ch    = visChans[ri];
-    const rowBg = ri % 2 === 1 ? 'background:rgba(255,255,255,0.02);' : '';
+    const ch     = visChans[ri];
+    const typeId = `ts-type-row-${rowCounter++}`;
+    const rowBg  = ri % 2 === 1 ? 'background:rgba(255,255,255,0.02);' : '';
+
+    // Collect regions that have any data for this type
+    const typeRegions = (allRegions || []).filter(reg =>
+      visCats.some(c => (byLoc?.[ch]?.[c]?.[reg]?.amount || 0) > 0 || (byLoc?.[ch]?.[c]?.[reg]?.ltrs || 0) > 0)
+    );
+    const locCount = typeRegions.length;
+
+    // Type totals
     let chL = 0, chA = 0, chTL = 0, chTK = 0;
     for (const c of visCats) {
-      chL  += pivot[ch]?.[c]?.ltrs   || 0;
-      chA  += pivot[ch]?.[c]?.amount || 0;
+      chL += pivot[ch]?.[c]?.ltrs   || 0;
+      chA += pivot[ch]?.[c]?.amount || 0;
       if (hasTypeTgts) { const t = getTypeCatTgt(ch, c); chTL += t?.ltrs||0; chTK += t?.ksh||0; }
     }
 
-    bodyHtml += `<tr>`;
-    bodyHtml += `<td style="padding:9px 14px;font-weight:700;font-size:13px;color:var(--text-head);border-right:2px solid var(--border);border-bottom:1px solid var(--border2);vertical-align:middle;position:sticky;left:0;z-index:5;background:var(--surface);${rowBg}white-space:nowrap;">${ch}</td>`;
+    // ── Type summary row (clickable if has locations) ──
+    bodyHtml += `<tr id="${typeId}" class="${locCount > 0 ? 'type-row-label' : ''}" ${locCount > 0 ? `onclick="tsToggleLocExpand('${typeId}')"` : ''}>`;
+    bodyHtml += `<td style="padding:9px 14px;font-weight:700;font-size:13px;color:var(--text-head);border-right:2px solid var(--border);border-bottom:1px solid var(--border2);vertical-align:middle;position:sticky;left:0;z-index:5;background:var(--surface);${rowBg}white-space:nowrap;">`;
+    if (locCount > 0) {
+      bodyHtml += `<span class="type-expand-btn">▶</span>`;
+    }
+    bodyHtml += ch;
+    if (locCount > 0) bodyHtml += `<span class="type-loc-hint">${locCount} location${locCount !== 1 ? 's' : ''}</span>`;
+    bodyHtml += `</td>`;
+
     for (const c of visCats) {
       const ltrs   = pivot[ch]?.[c]?.ltrs   || 0;
       const amount = pivot[ch]?.[c]?.amount || 0;
@@ -6458,9 +6570,31 @@ function renderTypeSalesTable(data, filterChan, filterCat) {
     }
     bodyHtml += dataCell(chL, chA, chTL, chTK, false, true);
     bodyHtml += `</tr>`;
+
+    // ── Location sub-rows (hidden by default) ──────────
+    typeRegions.forEach((reg, li) => {
+      const isLast = li === typeRegions.length - 1;
+      let regL = 0, regA = 0;
+      for (const c of visCats) { regL += byLoc?.[ch]?.[c]?.[reg]?.ltrs || 0; regA += byLoc?.[ch]?.[c]?.[reg]?.amount || 0; }
+
+      bodyHtml += `<tr class="type-loc-row${isLast ? ' type-loc-last' : ''}" data-type-parent="${typeId}">`;
+      bodyHtml += `<td style="white-space:nowrap;">
+        <span class="type-loc-name">
+          <span class="type-loc-dot"></span>${reg}
+        </span>
+      </td>`;
+      for (const c of visCats) {
+        const l = byLoc?.[ch]?.[c]?.[reg]?.ltrs   || 0;
+        const a = byLoc?.[ch]?.[c]?.[reg]?.amount || 0;
+        bodyHtml += locCell(l, a, false);
+      }
+      // Location row total
+      bodyHtml += locCell(regL, regA, true);
+      bodyHtml += `</tr>`;
+    });
   }
 
-  // Grand total row
+  // ── Grand total row ─────────────────────────────────
   bodyHtml += `<tr class="type-total-row" style="border-top:3px solid rgba(255,255,255,0.25);">`;
   bodyHtml += `<td style="padding:10px 14px;font-size:12px;font-weight:800;letter-spacing:0.06em;border-right:2px solid rgba(255,255,255,0.2);vertical-align:middle;position:sticky;left:0;z-index:5;background:#0f5f5a;white-space:nowrap;">GRAND TOTAL</td>`;
   for (const c of visCats) {
