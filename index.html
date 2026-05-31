@@ -1094,128 +1094,6 @@
     body.dark .nt-channel-pill { background: #2a2000; color: #d4a017; }
     body.dark .nontrading-search { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
 
-    /* ── Newly Opened Accounts Card ── */
-    .newacct-card {
-      background: var(--surface);
-      border: 1px solid #6ee7b7;
-      border-radius: 12px;
-      margin-bottom: 24px;
-      overflow: hidden;
-    }
-    .newacct-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 20px;
-      background: #065f46;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .newacct-head-left { display: flex; align-items: center; gap: 10px; }
-    .newacct-head h3 { font-size: 15px; font-weight: 700; color: #fff; margin: 0; }
-    .newacct-badge {
-      background: rgba(255,255,255,0.18);
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 99px;
-      border: 1px solid rgba(255,255,255,0.25);
-    }
-    .newacct-head-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .newacct-search {
-      padding: 6px 10px;
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 6px;
-      background: rgba(255,255,255,0.1);
-      color: #fff;
-      font-size: 12px;
-      font-family: 'DM Sans', sans-serif;
-      width: 180px;
-    }
-    .newacct-search::placeholder { color: rgba(255,255,255,0.45); }
-    .newacct-search:focus { outline: none; border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.15); }
-    .newacct-filter-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      background: var(--th-bg);
-      border-bottom: 1px solid var(--border);
-      flex-wrap: wrap;
-    }
-    .newacct-filter-label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-    .newacct-filter-select {
-      padding: 5px 10px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--surface);
-      color: var(--text);
-      font-size: 12px;
-      font-family: 'DM Sans', sans-serif;
-      cursor: pointer;
-    }
-    .newacct-count-note { font-size: 12px; color: var(--text-muted); margin-left: auto; }
-    .btn-copy-na {
-      padding: 6px 12px;
-      border: 1px solid rgba(255,255,255,0.3);
-      background: rgba(255,255,255,0.12);
-      color: #fff;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
-      transition: background 0.15s;
-      white-space: nowrap;
-    }
-    .btn-copy-na:hover { background: rgba(255,255,255,0.22); }
-    .newacct-table-wrap { max-height: 420px; overflow-y: auto; }
-    .newacct-table-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .newacct-table-wrap th {
-      position: sticky; top: 0; z-index: 2;
-      background: var(--th-bg);
-      padding: 9px 12px;
-      text-align: left;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--text-muted);
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-    }
-    .newacct-table-wrap td { padding: 9px 12px; border-bottom: 1px solid var(--border2); color: var(--text); vertical-align: middle; }
-    .newacct-table-wrap tr:last-child td { border-bottom: none; }
-    .newacct-table-wrap tr:hover td { background: var(--row-hover); }
-    .na-sap { font-family: 'DM Mono', monospace; font-size: 12px; background: var(--bg); border: 1px solid var(--border); padding: 2px 7px; border-radius: 5px; color: var(--text-head); white-space: nowrap; }
-    .na-region-pill { font-size: 11px; background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 99px; font-weight: 600; }
-    .na-amt { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600; color: #065f46; }
-    .newacct-summary-bar {
-      display: flex;
-      gap: 24px;
-      padding: 10px 20px;
-      background: #f0fdf4;
-      border-bottom: 1px solid #6ee7b7;
-      flex-wrap: wrap;
-    }
-    .newacct-summary-stat { font-size: 12px; color: #065f46; font-weight: 600; }
-    .newacct-summary-stat span { font-size: 15px; font-weight: 700; margin-right: 4px; }
-    .newacct-hint {
-      padding: 10px 20px;
-      font-size: 12px;
-      color: #065f46;
-      background: #f0fdf4;
-      border-top: 1px solid #6ee7b7;
-    }
-    body.dark .newacct-card { background: var(--surface); border-color: #065f46; }
-    body.dark .newacct-head { background: #022c22; }
-    body.dark .na-region-pill { background: #022c22; color: #34d399; }
-    body.dark .na-amt { color: #34d399; }
-    body.dark .newacct-hint { background: var(--stat-bg); border-color: var(--border); color: #34d399; }
-    body.dark .newacct-summary-bar { background: var(--stat-bg); border-color: var(--border); }
-    body.dark .newacct-summary-stat { color: #34d399; }
-    body.dark .newacct-search { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
     body.dark .nontrading-filter-wrap { background: var(--th-bg); border-color: var(--border); }
     body.dark .nontrading-filter-select { background: var(--surface); border-color: var(--border); color: var(--text); }
 
@@ -2408,46 +2286,6 @@
       </div>
       <div class="nontrading-hint">
         💡 These customers exist in the database but had <strong>zero transactions</strong> in the uploaded period. Follow up to re-activate them.
-      </div>
-    </div>
-
-    <!-- ── Newly Opened Accounts ── -->
-    <div class="newacct-card" id="newAcctCard" style="display:none">
-      <div class="newacct-head">
-        <div class="newacct-head-left">
-          <h3>🟢 Newly Opened Accounts This Period</h3>
-          <span class="newacct-badge" id="newAcctBadge">0</span>
-        </div>
-        <div class="newacct-head-right">
-          <input class="newacct-search" id="newAcctSearch" type="text" placeholder="Search name or SAP…" oninput="filterNewAccounts()">
-          <button class="btn-copy-na" onclick="copyNewAccounts()">📋 Copy list</button>
-        </div>
-      </div>
-      <div class="newacct-filter-wrap">
-        <span class="newacct-filter-label">Filter:</span>
-        <select class="newacct-filter-select" id="naFilterRegion" onchange="filterNewAccounts()">
-          <option value="">All Regions</option>
-        </select>
-        <span class="newacct-count-note" id="newAcctCountNote"></span>
-      </div>
-      <div class="newacct-summary-bar" id="newAcctSummaryBar"></div>
-      <div class="newacct-table-wrap" id="newAcctTableWrap">
-        <table>
-          <colgroup><col style="width:5%"><col style="width:17%"><col style="width:40%"><col style="width:24%"><col style="width:14%"></colgroup>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>SAP Code</th>
-              <th>Customer Name</th>
-              <th>Region</th>
-              <th style="text-align:right;">Revenue (KSH)</th>
-            </tr>
-          </thead>
-          <tbody id="newAcctTbody"></tbody>
-        </table>
-      </div>
-      <div class="newacct-hint">
-        🆕 These accounts transacted this period but are <strong>not yet registered</strong> in the Customers master sheet. Add them to the <strong>Customers</strong> sheet to track them going forward.
       </div>
     </div>
 
@@ -3961,20 +3799,26 @@ function renderReport(data){
   // Daily averages
   const dailyAvgAmt  = elapsedDays ? Math.round(totalAmt  / elapsedDays) : null;
   const dailyAvgLtrs = elapsedDays ? Math.round(totalLtrs / elapsedDays) : null;
-  const reqDailyAmt  = (overallTgtAmt && elapsedDays) ? Math.round((overallTgtAmt - totalAmt) / (30 - elapsedDays)) : null;
-  const reqDailyLtrs = (overallTgtLtr && elapsedDays) ? Math.round((overallTgtLtr - totalLtrs) / (30 - elapsedDays)) : null;
+  // Required daily pace based on full monthly target spread evenly over 30 days
+  const targetDailyAmt  = overallTgtAmt  ? Math.round(overallTgtAmt  / 30) : null;
+  const targetDailyLtrs = overallTgtLtr  ? Math.round(overallTgtLtr  / 30) : null;
 
-  function dailyRow(label, avg, required) {
-    const reqLabel = required !== null && required > 0
-      ? `<span style="font-size:11px;color:var(--text-muted);" data-target-only="1">Required/day to hit target: <strong style="color:#0f2744">${fmt(required)}</strong></span>`
-      : required !== null && required <= 0
-      ? `<span style="font-size:11px;color:#1db87a;font-weight:600;" data-target-only="1">✓ Target already on track</span>`
-      : '';
+  function dailyRow(label, avg, targetDaily) {
+    let subHtml = '';
+    if (avg !== null && targetDaily !== null) {
+      const diff = avg - targetDaily;
+      const isAhead = diff >= 0;
+      const sign = isAhead ? '+' : '−';
+      const absDiff = Math.abs(diff);
+      const color = isAhead ? '#1db87a' : '#E1245A';
+      const arrow = isAhead ? '▲' : '▼';
+      subHtml = `<span style="font-size:11px;font-weight:600;color:${color};" data-target-only="1">${arrow} ${sign}${fmt(absDiff)} vs daily target (${fmt(targetDaily)})</span>`;
+    }
     return `
       <div style="margin-top:10px;">
         <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:3px;">${label}</div>
         <div style="font-size:22px;font-weight:700;color:var(--text-head);margin-bottom:3px;">${avg !== null ? fmt(avg) : '—'}</div>
-        ${reqLabel}
+        ${subHtml}
       </div>`;
   }
 
@@ -3997,8 +3841,8 @@ function renderReport(data){
     <div class="metric-card" style="border-left:3px solid #0f2744;" data-target-only="1">
       <div class="m-label">Daily Average</div>
       <div style="font-size:13px;color:var(--text-muted);margin-top:3px;">Based on ${elapsedDays || '—'} day${elapsedDays !== 1 ? 's' : ''} elapsed</div>
-      ${dailyRow('Revenue (KSH)', dailyAvgAmt, reqDailyAmt)}
-      ${dailyRow(volLabel(), dailyAvgLtrs, reqDailyLtrs)}
+      ${dailyRow('Revenue (KSH)', dailyAvgAmt, targetDailyAmt)}
+      ${dailyRow(volLabel(), dailyAvgLtrs, targetDailyLtrs)}
     </div>
   `;
 
@@ -4250,47 +4094,6 @@ function renderReport(data){
     ntCard.style.display = 'none';
   }
 
-  // ── Newly Opened Accounts ──────────────────────────
-  // These are customers who appear in this period's transactions but are NOT in the Customers master sheet.
-  // They are brand-new accounts with no prior record.
-  const newAcctAll = missingArr
-    .filter(c => c.amount > 0)
-    .map(c => ({
-      code:   c.rawCode,
-      outlet: c.name || '—',
-      region: (c.region || '').toUpperCase(),
-      amount: c.amount
-    }))
-    .sort((a, b) => (a.region || '').localeCompare(b.region || '') || (b.amount - a.amount));
-
-  window._newAcctAll = newAcctAll;
-
-  const naCard = document.getElementById('newAcctCard');
-  if (newAcctAll.length) {
-    naCard.style.display = 'block';
-    document.getElementById('newAcctBadge').textContent = newAcctAll.length + ' new account' + (newAcctAll.length !== 1 ? 's' : '');
-
-    // Region filter
-    const naRegions = [...new Set(newAcctAll.map(c => c.region).filter(Boolean))].sort();
-    const naRSel = document.getElementById('naFilterRegion');
-    naRSel.innerHTML = '<option value="">All Regions</option>' + naRegions.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
-
-    // Summary bar: count per region
-    const regionCounts = {};
-    newAcctAll.forEach(c => { const r = c.region || 'UNKNOWN'; regionCounts[r] = (regionCounts[r] || 0) + 1; });
-    const totalRevNew = newAcctAll.reduce((s, c) => s + c.amount, 0);
-    document.getElementById('newAcctSummaryBar').innerHTML =
-      `<div class="newacct-summary-stat"><span>${newAcctAll.length}</span> New Accounts</div>` +
-      `<div class="newacct-summary-stat"><span>${fmt(totalRevNew)}</span> KSH Revenue</div>` +
-      Object.entries(regionCounts).sort((a,b) => b[1]-a[1]).map(([r,n]) =>
-        `<div class="newacct-summary-stat"><span>${n}</span> ${esc(r)}</div>`
-      ).join('');
-
-    renderNewAccounts(newAcctAll);
-  } else {
-    naCard.style.display = 'none';
-  }
-
   // Incomplete (matched but blank region/channel)
   const incompleteArr = Object.values(data.incompleteCustomers||{}).sort((a,b)=>b.amount-a.amount);
   const ic=document.getElementById('incompleteCard');
@@ -4361,44 +4164,6 @@ function renderNonTrading(list) {
       <td>${c.channel ? `<span class="nt-channel-pill">${esc(c.channel)}</span>` : '<span style="color:var(--text-muted);font-size:12px;">—</span>'}</td>
       <td style="font-size:12px;color:var(--text-muted);">${esc(c.type||'—')}</td>
     </tr>`).join('');
-}
-
-function renderNewAccounts(list) {
-  const tbody = document.getElementById('newAcctTbody');
-  document.getElementById('newAcctCountNote').textContent = `Showing ${list.length} account${list.length !== 1 ? 's' : ''}`;
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px;">No accounts match this filter.</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = list.map((c, i) => `
-    <tr>
-      <td style="color:var(--text-muted);font-size:12px;text-align:center;">${i + 1}</td>
-      <td><span class="na-sap">${esc(c.code)}</span></td>
-      <td style="font-weight:500;color:var(--text-head);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(c.outlet)}">${esc(c.outlet||'—')}</td>
-      <td>${c.region ? `<span class="na-region-pill">${esc(c.region)}</span>` : '<span style="color:var(--text-muted);font-size:12px;">—</span>'}</td>
-      <td style="text-align:right;"><span class="na-amt">${fmt(c.amount)}</span></td>
-    </tr>`).join('');
-}
-
-function filterNewAccounts() {
-  const q   = (document.getElementById('newAcctSearch').value || '').toLowerCase();
-  const reg = (document.getElementById('naFilterRegion').value || '').toUpperCase();
-  const filtered = (window._newAcctAll || []).filter(c => {
-    if (reg && (c.region || '').toUpperCase() !== reg) return false;
-    if (q && !(c.outlet||'').toLowerCase().includes(q) && !String(c.code).toLowerCase().includes(q)) return false;
-    return true;
-  });
-  renderNewAccounts(filtered);
-}
-
-function copyNewAccounts() {
-  const list = window._newAcctAll || [];
-  if (!list.length) return;
-  const header = 'SAP Code\tCustomer Name\tRegion\tRevenue (KSH)';
-  const rows = list.map(c => `${c.code}\t${c.outlet}\t${c.region||''}\t${Math.round(c.amount)}`);
-  navigator.clipboard.writeText([header, ...rows].join('\n'))
-    .then(() => { const b = document.querySelector('.btn-copy-na'); if(b){const t=b.textContent;b.textContent='✅ Copied!';setTimeout(()=>{b.textContent=t;},2000);} })
-    .catch(() => {});
 }
 
 function filterNonTrading() {
