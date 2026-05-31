@@ -6838,15 +6838,24 @@ function exportTypeSalesHTML() {
   for (let ri=0; ri<visRegs.length; ri++) {
     const reg = visRegs[ri];
     let regL=0, regA=0, regTL=0, regTK=0;
-    let regRowCount = 0;
     const regRows = [];
 
     for (let ti=0; ti<visChans.length; ti++) {
       const ch = visChans[ti];
       let typeL=0, typeA=0, typeTL=0, typeTK=0;
+      const typeRows = [];
 
-      for (let ci=0; ci<visCats.length; ci++) {
-        const cat = visCats[ci];
+      // Only iterate categories that actually exist for this type (ch),
+      // filtered by the active category filter — keeps each location accurate.
+      const chCats = byLoc?.[ch] ? Object.keys(byLoc[ch]) : [];
+      const activeCats = catF
+        ? chCats.filter(c => c === catF.toUpperCase())
+        : chCats.filter(c => visCats.includes(c));
+      // Sort to match global category order
+      activeCats.sort((a, b) => visCats.indexOf(a) - visCats.indexOf(b));
+
+      for (let ci=0; ci<activeCats.length; ci++) {
+        const cat = activeCats[ci];
         const l   = byLoc?.[ch]?.[cat]?.[reg]?.ltrs   || 0;
         const a   = byLoc?.[ch]?.[cat]?.[reg]?.amount || 0;
         const tgt = hasTypeTgts ? getTypeCatTgt(ch, cat) : null;
@@ -6860,9 +6869,8 @@ function exportTypeSalesHTML() {
         const pK = tK ? Math.round((a/tK)*100) : null;
         const bg = rowIdx%2===0 ? '#ffffff' : '#f8fafc';
         rowIdx++;
-        regRowCount++;
 
-        regRows.push(`<tr style="background:${bg};">
+        typeRows.push(`<tr style="background:${bg};">
           <td class="c-loc"></td>
           <td class="c-type"></td>
           <td class="c-cat">${cat}</td>
@@ -6877,18 +6885,12 @@ function exportTypeSalesHTML() {
       if (!typeL && !typeA) continue;
       regA+=typeA; regL+=typeL; regTL+=typeTL; regTK+=typeTK;
 
-      // Inject type label into first row of this type's block
-      // We know type rows are at the end of regRows array, count = visCats that had data
-      // Mark first row of this type block
-      const typeBlockStart = regRows.length - regRowCount;
-      // patch: add type label into that row's c-type cell
-      // Instead, prepend a type sub-header row
+      // Prepend type sub-header row, then append category rows
       const typeSubHdr = `<tr class="type-hdr-row">
         <td class="c-loc"></td>
         <td class="c-type-hdr" colspan="${hasTypeTgts?8:6}">${ch}</td>
       </tr>`;
-      regRows.splice(regRows.length - regRowCount, 0, typeSubHdr);
-      regRowCount = 0; // reset for next type
+      regRows.push(typeSubHdr, ...typeRows);
     }
 
     if (!regRows.length) continue;
@@ -6929,7 +6931,7 @@ function exportTypeSalesHTML() {
   const gPK = grandTK?Math.round((grandA/grandTK)*100):null;
   rows += `<tr class="grand-row">
     <td colspan="2">GRAND TOTAL</td>
-    <td class="c-cat">${visRegs.length} Locations · ${visChans.length} Types · ${visCats.length} Categories</td>
+    <td class="c-cat">${visRegs.length} Locations · ${visChans.length} Types · ${categories.length} Categories</td>
     <td class="num bold">${fmt(grandL)}</td>
     <td class="num bold">${fmt(grandA)}</td>
     ${hasTypeTgts?`<td class="num bold">${grandTL?fmt(grandTL):'—'}</td><td class="num bold">${grandTK?fmt(grandTK):'—'}</td>`:''}
