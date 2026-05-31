@@ -6874,11 +6874,12 @@ function exportTypeSalesHTML() {
           <td class="c-loc"></td>
           <td class="c-type"></td>
           <td class="c-cat">${cat}</td>
-          <td class="num">${fmt(l)}</td>
           <td class="num">${fmt(a)}</td>
-          ${hasTypeTgts ? `<td class="num muted">${tL?fmt(tL):'—'}</td><td class="num muted">${tK?fmt(tK):'—'}</td>` : ''}
-          <td class="num">${pL!==null?`<span class="pill" style="background:${pctBg(pL)};color:${pctCol(pL)};">${pL}%</span>`:'—'}</td>
+          ${hasTypeTgts ? `<td class="num muted">${tK?fmt(tK):'—'}</td>` : ''}
           <td class="num">${pK!==null?`<span class="pill" style="background:${pctBg(pK)};color:${pctCol(pK)};">${pK}%</span>`:'—'}</td>
+          <td class="num">${fmt(l)}</td>
+          ${hasTypeTgts ? `<td class="num muted">${tL?fmt(tL):'—'}</td>` : ''}
+          <td class="num">${pL!==null?`<span class="pill" style="background:${pctBg(pL)};color:${pctCol(pL)};">${pL}%</span>`:'—'}</td>
         </tr>`);
       }
 
@@ -6916,11 +6917,12 @@ function exportTypeSalesHTML() {
     rows += `<tr class="sub-row">
       <td colspan="2" style="text-align:right;padding-right:12px;font-size:10px;letter-spacing:0.05em;">SUBTOTAL — ${reg}</td>
       <td class="c-cat" style="font-weight:700;">All Categories</td>
-      <td class="num bold">${fmt(regL)}</td>
       <td class="num bold" style="color:#0f5f5a;">${fmt(regA)}</td>
-      ${hasTypeTgts?`<td class="num bold">${regTL?fmt(regTL):'—'}</td><td class="num bold">${regTK?fmt(regTK):'—'}</td>`:''}
-      <td class="num">${sRL!==null?`<span class="pill" style="background:${pctBg(sRL)};color:${pctCol(sRL)};font-weight:800;">${sRL}%</span>`:'—'}</td>
+      ${hasTypeTgts?`<td class="num bold">${regTK?fmt(regTK):'—'}</td>`:''}
       <td class="num">${sRK!==null?`<span class="pill" style="background:${pctBg(sRK)};color:${pctCol(sRK)};font-weight:800;">${sRK}%</span>`:'—'}</td>
+      <td class="num bold">${fmt(regL)}</td>
+      ${hasTypeTgts?`<td class="num bold">${regTL?fmt(regTL):'—'}</td>`:''}
+      <td class="num">${sRL!==null?`<span class="pill" style="background:${pctBg(sRL)};color:${pctCol(sRL)};font-weight:800;">${sRL}%</span>`:'—'}</td>
     </tr>`;
 
     grandL+=regL; grandA+=regA; grandTL+=regTL; grandTK+=regTK;
@@ -6932,11 +6934,12 @@ function exportTypeSalesHTML() {
   rows += `<tr class="grand-row">
     <td colspan="2">GRAND TOTAL</td>
     <td class="c-cat">${visRegs.length} Locations · ${visChans.length} Types · ${categories.length} Categories</td>
-    <td class="num bold">${fmt(grandL)}</td>
     <td class="num bold">${fmt(grandA)}</td>
-    ${hasTypeTgts?`<td class="num bold">${grandTL?fmt(grandTL):'—'}</td><td class="num bold">${grandTK?fmt(grandTK):'—'}</td>`:''}
-    <td class="num">${gPL!==null?`<span class="pill" style="background:${pctBg(gPL)};color:${pctCol(gPL)};font-weight:800;">${gPL}%</span>`:'—'}</td>
+    ${hasTypeTgts?`<td class="num bold">${grandTK?fmt(grandTK):'—'}</td>`:''}
     <td class="num">${gPK!==null?`<span class="pill" style="background:${pctBg(gPK)};color:${pctCol(gPK)};font-weight:800;">${gPK}%</span>`:'—'}</td>
+    <td class="num bold">${fmt(grandL)}</td>
+    ${hasTypeTgts?`<td class="num bold">${grandTL?fmt(grandTL):'—'}</td>`:''}
+    <td class="num">${gPL!==null?`<span class="pill" style="background:${pctBg(gPL)};color:${pctCol(gPL)};font-weight:800;">${gPL}%</span>`:'—'}</td>
   </tr>`;
 
   // ── Header row ─────────────────────────────────────────
@@ -6944,12 +6947,12 @@ function exportTypeSalesHTML() {
     <th>Location</th>
     <th>Type</th>
     <th>Category</th>
-    <th class="num">Volume<br><span style="font-weight:500;font-size:10px;">(Ltrs/Kgs)</span></th>
     <th class="num">Revenue<br><span style="font-weight:500;font-size:10px;">(KSH)</span></th>
-    ${hasTypeTgts?`<th class="num">Target V<br><span style="font-weight:500;font-size:10px;">(Ltrs/Kgs)</span></th>
-    <th class="num">Target R<br><span style="font-weight:500;font-size:10px;">(KSH)</span></th>`:''}
-    <th class="num">% Vol<br>Achievement</th>
+    ${hasTypeTgts?`<th class="num">Target R<br><span style="font-weight:500;font-size:10px;">(KSH)</span></th>`:''}
     <th class="num">% Rev<br>Achievement</th>
+    <th class="num">Volume<br><span style="font-weight:500;font-size:10px;">(Ltrs/Kgs)</span></th>
+    ${hasTypeTgts?`<th class="num">Target V<br><span style="font-weight:500;font-size:10px;">(Ltrs/Kgs)</span></th>`:''}
+    <th class="num">% Vol<br>Achievement</th>
   </tr>`;
 
   // ── Summary pills ──────────────────────────────────────
