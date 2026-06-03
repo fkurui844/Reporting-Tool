@@ -3654,7 +3654,9 @@ function parseSAP(text){
         const info=refData.customers[code]||refData.customers[rawCode]; const found=!!info;
         const region=(found&&info.region)?info.region:inferRegion(sapChan);
         const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
-        curCust={code,rawCode,name,found,region,channel,type:found?info.type:''};
+        const rawRoute=(found&&info.route)?String(info.route).trim():'';
+        const route=(rawRoute&&rawRoute!=='0')?rawRoute:'';
+        curCust={code,rawCode,name,found,region,channel,type:found?info.type:'',route};
         if(!found&&!result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
         if(found&&(!info.region||!info.channel)&&!result.incompleteCustomers[code])
           result.incompleteCustomers[code]={rawCode,name,regionRead:info.region||'(blank)',channelRead:info.channel||'(blank)',ltrs:0,amount:0};
@@ -3682,7 +3684,7 @@ function parseSAP(text){
         result.missingProducts[matCode].amount+=amount;
         result.missingProducts[matCode].custCount.add(curCust.code);
       }
-      result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,category,ltrs});
+      result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,route:curCust.route||'',category,ltrs});
       if(!curCust.found&&result.missingCustomers[curCust.code]){
         result.missingCustomers[curCust.code].ltrs+=ltrs;
         result.missingCustomers[curCust.code].amount+=amount;
@@ -10627,12 +10629,10 @@ function populateSalesPerRoutePage(data) {
 
   const txns = data.transactions;
 
-  // Build route pivot — look up ROUTE from refData.customers (Column F of Customers sheet)
+  // Build route pivot — route is baked into each transaction from Customers sheet Column F
   const routeMap = {};
   for (const t of txns) {
-    const custInfo = refData.customers[t.custCode] || refData.customers[String(t.custCode).replace(/^0+/,'')];
-    const rawRoute = custInfo ? String(custInfo.route ?? '').trim() : '';
-    const route = (rawRoute && rawRoute !== '0') ? rawRoute : 'UNASSIGNED';
+    const route = (t.route && t.route.trim() && t.route.trim() !== '0') ? t.route.trim() : 'UNASSIGNED';
     if (!routeMap[route]) {
       routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
     }
