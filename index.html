@@ -3332,7 +3332,7 @@ async function loadSheetData() {
     } catch { results[s] = null; }
   }
 
-  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {} };
+  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {}, routes: new Set() };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'] || results['Target'] || results['Regional Targets'])
@@ -3430,6 +3430,11 @@ function parseCustomerSheet(csv) {
     // Also index by the raw code (with leading zeros) so lookup works
     // regardless of how the sheet stores the code
     if(rawTrimmed !== code) refData.customers[rawTrimmed] = entry;
+    // Track all distinct named routes from the Customers sheet
+    if(entry.route) {
+      if(!refData.routes) refData.routes = new Set();
+      refData.routes.add(entry.route);
+    }
     if(!entry.type.includes('STAFF')){
       refData.customerTotal = (refData.customerTotal || 0) + 1; // exclude staff from total
       const reg = entry.region || 'UNKNOWN';
@@ -10633,12 +10638,9 @@ function populateSalesPerRoutePage(data) {
   const routeMap = {};
 
   // ── Seed ALL known routes from the Customers sheet so they appear even with zero sales ──
-  if (refData && refData.customers) {
-    const seenRoutes = new Set();
-    for (const info of Object.values(refData.customers)) {
-      const r = (info.route && info.route.trim() && info.route.trim() !== '0') ? info.route.trim() : null;
-      if (r && !seenRoutes.has(r)) {
-        seenRoutes.add(r);
+  if (refData && refData.routes) {
+    for (const r of refData.routes) {
+      if (!routeMap[r]) {
         routeMap[r] = { route: r, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
       }
     }
