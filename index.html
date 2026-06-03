@@ -10751,5 +10751,44 @@ function filterSprTable() {
 }
 
 </script>
+
+    <!-- ✅ Route Loading Code - Initialize reference data from Customers sheet -->
+    <script>
+    function initializeReferenceData() {
+      window.refData = window.refData || {};
+      
+      // Check if google.script.run is available
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        console.warn('⚠️ Google Apps Script not yet available, retrying...');
+        // Retry after a short delay
+        setTimeout(initializeReferenceData, 500);
+        return;
+      }
+      
+      // Now safely call getAllRoutes()
+      google.script.run
+        .withSuccessHandler(function(routes) {
+          window.refData.routes = routes;
+          console.log('✅ Routes loaded from Customers sheet:', routes);
+        })
+        .withFailureHandler(function(err) {
+          console.error('❌ Failed to load routes:', err);
+          window.refData.routes = [];
+        })
+        .getAllRoutes();
+    }
+
+    // Wait for document to be ready AND Google Apps Script to be available
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        // Add small delay to ensure Google Apps Script library is loaded
+        setTimeout(initializeReferenceData, 100);
+      });
+    } else {
+      // Document already loaded, but still need to wait for Google Apps Script
+      setTimeout(initializeReferenceData, 100);
+    }
+    </script>
+
 </body>
 </html>
