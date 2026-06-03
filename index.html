@@ -10631,6 +10631,19 @@ function populateSalesPerRoutePage(data) {
 
   // Build route pivot — route is baked into each transaction from Customers sheet Column F
   const routeMap = {};
+
+  // ── Seed ALL known routes from the Customers sheet so they appear even with zero sales ──
+  if (refData && refData.customers) {
+    const seenRoutes = new Set();
+    for (const info of Object.values(refData.customers)) {
+      const r = (info.route && info.route.trim() && info.route.trim() !== '0') ? info.route.trim() : null;
+      if (r && !seenRoutes.has(r)) {
+        seenRoutes.add(r);
+        routeMap[r] = { route: r, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
+      }
+    }
+  }
+
   for (const t of txns) {
     const route = (t.route && t.route.trim() && t.route.trim() !== '0') ? t.route.trim() : 'UNASSIGNED';
     if (!routeMap[route]) {
