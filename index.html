@@ -3409,7 +3409,9 @@ function parseCustomerSheet(csv) {
   const locIdx   = findCol(hdrs,['location','region','territory','area','zone','district','branch','loc','reg']);
   const chanIdx  = findCol(hdrs,['channel','trade channel','sales channel','chan','class','segment']);
   const typeIdx  = findCol(hdrs,['type','customer type','cust type','category']);
-  const routeIdx = findCol(hdrs,['route','route code','sales route','routecode','route no','routeno']);
+  let routeIdx = findCol(hdrs,['route','route code','sales route','routecode','route no','routeno']);
+  // Fallback: if not found by header name, use Column F (index 5) which is the ROUTE column per sheet layout
+  if (routeIdx < 0 && hdrs.length > 5) routeIdx = 5;
   console.log('[Customers] Col indices → code:'+codeIdx+' name:'+nameIdx+' region:'+locIdx+' channel:'+chanIdx+' type:'+typeIdx+' route:'+routeIdx);
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
@@ -3422,7 +3424,7 @@ function parseCustomerSheet(csv) {
       region:  locIdx>=0?(cols[locIdx]||'').trim().toUpperCase():'',
       channel: chanIdx>=0?(cols[chanIdx]||'').trim().toUpperCase():'',
       type:    typeIdx>=0?(cols[typeIdx]||'').trim().toUpperCase():'',
-      route:   routeIdx>=0?(cols[routeIdx]||'').trim():'',
+      route:   routeIdx>=0?(r=>(r==='0'?'':r))((cols[routeIdx]||'').trim()):'',
     };
     refData.customers[code] = entry;
     // Also index by the raw code (with leading zeros) so lookup works
@@ -10629,7 +10631,8 @@ function populateSalesPerRoutePage(data) {
   const routeMap = {};
   for (const t of txns) {
     const custInfo = refData.customers[t.custCode] || refData.customers[String(t.custCode).replace(/^0+/,'')];
-    const route = (custInfo && custInfo.route && String(custInfo.route).trim()) || 'UNASSIGNED';
+    const rawRoute = custInfo ? String(custInfo.route ?? '').trim() : '';
+    const route = (rawRoute && rawRoute !== '0') ? rawRoute : 'UNASSIGNED';
     if (!routeMap[route]) {
       routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
     }
