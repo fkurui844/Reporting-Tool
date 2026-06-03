@@ -2094,6 +2094,7 @@
     <button class="nav-btn" id="navLocation" onclick="switchPage('location')">📍 Location Sales</button>
     <button class="nav-btn" id="navType" onclick="switchPage('type')">🏷 Type Sales</button>
     <button class="nav-btn" id="navSpc" onclick="switchPage('spc')">👤 Sales Per Customer</button>
+    <button class="nav-btn" id="navSalesPerRoute" onclick="switchPage('salesPerRoute')">🗺 Sales Per Route</button>
     <button class="nav-btn" id="navSalesComparison" onclick="switchPage('salesComparison')">📈 Sales Comparison</button>
     <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">📊 Charts</button>
     <button class="nav-btn" id="navSalesProjection" onclick="switchPage('salesProjection')">📈 Sales Projection</button>
@@ -2690,6 +2691,49 @@
     <div id="spcBody">
       <div class="spc-no-data"><div class="spc-no-data-icon">📂</div><div>Upload a SAP file on the <strong>Upload Sales</strong> tab to see Sales Per Customer here.</div></div>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════════ SALES PER ROUTE PAGE ══════════════════ -->
+<div class="page" id="pageSalesPerRoute">
+  <div style="max-width:1200px;margin:0 auto;padding:24px 20px;">
+
+    <!-- Header -->
+    <div style="margin-bottom:20px;">
+      <h2 style="font-size:18px;font-weight:700;color:var(--text-head);margin-bottom:4px;">🗺 Sales Per Route</h2>
+      <p style="font-size:13px;color:var(--text-muted);">View sales performance broken down by route. Upload a SAP export file on the <strong>Upload Sales</strong> tab to see data here.</p>
+    </div>
+
+    <!-- No data placeholder -->
+    <div id="sprNoData" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;text-align:center;">
+      <div style="font-size:40px;margin-bottom:14px;">🗺</div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px;">No route data yet</div>
+      <div style="font-size:13px;color:var(--text-muted);">Upload a SAP file on the <strong>Upload Sales</strong> tab to see Sales Per Route here.</div>
+    </div>
+
+    <!-- Results (shown after upload) -->
+    <div id="sprResults" style="display:none;">
+
+      <!-- Summary stats -->
+      <div id="sprStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
+
+      <!-- Filter bar -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+        <input id="sprSearch" type="text" placeholder="🔍  Search route…"
+          oninput="filterSprTable()"
+          style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);width:220px;">
+        <span id="sprPeriod" style="font-size:12px;color:var(--text-muted);margin-left:auto;"></span>
+      </div>
+
+      <!-- Table -->
+      <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border);background:var(--surface);">
+        <table id="sprTable" style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead id="sprThead"></thead>
+          <tbody id="sprTbody"></tbody>
+        </table>
+      </div>
+
+    </div><!-- /sprResults -->
   </div>
 </div>
 
@@ -4146,6 +4190,7 @@ function renderReport(data){
   populateLocSalesPage(data);
   populateTypeSalesPage(data);
   populateSalesPerCustomerPage(data);
+  populateSalesPerRoutePage(data);
 }
 
 function renderNonTrading(list) {
@@ -10568,6 +10613,111 @@ function projRun() {
     document.getElementById('projLoading').style.display = 'none';
     document.getElementById('projResults').classList.add('visible');
   }, 60);
+}
+
+// ── Sales Per Route Page ───────────────────────────────────────────────────
+let _sprAllRows = [];
+
+function populateSalesPerRoutePage(data) {
+  if (!data || !data.transactions || !data.transactions.length) return;
+
+  const txns = data.transactions;
+
+  // Build route pivot — use t.route, t.region, or t.channel as fallback
+  const routeMap = {};
+  for (const t of txns) {
+    const route = (t.route || t.routeCode || t.salesRoute || '').trim() || 'UNASSIGNED';
+    if (!routeMap[route]) {
+      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
+    }
+    routeMap[route].amount       += t.amount  || 0;
+    routeMap[route].ltrs         += t.ltrs    || 0;
+    routeMap[route].qty          += t.qty     || 0;
+    routeMap[route].transactions += 1;
+    if (t.customerCode || t.custCode || t.customer) {
+      routeMap[route].customers.add(t.customerCode || t.custCode || t.customer);
+    }
+  }
+
+  _sprAllRows = Object.values(routeMap)
+    .map(r => ({ ...r, customers: r.customers.size }))
+    .sort((a, b) => b.amount - a.amount);
+
+  // Period label
+  const periodEl = document.getElementById('sprPeriod');
+  if (periodEl && data.period) periodEl.textContent = 'Period: ' + data.period;
+
+  // Summary stats
+  const grandAmt  = _sprAllRows.reduce((s, r) => s + r.amount, 0);
+  const grandLtrs = _sprAllRows.reduce((s, r) => s + r.ltrs,   0);
+  const routeCount = _sprAllRows.length;
+  const statCards = [
+    { label: 'Routes',        value: routeCount,                               color: '#0f2744' },
+    { label: 'Total Revenue', value: 'KSH ' + Math.round(grandAmt).toLocaleString(), color: '#E1245A' },
+    { label: 'Total Volume',  value: Math.round(grandLtrs).toLocaleString() + ' L', color: '#0f5f5a' },
+  ];
+  document.getElementById('sprStats').innerHTML = statCards.map(c => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;min-width:160px;">
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${c.label}</div>
+      <div style="font-size:20px;font-weight:700;color:${c.color};">${c.value}</div>
+    </div>`).join('');
+
+  renderSprTable(_sprAllRows, grandAmt);
+
+  document.getElementById('sprNoData').style.display  = 'none';
+  document.getElementById('sprResults').style.display = 'block';
+}
+
+function renderSprTable(rows, grandAmt) {
+  const fmtN = v => Math.round(v).toLocaleString();
+  const thStyle = `style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;"`;
+  const thR     = `style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;"`;
+
+  document.getElementById('sprThead').innerHTML = `
+    <tr style="background:#0f2744;">
+      <th ${thStyle}>#</th>
+      <th ${thStyle}>Route</th>
+      <th ${thR}>Revenue (KSH)</th>
+      <th ${thR}>Rev Share</th>
+      <th ${thR}>Volume (L)</th>
+      <th ${thR}>Qty</th>
+      <th ${thR}>Customers</th>
+      <th ${thR}>Transactions</th>
+    </tr>`;
+
+  if (!rows.length) {
+    document.getElementById('sprTbody').innerHTML =
+      `<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--text-muted);">No routes match your search.</td></tr>`;
+    return;
+  }
+
+  document.getElementById('sprTbody').innerHTML = rows.map((r, i) => {
+    const share = grandAmt > 0 ? (r.amount / grandAmt * 100).toFixed(1) : '0.0';
+    const barW  = grandAmt > 0 ? Math.max(2, Math.round(r.amount / grandAmt * 100)) : 0;
+    const bg    = i % 2 === 0 ? 'var(--surface)' : 'var(--th-bg)';
+    return `<tr style="background:${bg};">
+      <td style="padding:9px 12px;color:var(--text-muted);font-size:12px;">${i + 1}</td>
+      <td style="padding:9px 12px;font-weight:700;color:var(--text-head);">
+        ${esc(r.route)}
+        <div style="margin-top:4px;height:4px;border-radius:99px;background:var(--border);width:100%;max-width:160px;">
+          <div style="height:4px;border-radius:99px;background:#E1245A;width:${barW}%;"></div>
+        </div>
+      </td>
+      <td style="padding:9px 12px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;font-size:13px;">${fmtN(r.amount)}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${share}%</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:12px;">${fmtN(r.ltrs)}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${fmtN(r.qty)}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${r.customers}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${r.transactions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterSprTable() {
+  const q = (document.getElementById('sprSearch').value || '').toLowerCase().trim();
+  const grandAmt = _sprAllRows.reduce((s, r) => s + r.amount, 0);
+  const filtered = q ? _sprAllRows.filter(r => r.route.toLowerCase().includes(q)) : _sprAllRows;
+  renderSprTable(filtered, grandAmt);
 }
 
 </script>
