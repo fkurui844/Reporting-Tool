@@ -10763,8 +10763,8 @@ function renderSprTable(rows, grandAmt) {
     const rowId = 'spr-cat-' + i;
     const expandBtn = hasCats
       ? `<button onclick="toggleSprCat('${rowId}',this)" title="Show category breakdown"
-           style="margin-left:8px;padding:2px 7px;border:1px solid var(--border);border-radius:5px;background:var(--bg);color:var(--text-muted);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;vertical-align:middle;transition:all 0.15s;">
-           ▶ ${catEntries.length} categor${catEntries.length===1?'y':'ies'}
+           style="margin-left:8px;padding:2px 7px;border:1px solid #0f2744;border-radius:5px;background:#eef2f7;color:#0f2744;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;vertical-align:middle;transition:all 0.15s;">
+           &#9654; ${catEntries.length} categor${catEntries.length===1?'y':'ies'}
          </button>`
       : '';
 
@@ -10835,8 +10835,9 @@ function toggleSprCat(rowId, btn) {
     b.textContent = isOpen
       ? '\u25B6 ' + count + ' categor' + (count===1?'y':'ies')
       : '\u25BC ' + count + ' categor' + (count===1?'y':'ies');
-    b.style.background = isOpen ? 'var(--bg)' : 'var(--inc-bg)';
-    b.style.color = isOpen ? 'var(--text-muted)' : 'var(--text-head)';
+    b.style.background = isOpen ? '#eef2f7' : '#0f2744';
+    b.style.color      = isOpen ? '#0f2744' : '#ffffff';
+    b.style.borderColor= isOpen ? '#0f2744' : '#0f2744';
   });
 }
 
