@@ -10629,29 +10629,38 @@ function projRun() {
 // ── Sales Per Route Page ───────────────────────────────────────────────────
 let _sprAllRows = [];
 
-function populateSalesPerRoutePage(data) {
-  // Mirror the same pattern as populateSalesPerCustomerPage:
-  // go straight to data.transactions — route is already stamped on every
+function buildSalesPerRouteData(transactions) {
+  // Mirrors buildTypeSalesData exactly — reads t.route (Column F) the same
+  // way Type Sales reads t.type (Column E). Route is stamped onto every
   // transaction from refData.customers[code].route during SAP parsing.
+  const routeMap = {};
+
+  for (const t of transactions) {
+    const route = (t.route && t.route.trim() && t.route.trim() !== '0')
+      ? t.route.trim()
+      : 'UNASSIGNED';
+
+    if (!routeMap[route]) {
+      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
+    }
+    routeMap[route].amount       += t.amount  || 0;
+    routeMap[route].ltrs         += toDisplayLtrs(t.ltrs || 0, (t.category || '').toUpperCase());
+    routeMap[route].qty          += t.qty     || 0;
+    routeMap[route].transactions += 1;
+    if (t.custCode) routeMap[route].customers.add(t.custCode);
+  }
+
+  return routeMap;
+}
+
+function populateSalesPerRoutePage(data) {
   if (!data || !data.transactions || !data.transactions.length) {
     document.getElementById('sprNoData').style.display  = 'block';
     document.getElementById('sprResults').style.display = 'none';
     return;
   }
 
-  const routeMap = {};
-
-  for (const t of data.transactions) {
-    const route = (t.route && t.route.trim() && t.route.trim() !== '0') ? t.route.trim() : 'UNASSIGNED';
-    if (!routeMap[route]) {
-      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
-    }
-    routeMap[route].amount       += t.amount  || 0;
-    routeMap[route].ltrs         += t.ltrs    || 0;
-    routeMap[route].qty          += t.qty     || 0;
-    routeMap[route].transactions += 1;
-    if (t.custCode) routeMap[route].customers.add(t.custCode);
-  }
+  const routeMap = buildSalesPerRouteData(data.transactions);
 
   _sprAllRows = Object.values(routeMap)
     .map(r => ({ ...r, customers: r.customers instanceof Set ? r.customers.size : (r.customers || 0) }))
