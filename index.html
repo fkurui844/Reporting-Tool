@@ -2619,6 +2619,8 @@
   .spc-table thead th { padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.72); letter-spacing: 0.07em; border: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
   .spc-table thead th.num { text-align: right; }
   .spc-table thead th.gold { color: #f6ad2b; }
+  #sprTable thead tr { background: #0f2744; }
+  #sprTable thead th { color: rgba(255,255,255,0.85) !important; }
   .spc-cust-row { cursor: pointer; transition: background 0.12s; }
   .spc-cust-row:hover td { background: #e8f0fb !important; }
   .spc-cust-row td { padding: 10px 14px; border: 1px solid var(--border2); vertical-align: middle; }
@@ -10641,13 +10643,24 @@ function buildSalesPerRouteData(transactions) {
       ? t.route.trim()
       : 'UNASSIGNED';
     if (!routeMap[route]) {
-      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
+      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0, regions: {} };
     }
     routeMap[route].amount       += t.amount  || 0;
     routeMap[route].ltrs         += toDisplayLtrs(t.ltrs || 0, (t.category || '').toUpperCase());
     routeMap[route].qty          += t.qty     || 0;
     routeMap[route].transactions += 1;
     if (t.custCode) routeMap[route].customers.add(t.custCode);
+    // Track region frequency to derive dominant location per route
+    if (t.region && t.region !== 'UNKNOWN') {
+      routeMap[route].regions[t.region] = (routeMap[route].regions[t.region] || 0) + 1;
+    }
+  }
+  // Resolve dominant location for each route
+  for (const r of Object.values(routeMap)) {
+    const entries = Object.entries(r.regions);
+    r.location = entries.length
+      ? entries.sort((a, b) => b[1] - a[1])[0][0]
+      : '—';
   }
   console.log('[SPR] routeMap keys:', Object.keys(routeMap));
   return routeMap;
@@ -10698,13 +10711,14 @@ function populateSalesPerRoutePage(data) {
 
 function renderSprTable(rows, grandAmt) {
   const fmtN = v => Math.round(v).toLocaleString();
-  const thStyle = `style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;"`;
-  const thR     = `style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;"`;
+  const thL = `style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;"`;
+  const thR = `style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;"`;
 
   document.getElementById('sprThead').innerHTML = `
-    <tr style="background:#0f2744;">
-      <th ${thStyle}>#</th>
-      <th ${thStyle}>Route</th>
+    <tr>
+      <th ${thL}>#</th>
+      <th ${thL}>Route</th>
+      <th ${thL}>Location</th>
       <th ${thR}>Revenue (KSH)</th>
       <th ${thR}>Rev Share</th>
       <th ${thR}>Volume (L)</th>
@@ -10715,7 +10729,7 @@ function renderSprTable(rows, grandAmt) {
 
   if (!rows.length) {
     document.getElementById('sprTbody').innerHTML =
-      `<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--text-muted);">No routes match your search.</td></tr>`;
+      `<tr><td colspan="9" style="padding:32px;text-align:center;color:var(--text-muted);">No routes match your search.</td></tr>`;
     return;
   }
 
@@ -10729,6 +10743,8 @@ function renderSprTable(rows, grandAmt) {
          <span style="font-size:10px;color:var(--text-muted);font-weight:400;display:block;margin-top:2px;">Route name not set in Customers sheet (Column F)</span>`
       : `<span style="color:var(--text-head);font-weight:700;">${esc(r.route)}</span>`;
     const barColor = isUnassigned ? 'var(--border)' : '#E1245A';
+    const locationCell = isUnassigned ? '—'
+      : `<span style="font-size:12px;font-weight:600;color:var(--text-muted);background:var(--pill-bg);border:1px solid var(--border);border-radius:6px;padding:2px 8px;white-space:nowrap;">${esc(r.location || '—')}</span>`;
     return `<tr style="background:${bg};${isUnassigned ? 'opacity:0.75;' : ''}">
       <td style="padding:9px 12px;color:var(--text-muted);font-size:12px;">${isUnassigned ? '—' : i + 1}</td>
       <td style="padding:9px 12px;">
@@ -10737,6 +10753,7 @@ function renderSprTable(rows, grandAmt) {
           <div style="height:4px;border-radius:99px;background:${barColor};width:${barW}%;"></div>
         </div>
       </td>
+      <td style="padding:9px 12px;">${locationCell}</td>
       <td style="padding:9px 12px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;font-size:13px;${isUnassigned?'color:var(--text-muted);':''}">${fmtN(r.amount)}</td>
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${share}%</td>
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:12px;">${fmtN(r.ltrs)}</td>
@@ -10750,7 +10767,10 @@ function renderSprTable(rows, grandAmt) {
 function filterSprTable() {
   const q = (document.getElementById('sprSearch').value || '').toLowerCase().trim();
   const grandAmt = _sprAllRows.reduce((s, r) => s + r.amount, 0);
-  const filtered = q ? _sprAllRows.filter(r => r.route.toLowerCase().includes(q)) : _sprAllRows;
+  const filtered = q ? _sprAllRows.filter(r =>
+    r.route.toLowerCase().includes(q) ||
+    (r.location || '').toLowerCase().includes(q)
+  ) : _sprAllRows;
   renderSprTable(filtered, grandAmt);
 }
 
