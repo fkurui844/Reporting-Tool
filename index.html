@@ -2789,6 +2789,9 @@
         <span id="sprExportCount" style="font-size:12px;color:var(--text-muted);margin-left:4px;"></span>
       </div>
 
+      <!-- Category filter banner -->
+      <div id="sprCatBanner" style="display:none;align-items:center;gap:8px;background:#fffbeb;border:1px solid #f6ad2b;border-radius:8px;padding:9px 14px;margin-bottom:10px;font-size:12px;color:#92400e;font-weight:500;"></div>
+
       <!-- Table -->
       <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border);background:var(--surface);">
         <table id="sprTable" style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -10806,22 +10809,27 @@ function renderSprTable(rows, grandAmt) {
   const thL = `style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;color:#ffffff;background:#0f2744;border-bottom:2px solid #0a1e38;"`;
   const thR = `style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;color:#ffffff;background:#0f2744;border-bottom:2px solid #0a1e38;"`;
 
+  // Detect if category filter is active
+  const activeCat = (document.getElementById('sprCatFilter') && document.getElementById('sprCatFilter').value) || '';
+
+  // Column header — swap Revenue label when category filtered
+  const revHeader = activeCat ? `Revenue (KSH) — ${activeCat}` : 'Revenue (KSH)';
+  const volHeader = activeCat ? `Volume (L) — ${activeCat}` : 'Volume (L)';
+
   document.getElementById('sprThead').innerHTML = `
     <tr>
       <th ${thL}>#</th>
       <th ${thL}>Route</th>
       <th ${thL}>Location</th>
-      <th ${thR}>Revenue (KSH)</th>
+      <th ${thR}>${revHeader}</th>
       <th ${thR}>Rev Share</th>
-      <th ${thR}>Volume (L)</th>
-      <th ${thR}>Qty</th>
+      <th ${thR}>${volHeader}</th>
       <th ${thR}>Customers</th>
-      <th ${thR}>Transactions</th>
     </tr>`;
 
   if (!rows.length) {
     document.getElementById('sprTbody').innerHTML =
-      `<tr><td colspan="9" style="padding:32px;text-align:center;color:var(--text-muted);">No routes match your search.</td></tr>`;
+      `<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--text-muted);">No routes match your search.</td></tr>`;
     return;
   }
 
@@ -10844,34 +10852,40 @@ function renderSprTable(rows, grandAmt) {
     const catEntries = Object.entries(r.categories || {}).sort((a,b) => b[1].amount - a[1].amount);
     const hasCats = catEntries.length > 0;
     const rowId = 'spr-cat-' + i;
-    const expandBtn = hasCats
+    const expandBtn = hasCats && !activeCat
       ? `<button onclick="toggleSprCat('${rowId}',this)" title="Show category breakdown"
            style="margin-left:8px;padding:2px 7px;border:1px solid #0f2744;border-radius:5px;background:#eef2f7;color:#0f2744;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;vertical-align:middle;transition:all 0.15s;">
            &#9654; ${catEntries.length} categor${catEntries.length===1?'y':'ies'}
          </button>`
-      : '';
+      : (hasCats && activeCat
+          ? `<span style="font-size:11px;font-weight:700;background:#f6ad2b22;color:#92400e;border:1px solid #f6ad2b;border-radius:5px;padding:2px 8px;margin-left:8px;">${catEntries.length} categor${catEntries.length===1?'y':'ies'}</span>`
+          : '');
 
     const catRows = hasCats ? catEntries.map(([cat, cd], ci) => {
       const catShare = r.amount > 0 ? (cd.amount / r.amount * 100).toFixed(1) : '0.0';
       const catBarW  = r.amount > 0 ? Math.max(2, Math.round(cd.amount / r.amount * 100)) : 0;
       const catColor = catColors[ci % catColors.length];
-      return `<tr class="spr-cat-row" data-parent="${rowId}" style="display:none;background:var(--inc-bg);border-left:3px solid ${catColor};">
+      const isActiveCat = activeCat && cat === activeCat;
+      const catBg = isActiveCat ? '#fffbeb' : 'var(--inc-bg)';
+      const catBorder = isActiveCat ? '#f6ad2b' : catColor;
+      // When category filter active, show all rows expanded; hide non-matching rows
+      const hideRow = activeCat && !isActiveCat ? 'display:none;' : (activeCat ? '' : 'display:none;');
+      return `<tr class="spr-cat-row" data-parent="${rowId}" style="${hideRow}background:${catBg};border-left:3px solid ${catBorder};${isActiveCat?'font-weight:700;':''}">
         <td style="padding:7px 12px;color:var(--text-muted);font-size:11px;"></td>
         <td style="padding:7px 12px;padding-left:28px;" colspan="2">
           <div style="display:flex;align-items:center;gap:8px;">
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catColor};flex-shrink:0;"></span>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catBorder};flex-shrink:0;"></span>
             <span style="font-size:12px;font-weight:700;color:var(--text-head);letter-spacing:0.03em;">${esc(cat)}</span>
+            ${isActiveCat ? `<span style="font-size:10px;font-weight:700;background:#f6ad2b;color:#7c4a00;padding:1px 6px;border-radius:99px;">filtered</span>` : ''}
           </div>
           <div style="margin-top:3px;height:3px;border-radius:99px;background:var(--border);width:100%;max-width:140px;">
-            <div style="height:3px;border-radius:99px;background:${catColor};width:${catBarW}%;"></div>
+            <div style="height:3px;border-radius:99px;background:${catBorder};width:${catBarW}%;"></div>
           </div>
         </td>
         <td style="padding:7px 12px;text-align:right;font-weight:600;font-family:'DM Mono',monospace;font-size:12px;color:var(--text-head);">${fmtN(cd.amount)}</td>
         <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">${catShare}%</td>
         <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:11px;">${fmtN(cd.ltrs)}</td>
-        <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">${fmtN(cd.qty)}</td>
         <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>
-        <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">${cd.transactions}</td>
       </tr>`;
     }).join('') : '';
 
@@ -10890,9 +10904,7 @@ function renderSprTable(rows, grandAmt) {
       <td style="padding:9px 12px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;font-size:13px;${isUnassigned?'color:var(--text-muted);':''}">${fmtN(r.amount)}</td>
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${share}%</td>
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:12px;">${fmtN(r.ltrs)}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${fmtN(r.qty)}</td>
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${r.customers}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${r.transactions}</td>
     </tr>${catRows}`;
   }).join('');
 
@@ -10917,9 +10929,7 @@ function renderSprTable(rows, grandAmt) {
       <td ${tdT}>${fmtN(totalAmt)}</td>
       <td style="padding:11px 12px;text-align:right;font-size:12px;color:rgba(255,255,255,0.7);background:#0f2744;border-top:2px solid #0a1e38;">100%</td>
       <td ${tdT}>${fmtN(totalLtrs)}</td>
-      <td ${tdT}>${fmtN(totalQty)}</td>
       <td ${tdT}>${fmtN(totalCusts)}</td>
-      <td ${tdT}>${fmtN(totalTxns)}</td>
     </tr>`;
 }
 function filterSprTable() {
@@ -10930,13 +10940,31 @@ function filterSprTable() {
   const sortBy  = document.getElementById('sprSort').value || 'revenue_desc';
   const grandAmt = _sprAllRows.reduce((s, r) => s + r.amount, 0);
 
-  let filtered = _sprAllRows.filter(r => {
-    if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
-    if (loc && (r.location || '') !== loc) return false;
-    if (cat && !Object.keys(r.categories || {}).includes(cat)) return false;
-    if (minRev && r.amount < minRev) return false;
-    return true;
-  });
+  // When a category is selected, project each route's numbers down to that category only
+  let displayRows;
+  if (cat) {
+    displayRows = _sprAllRows
+      .filter(r => {
+        if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
+        if (loc && (r.location || '') !== loc) return false;
+        if (!Object.keys(r.categories || {}).includes(cat)) return false;
+        return true;
+      })
+      .map(r => {
+        const cd = r.categories[cat];
+        return { ...r, amount: cd.amount, ltrs: cd.ltrs, _catFiltered: cat };
+      })
+      .filter(r => !minRev || r.amount >= minRev);
+  } else {
+    displayRows = _sprAllRows.filter(r => {
+      if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
+      if (loc && (r.location || '') !== loc) return false;
+      if (minRev && r.amount < minRev) return false;
+      return true;
+    });
+  }
+
+  let filtered = displayRows;
 
   // Sort (always keep UNASSIGNED at bottom)
   filtered.sort((a, b) => {
@@ -10949,7 +10977,7 @@ function filterSprTable() {
       case 'customers_desc':    return b.customers - a.customers;
       case 'transactions_desc': return b.transactions - a.transactions;
       case 'route_asc':         return a.route.localeCompare(b.route);
-      default:                  return b.amount - a.amount; // revenue_desc
+      default:                  return b.amount - a.amount;
     }
   });
 
@@ -10964,7 +10992,23 @@ function filterSprTable() {
   const exportCount = document.getElementById('sprExportCount');
   if (exportCount) exportCount.textContent = filtered.length + ' route' + (filtered.length !== 1 ? 's' : '') + ' shown';
 
-  renderSprTable(filtered, grandAmt);
+  // grandAmt for Rev Share must match what's shown — category-scoped when cat filter active
+  const displayGrandAmt = filtered.reduce((s, r) => s + r.amount, 0);
+
+  // Category filter banner
+  const banner = document.getElementById('sprCatBanner');
+  if (banner) {
+    if (cat) {
+      banner.style.display = 'flex';
+      banner.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Showing <strong>${cat}</strong> performance across ${filtered.length} route${filtered.length!==1?'s':''}. Revenue & Volume reflect this category only.</span>
+        <button onclick="document.getElementById('sprCatFilter').value='';filterSprTable();" style="margin-left:auto;padding:2px 9px;border:1px solid #92400e;border-radius:5px;background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">✕ Clear</button>`;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  renderSprTable(filtered, displayGrandAmt);
 }
 
 function clearSprFilters() {
@@ -11070,9 +11114,7 @@ function exportSprHTML() {
         <td style="padding:6px 12px;text-align:right;font-weight:600;font-size:12px;color:#0f2744;">${fmtN(cd.amount)}</td>
         <td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">${catShare}%</td>
         <td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">${fmtN(cd.ltrs)}</td>
-        <td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">${fmtN(cd.qty)}</td>
         <td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">—</td>
-        <td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">${cd.transactions}</td>
       </tr>`;
     }).join('');
 
@@ -11087,17 +11129,13 @@ function exportSprHTML() {
       <td style="padding:9px 12px;text-align:right;font-weight:700;font-family:monospace;font-size:13px;">${fmtN(r.amount)}</td>
       <td style="padding:9px 12px;text-align:right;color:#718096;font-size:12px;">${share}%</td>
       <td style="padding:9px 12px;text-align:right;color:#718096;font-family:monospace;font-size:12px;">${fmtN(r.ltrs)}</td>
-      <td style="padding:9px 12px;text-align:right;color:#718096;font-size:12px;">${fmtN(r.qty)}</td>
       <td style="padding:9px 12px;text-align:right;color:#718096;font-size:12px;">${r.customers}</td>
-      <td style="padding:9px 12px;text-align:right;color:#718096;font-size:12px;">${r.transactions}</td>
     </tr>${catRows}`;
   }).join('');
 
   const totalAmt  = _sprFilteredRows.reduce((s,r)=>s+r.amount,0);
   const totalLtrs = _sprFilteredRows.reduce((s,r)=>s+r.ltrs,0);
-  const totalQty  = _sprFilteredRows.reduce((s,r)=>s+r.qty,0);
   const totalCusts= _sprFilteredRows.reduce((s,r)=>s+(r.customers||0),0);
-  const totalTxns = _sprFilteredRows.reduce((s,r)=>s+r.transactions,0);
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -11145,15 +11183,13 @@ th.r{text-align:right;}
     <div class="stat"><div class="stat-label">Routes</div><div class="stat-val" style="color:#0f2744;">${_sprFilteredRows.filter(r=>r.route!=='UNASSIGNED').length}</div></div>
     <div class="stat"><div class="stat-label">Total Revenue</div><div class="stat-val" style="color:#E1245A;">KSH ${fmtN(totalAmt)}</div></div>
     <div class="stat"><div class="stat-label">Total Volume</div><div class="stat-val" style="color:#0f5f5a;">${fmtN(totalLtrs)} L</div></div>
-    <div class="stat"><div class="stat-label">Total Transactions</div><div class="stat-val" style="color:#0f2744;">${fmtN(totalTxns)}</div></div>
   </div>
   <div class="table-wrap">
     <table>
       <thead><tr>
         <th>#</th><th>Route</th><th>Location</th>
         <th class="r">Revenue (KSH)</th><th class="r">Rev Share</th>
-        <th class="r">Volume (L)</th><th class="r">Qty</th>
-        <th class="r">Customers</th><th class="r">Transactions</th>
+        <th class="r">Volume (L)</th><th class="r">Customers</th>
       </tr></thead>
       <tbody>
         ${rows}
@@ -11164,9 +11200,7 @@ th.r{text-align:right;}
           <td style="padding:11px 12px;text-align:right;color:#fff;font-weight:700;font-family:monospace;font-size:13px;">${fmtN(totalAmt)}</td>
           <td style="padding:11px 12px;text-align:right;color:rgba(255,255,255,0.7);font-size:12px;">100%</td>
           <td style="padding:11px 12px;text-align:right;color:#fff;font-weight:700;font-family:monospace;font-size:13px;">${fmtN(totalLtrs)}</td>
-          <td style="padding:11px 12px;text-align:right;color:#fff;font-weight:700;font-size:13px;">${fmtN(totalQty)}</td>
           <td style="padding:11px 12px;text-align:right;color:#fff;font-weight:700;font-size:13px;">${fmtN(totalCusts)}</td>
-          <td style="padding:11px 12px;text-align:right;color:#fff;font-weight:700;font-size:13px;">${fmtN(totalTxns)}</td>
         </tr>
       </tbody>
     </table>
