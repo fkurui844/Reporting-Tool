@@ -10643,7 +10643,7 @@ function buildSalesPerRouteData(transactions) {
       ? t.route.trim()
       : 'UNASSIGNED';
     if (!routeMap[route]) {
-      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0, regions: {} };
+      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0, regions: {}, categories: {} };
     }
     routeMap[route].amount       += t.amount  || 0;
     routeMap[route].ltrs         += toDisplayLtrs(t.ltrs || 0, (t.category || '').toUpperCase());
@@ -10654,6 +10654,15 @@ function buildSalesPerRouteData(transactions) {
     if (t.region && t.region !== 'UNKNOWN') {
       routeMap[route].regions[t.region] = (routeMap[route].regions[t.region] || 0) + 1;
     }
+    // Track per-category breakdown
+    const cat = (t.category && t.category.trim()) ? t.category.trim().toUpperCase() : 'UNCLASSIFIED';
+    if (!routeMap[route].categories[cat]) {
+      routeMap[route].categories[cat] = { amount: 0, ltrs: 0, qty: 0, transactions: 0 };
+    }
+    routeMap[route].categories[cat].amount       += t.amount || 0;
+    routeMap[route].categories[cat].ltrs         += toDisplayLtrs(t.ltrs || 0, cat);
+    routeMap[route].categories[cat].qty          += t.qty    || 0;
+    routeMap[route].categories[cat].transactions += 1;
   }
   // Resolve dominant location for each route
   for (const r of Object.values(routeMap)) {
@@ -10733,6 +10742,8 @@ function renderSprTable(rows, grandAmt) {
     return;
   }
 
+  const catColors = ['#E1245A','#7c3aed','#0891b2','#f6ad2b','#16a34a','#db2777','#0f2744','#d97706','#0284c7','#65a30d'];
+
   document.getElementById('sprTbody').innerHTML = rows.map((r, i) => {
     const share = grandAmt > 0 ? (r.amount / grandAmt * 100).toFixed(1) : '0.0';
     const barW  = grandAmt > 0 ? Math.max(2, Math.round(r.amount / grandAmt * 100)) : 0;
@@ -10745,10 +10756,49 @@ function renderSprTable(rows, grandAmt) {
     const barColor = isUnassigned ? 'var(--border)' : '#E1245A';
     const locationCell = isUnassigned ? '—'
       : `<span style="font-size:12px;font-weight:600;color:var(--text-muted);background:var(--pill-bg);border:1px solid var(--border);border-radius:6px;padding:2px 8px;white-space:nowrap;">${esc(r.location || '—')}</span>`;
-    return `<tr style="background:${bg};${isUnassigned ? 'opacity:0.75;' : ''}">
+
+    // Build category breakdown rows
+    const catEntries = Object.entries(r.categories || {}).sort((a,b) => b[1].amount - a[1].amount);
+    const hasCats = catEntries.length > 0;
+    const rowId = 'spr-cat-' + i;
+    const expandBtn = hasCats
+      ? `<button onclick="toggleSprCat('${rowId}',this)" title="Show category breakdown"
+           style="margin-left:8px;padding:2px 7px;border:1px solid var(--border);border-radius:5px;background:var(--bg);color:var(--text-muted);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;vertical-align:middle;transition:all 0.15s;">
+           ▶ ${catEntries.length} categor${catEntries.length===1?'y':'ies'}
+         </button>`
+      : '';
+
+    const catRows = hasCats ? catEntries.map(([cat, cd], ci) => {
+      const catShare = r.amount > 0 ? (cd.amount / r.amount * 100).toFixed(1) : '0.0';
+      const catBarW  = r.amount > 0 ? Math.max(2, Math.round(cd.amount / r.amount * 100)) : 0;
+      const catColor = catColors[ci % catColors.length];
+      return `<tr class="spr-cat-row" data-parent="${rowId}" style="display:none;background:var(--inc-bg);border-left:3px solid ${catColor};">
+        <td style="padding:7px 12px;color:var(--text-muted);font-size:11px;"></td>
+        <td style="padding:7px 12px;padding-left:28px;" colspan="2">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catColor};flex-shrink:0;"></span>
+            <span style="font-size:12px;font-weight:700;color:var(--text-head);letter-spacing:0.03em;">${esc(cat)}</span>
+          </div>
+          <div style="margin-top:3px;height:3px;border-radius:99px;background:var(--border);width:100%;max-width:140px;">
+            <div style="height:3px;border-radius:99px;background:${catColor};width:${catBarW}%;"></div>
+          </div>
+        </td>
+        <td style="padding:7px 12px;text-align:right;font-weight:600;font-family:'DM Mono',monospace;font-size:12px;color:var(--text-head);">${fmtN(cd.amount)}</td>
+        <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">${catShare}%</td>
+        <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:11px;">${fmtN(cd.ltrs)}</td>
+        <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">${fmtN(cd.qty)}</td>
+        <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>
+        <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">${cd.transactions}</td>
+      </tr>`;
+    }).join('') : '';
+
+    return `<tr id="${rowId}-row" style="background:${bg};${isUnassigned ? 'opacity:0.75;' : ''}cursor:${hasCats?'pointer':'default'};" ${hasCats?`onclick="toggleSprCat('${rowId}',null)"`:''}>
       <td style="padding:9px 12px;color:var(--text-muted);font-size:12px;">${isUnassigned ? '—' : i + 1}</td>
       <td style="padding:9px 12px;">
-        ${routeLabel}
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
+          ${routeLabel}
+          ${expandBtn}
+        </div>
         <div style="margin-top:4px;height:4px;border-radius:99px;background:var(--border);width:100%;max-width:160px;">
           <div style="height:4px;border-radius:99px;background:${barColor};width:${barW}%;"></div>
         </div>
@@ -10760,7 +10810,7 @@ function renderSprTable(rows, grandAmt) {
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${fmtN(r.qty)}</td>
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${r.customers}</td>
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${r.transactions}</td>
-    </tr>`;
+    </tr>${catRows}`;
   }).join('');
 }
 
@@ -10772,6 +10822,22 @@ function filterSprTable() {
     (r.location || '').toLowerCase().includes(q)
   ) : _sprAllRows;
   renderSprTable(filtered, grandAmt);
+}
+
+function toggleSprCat(rowId, btn) {
+  const catRows = document.querySelectorAll(`.spr-cat-row[data-parent="${rowId}"]`);
+  if (!catRows.length) return;
+  const isOpen = catRows[0].style.display !== 'none';
+  catRows.forEach(row => { row.style.display = isOpen ? 'none' : ''; });
+  const allBtns = document.querySelectorAll(`#${rowId}-row button`);
+  allBtns.forEach(b => {
+    const count = catRows.length;
+    b.textContent = isOpen
+      ? '\u25B6 ' + count + ' categor' + (count===1?'y':'ies')
+      : '\u25BC ' + count + ' categor' + (count===1?'y':'ies');
+    b.style.background = isOpen ? 'var(--bg)' : 'var(--inc-bg)';
+    b.style.color = isOpen ? 'var(--text-muted)' : 'var(--text-head)';
+  });
 }
 
 </script>
