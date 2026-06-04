@@ -2720,11 +2720,59 @@
       <div id="sprStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;"></div>
 
       <!-- Filter bar -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
-        <input id="sprSearch" type="text" placeholder="🔍  Search route…"
-          oninput="filterSprTable()"
-          style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);width:220px;">
-        <span id="sprPeriod" style="font-size:12px;color:var(--text-muted);margin-left:auto;"></span>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0f2744" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#0f2744;">Filters</span>
+          <span id="sprActiveFiltersCount" style="display:none;font-size:11px;font-weight:700;background:#E1245A;color:#fff;border-radius:99px;padding:1px 7px;margin-left:2px;"></span>
+          <button onclick="clearSprFilters()" id="sprClearBtn" style="display:none;margin-left:auto;padding:4px 11px;border:1px solid #E1245A;border-radius:6px;background:#fff0f4;color:#E1245A;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">✕ Clear all</button>
+          <span id="sprPeriod" style="font-size:12px;color:var(--text-muted);margin-left:auto;"></span>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+          <!-- Search -->
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Search</label>
+            <input id="sprSearch" type="text" placeholder="Route name…"
+              oninput="filterSprTable()"
+              style="padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);width:190px;">
+          </div>
+          <!-- Location filter -->
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Location</label>
+            <select id="sprLocFilter" onchange="filterSprTable()"
+              style="padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);min-width:160px;cursor:pointer;">
+              <option value="">All locations</option>
+            </select>
+          </div>
+          <!-- Category filter -->
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Category</label>
+            <select id="sprCatFilter" onchange="filterSprTable()"
+              style="padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);min-width:160px;cursor:pointer;">
+              <option value="">All categories</option>
+            </select>
+          </div>
+          <!-- Min revenue -->
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Min Revenue (KSH)</label>
+            <input id="sprMinRev" type="number" min="0" placeholder="e.g. 500000" oninput="filterSprTable()"
+              style="padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);width:155px;">
+          </div>
+          <!-- Sort -->
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Sort by</label>
+            <select id="sprSort" onchange="filterSprTable()"
+              style="padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);min-width:150px;cursor:pointer;">
+              <option value="revenue_desc">Revenue ↓ (default)</option>
+              <option value="revenue_asc">Revenue ↑</option>
+              <option value="volume_desc">Volume ↓</option>
+              <option value="volume_asc">Volume ↑</option>
+              <option value="customers_desc">Customers ↓</option>
+              <option value="transactions_desc">Transactions ↓</option>
+              <option value="route_asc">Route A→Z</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <!-- Table -->
@@ -10714,6 +10762,23 @@ function populateSalesPerRoutePage(data) {
 
   renderSprTable(_sprAllRows, grandAmt);
 
+  // Populate Location dropdown
+  const locations = [...new Set(_sprAllRows.map(r => r.location).filter(l => l && l !== '—'))].sort();
+  const locSel = document.getElementById('sprLocFilter');
+  if (locSel) {
+    locSel.innerHTML = '<option value="">All locations</option>' +
+      locations.map(l => `<option value="${l}">${l}</option>`).join('');
+  }
+
+  // Populate Category dropdown (all categories across all routes)
+  const allCats = new Set();
+  _sprAllRows.forEach(r => Object.keys(r.categories || {}).forEach(c => allCats.add(c)));
+  const catSel = document.getElementById('sprCatFilter');
+  if (catSel) {
+    catSel.innerHTML = '<option value="">All categories</option>' +
+      [...allCats].sort().map(c => `<option value="${c}">${c}</option>`).join('');
+  }
+
   document.getElementById('sprNoData').style.display  = 'none';
   document.getElementById('sprResults').style.display = 'block';
 }
@@ -10815,13 +10880,53 @@ function renderSprTable(rows, grandAmt) {
 }
 
 function filterSprTable() {
-  const q = (document.getElementById('sprSearch').value || '').toLowerCase().trim();
+  const q       = (document.getElementById('sprSearch').value || '').toLowerCase().trim();
+  const loc     = (document.getElementById('sprLocFilter').value || '').trim();
+  const cat     = (document.getElementById('sprCatFilter').value || '').trim();
+  const minRev  = parseFloat(document.getElementById('sprMinRev').value) || 0;
+  const sortBy  = document.getElementById('sprSort').value || 'revenue_desc';
   const grandAmt = _sprAllRows.reduce((s, r) => s + r.amount, 0);
-  const filtered = q ? _sprAllRows.filter(r =>
-    r.route.toLowerCase().includes(q) ||
-    (r.location || '').toLowerCase().includes(q)
-  ) : _sprAllRows;
+
+  let filtered = _sprAllRows.filter(r => {
+    if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
+    if (loc && (r.location || '') !== loc) return false;
+    if (cat && !Object.keys(r.categories || {}).includes(cat)) return false;
+    if (minRev && r.amount < minRev) return false;
+    return true;
+  });
+
+  // Sort (always keep UNASSIGNED at bottom)
+  filtered.sort((a, b) => {
+    if (a.route === 'UNASSIGNED') return 1;
+    if (b.route === 'UNASSIGNED') return -1;
+    switch (sortBy) {
+      case 'revenue_asc':       return a.amount - b.amount;
+      case 'volume_desc':       return b.ltrs - a.ltrs;
+      case 'volume_asc':        return a.ltrs - b.ltrs;
+      case 'customers_desc':    return b.customers - a.customers;
+      case 'transactions_desc': return b.transactions - a.transactions;
+      case 'route_asc':         return a.route.localeCompare(b.route);
+      default:                  return b.amount - a.amount; // revenue_desc
+    }
+  });
+
+  // Active filter count badge
+  const activeCount = [q, loc, cat, minRev > 0, sortBy !== 'revenue_desc'].filter(Boolean).length;
+  const badge = document.getElementById('sprActiveFiltersCount');
+  const clearBtn = document.getElementById('sprClearBtn');
+  if (badge)    { badge.textContent = activeCount; badge.style.display = activeCount ? 'inline-block' : 'none'; }
+  if (clearBtn) { clearBtn.style.display = activeCount ? 'inline-flex' : 'none'; }
+
   renderSprTable(filtered, grandAmt);
+}
+
+function clearSprFilters() {
+  document.getElementById('sprSearch').value   = '';
+  document.getElementById('sprLocFilter').value = '';
+  document.getElementById('sprCatFilter').value = '';
+  document.getElementById('sprMinRev').value    = '';
+  document.getElementById('sprSort').value      = 'revenue_desc';
+  filterSprTable();
 }
 
 function toggleSprCat(rowId, btn) {
