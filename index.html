@@ -10631,18 +10631,24 @@ function projRun() {
 
 // Initialize Sales Per Route from Customers sheet
 function initializeSalesPerRoute() {
-  if (!refData || !refData.routes || refData.routes.size === 0) {
+  // Normalize routes to an iterable regardless of whether it's a Set or Array
+  const routesIterable = refData && refData.routes
+    ? (refData.routes instanceof Set ? refData.routes : new Set(refData.routes))
+    : new Set();
+
+  if (!refData || routesIterable.size === 0) {
     console.log('⏳ No routes loaded yet');
     return;
   }
+
+  // Always keep refData.routes as a Set internally for consistency
+  refData.routes = routesIterable;
   
   const routeMap = {};
   
   // Create entry for each route from the Customers sheet
-  if (refData.routes instanceof Set) {
-    for (const route of refData.routes) {
-      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
-    }
+  for (const route of routesIterable) {
+    routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
   }
   
   // Count customers per route
@@ -10799,24 +10805,39 @@ function filterSprTable() {
     <script>
     function initializeReferenceData() {
       window.refData = window.refData || {};
-      
+
       // Check if google.script.run is available
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
         console.warn('⚠️ Google Apps Script not yet available, retrying...');
-        // Retry after a short delay
         setTimeout(initializeReferenceData, 500);
         return;
       }
-      
-      // Now safely call getAllRoutes()
+
+      // Only fetch routes from GAS if refData.routes isn't already populated
+      // (e.g. from a user-uploaded Customers CSV). This prevents overwriting the
+      // Set built by parseCustomerSheet() with a plain Array.
+      const existingRoutes = window.refData.routes;
+      const alreadyHasRoutes = existingRoutes &&
+        ((existingRoutes instanceof Set && existingRoutes.size > 0) ||
+         (Array.isArray(existingRoutes) && existingRoutes.length > 0));
+
+      if (alreadyHasRoutes) {
+        console.log('ℹ️ Routes already loaded from uploaded file — skipping GAS fetch.');
+        return;
+      }
+
+      // Fetch routes from Google Sheet as a fallback (no file uploaded yet)
       google.script.run
         .withSuccessHandler(function(routes) {
-          window.refData.routes = routes;
-          console.log('✅ Routes loaded from Customers sheet:', routes);
+          // Always store as a Set for consistency with parseCustomerSheet()
+          window.refData.routes = new Set(routes || []);
+          console.log('✅ Routes loaded from GAS Customers sheet:', routes);
+          // Trigger the Sales Per Route page now that routes are available
+          initializeSalesPerRoute();
         })
         .withFailureHandler(function(err) {
-          console.error('❌ Failed to load routes:', err);
-          window.refData.routes = [];
+          console.error('❌ Failed to load routes from GAS:', err);
+          window.refData.routes = new Set();
         })
         .getAllRoutes();
     }
@@ -10824,11 +10845,9 @@ function filterSprTable() {
     // Wait for document to be ready AND Google Apps Script to be available
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function() {
-        // Add small delay to ensure Google Apps Script library is loaded
         setTimeout(initializeReferenceData, 100);
       });
     } else {
-      // Document already loaded, but still need to wait for Google Apps Script
       setTimeout(initializeReferenceData, 100);
     }
     </script>
