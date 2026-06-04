@@ -3363,6 +3363,9 @@ async function loadSheetData() {
 
   // refresh customer table if on that page
   if (allCustomers.length) buildCustomerTable(allCustomers);
+  
+  // Initialize Sales Per Route page with Customers data
+  initializeSalesPerRoute();
 
   // Re-render Location Sales and target rows if data is already loaded
   if (_lastSalesData) {
@@ -10626,29 +10629,60 @@ function projRun() {
   }, 60);
 }
 
+// Initialize Sales Per Route from Customers sheet
+function initializeSalesPerRoute() {
+  if (!refData || !refData.routes || refData.routes.size === 0) {
+    console.log('⏳ No routes loaded yet');
+    return;
+  }
+  
+  const routeMap = {};
+  
+  // Create entry for each route from the Customers sheet
+  if (refData.routes instanceof Set) {
+    for (const route of refData.routes) {
+      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
+    }
+  }
+  
+  // Count customers per route
+  if (refData.customers) {
+    for (const [code, custData] of Object.entries(refData.customers)) {
+      if (custData.route && routeMap[custData.route]) {
+        routeMap[custData.route].customers.add(code);
+      }
+    }
+  }
+  
+  window.refData.routeMap = routeMap;
+  console.log('✅ Route map initialized:', Object.keys(routeMap));
+  populateSalesPerRoutePage({ period: 'All Time' });
+}
+
 // ── Sales Per Route Page ───────────────────────────────────────────────────
 let _sprAllRows = [];
 
 function populateSalesPerRoutePage(data) {
-  // Use refData.routeMap if available (from Google Sheets API)
+  // Use refData.routeMap if available (from Customers sheet)
   let routeMap = {};
   
   if (window.refData && window.refData.routeMap && Object.keys(window.refData.routeMap).length > 0) {
-    // Use pre-calculated route data from Google Sheets
+    // Use pre-calculated route data from Customers sheet
     routeMap = window.refData.routeMap;
-    console.log('📊 Using route data from Google Sheets:', routeMap);
+    console.log('📊 Using route data from Customers sheet:', routeMap);
   } else if (data && data.transactions && data.transactions.length) {
-    // Fallback: Build from transactions if Google Sheets data not available
+    // Build from transaction data
     const txns = data.transactions;
-    
-    if (window.refData && window.refData.routes) {
-      for (const r of window.refData.routes) {
+
+    // ── Seed ALL known routes from the Customers sheet so they appear even with zero sales ──
+    if (refData && refData.routes) {
+      for (const r of refData.routes) {
         if (!routeMap[r]) {
           routeMap[r] = { route: r, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
         }
       }
     }
-    
+
     for (const t of txns) {
       const route = (t.route && t.route.trim() && t.route.trim() !== '0') ? t.route.trim() : 'UNASSIGNED';
       if (!routeMap[route]) {
@@ -10660,17 +10694,17 @@ function populateSalesPerRoutePage(data) {
       routeMap[route].transactions += 1;
       if (t.custCode) routeMap[route].customers.add(t.custCode);
     }
-  } else {
-    console.warn('⚠️ No route data available');
-    routeMap = {};
+  } else if (!routeMap || Object.keys(routeMap).length === 0) {
+    // No data available
+    document.getElementById('sprNoData').style.display  = 'block';
+    document.getElementById('sprResults').style.display = 'none';
+    return;
   }
 
   _sprAllRows = Object.values(routeMap)
-    .map(r => ({ 
-      ...r, 
-      customers: r.customers instanceof Set ? r.customers.size : (r.customers || 0)
-    }))
+    .map(r => ({ ...r, customers: r.customers instanceof Set ? r.customers.size : (r.customers || 0) }))
     .sort((a, b) => {
+      // Always push UNASSIGNED to the bottom
       if (a.route === 'UNASSIGNED' && b.route !== 'UNASSIGNED') return 1;
       if (b.route === 'UNASSIGNED' && a.route !== 'UNASSIGNED') return -1;
       return b.amount - a.amount;
@@ -10761,136 +10795,40 @@ function filterSprTable() {
 
 </script>
 
-    <!-- ✅ Route Loading Code - Fetch from Google Sheets API -->
+    <!-- ✅ Route Loading Code - Initialize reference data from Customers sheet -->
     <script>
-    
-    function parseCSVLine(line) {
-      const result = [];
-      let current = '';
-      let insideQuotes = false;
-      
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        
-        if (char === '"') {
-          if (insideQuotes && line[i + 1] === '"') {
-            current += '"';
-            i++;
-          } else {
-            insideQuotes = !insideQuotes;
-          }
-        } else if (char === ',' && !insideQuotes) {
-          result.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      
-      result.push(current.trim());
-      return result;
-    }
-    
     function initializeReferenceData() {
       window.refData = window.refData || {};
       
-      // Fetch Customers sheet using Google Visualization API (no auth required)
-      const customersUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Customers`;
+      // Check if google.script.run is available
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        console.warn('⚠️ Google Apps Script not yet available, retrying...');
+        // Retry after a short delay
+        setTimeout(initializeReferenceData, 500);
+        return;
+      }
       
-      fetch(customersUrl)
-        .then(r => r.text())
-        .then(csv => {
-          if (!csv || csv.startsWith('google.')) {
-            console.warn('⚠️ Failed to fetch Customers sheet');
-            window.refData.routes = [];
-            return;
-          }
-          
-          // Parse CSV
-          const lines = csv.trim().split('\n');
-          if (lines.length < 2) {
-            console.warn('⚠️ No customer data found');
-            window.refData.routes = [];
-            return;
-          }
-          
-          // Parse header row
-          const headers = parseCSVLine(lines[0]).map(h => h.replace(/"/g, '').trim());
-          const routeColIdx = headers.findIndex(h => h.toUpperCase() === 'ROUTE');
-          const amountColIdx = headers.findIndex(h => h.toUpperCase().includes('AMOUNT') || h.toUpperCase().includes('SALES'));
-          const volumeColIdx = headers.findIndex(h => h.toUpperCase().includes('VOLUME') || h.toUpperCase().includes('LITRE'));
-          const qtyColIdx = headers.findIndex(h => h.toUpperCase().includes('QTY') || h.toUpperCase().includes('QUANTITY'));
-          const custCodeColIdx = headers.findIndex(h => h.toUpperCase() === 'CODE' || h.toUpperCase().includes('CUSTOMER'));
-          
-          console.log('📊 Headers found:', headers);
-          console.log('📊 Column indices:', { route: routeColIdx, amount: amountColIdx, volume: volumeColIdx, qty: qtyColIdx });
-          
-          if (routeColIdx === -1) {
-            console.warn('⚠️ ROUTE column not found');
-            window.refData.routes = [];
-            return;
-          }
-          
-          // Build route map
-          const routeMap = {};
-          
-          for (let i = 1; i < lines.length; i++) {
-            if (!lines[i].trim()) continue;
-            
-            const cells = parseCSVLine(lines[i]).map(c => c.replace(/"/g, '').trim());
-            const route = (cells[routeColIdx] && cells[routeColIdx] !== '0' && cells[routeColIdx] !== '') 
-              ? cells[routeColIdx] 
-              : 'UNASSIGNED';
-            
-            if (!routeMap[route]) {
-              routeMap[route] = { 
-                route, 
-                amount: 0, 
-                ltrs: 0, 
-                qty: 0, 
-                customers: new Set(), 
-                transactions: 0 
-              };
-            }
-            
-            const amount = amountColIdx !== -1 ? (parseFloat(cells[amountColIdx]) || 0) : 0;
-            const volume = volumeColIdx !== -1 ? (parseFloat(cells[volumeColIdx]) || 0) : 0;
-            const qty = qtyColIdx !== -1 ? (parseInt(cells[qtyColIdx]) || 0) : 0;
-            const custCode = custCodeColIdx !== -1 ? cells[custCodeColIdx] : '';
-            
-            routeMap[route].amount += amount;
-            routeMap[route].ltrs += volume;
-            routeMap[route].qty += qty;
-            routeMap[route].transactions += 1;
-            if (custCode) routeMap[route].customers.add(custCode);
-          }
-          
-          // Store routes and full route data
-          window.refData.routes = Object.keys(routeMap);
-          window.refData.routeMap = routeMap;
-          
-          console.log('✅ Routes loaded from Customers sheet:', window.refData.routes);
-          console.log('📈 Route data:', routeMap);
-          
-          // Auto-populate Sales Per Route page
-          if (typeof populateSalesPerRoutePage === 'function') {
-            populateSalesPerRoutePage({ period: 'All Time' });
-          }
+      // Now safely call getAllRoutes()
+      google.script.run
+        .withSuccessHandler(function(routes) {
+          window.refData.routes = routes;
+          console.log('✅ Routes loaded from Customers sheet:', routes);
         })
-        .catch(err => {
+        .withFailureHandler(function(err) {
           console.error('❌ Failed to load routes:', err);
           window.refData.routes = [];
-          window.refData.routeMap = {};
-        });
+        })
+        .getAllRoutes();
     }
 
-    // Wait for document to be ready
+    // Wait for document to be ready AND Google Apps Script to be available
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function() {
+        // Add small delay to ensure Google Apps Script library is loaded
         setTimeout(initializeReferenceData, 100);
       });
     } else {
-      // Document already loaded
+      // Document already loaded, but still need to wait for Google Apps Script
       setTimeout(initializeReferenceData, 100);
     }
     </script>
