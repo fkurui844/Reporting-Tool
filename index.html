@@ -3424,7 +3424,7 @@ function parseCustomerSheet(csv) {
       region:  locIdx>=0?(cols[locIdx]||'').trim().toUpperCase():'',
       channel: chanIdx>=0?(cols[chanIdx]||'').trim().toUpperCase():'',
       type:    typeIdx>=0?(cols[typeIdx]||'').trim().toUpperCase():'',
-      route:   routeIdx>=0?(r=>(r==='0'?'':r))((cols[routeIdx]||'').trim()):'',
+      route:   routeIdx>=0?(r=>(r==='0'||r===''?'':r))((cols[routeIdx]||'').trim().toUpperCase()):'',
     };
     refData.customers[code] = entry;
     // Also index by the raw code (with leading zeros) so lookup works
@@ -3659,10 +3659,13 @@ function parseSAP(text){
         const info=refData.customers[code]||refData.customers[rawCode]; const found=!!info;
         const region=(found&&info.region)?info.region:inferRegion(sapChan);
         const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
-        const rawRoute=(found&&info.route)?String(info.route).trim():'';
-        const route=(rawRoute&&rawRoute!=='0')?rawRoute:'';
+        const rawRoute = (found && info && info.route) ? String(info.route).trim().toUpperCase() : '';
+        const route = (rawRoute && rawRoute !== '0') ? rawRoute : '';
         curCust={code,rawCode,name,found,region,channel,type:found?info.type:'',route};
-        if(!found&&!result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
+        if (!found && !result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
+        // Debug: log first 3 customers to verify route is being read
+        if (Object.keys(result.missingCustomers).length + (result.transactions?.length||0) < 3)
+          console.log(`[Route debug] code=${code} found=${found} info.route="${info?.route}" → route="${route}"`);
         if(found&&(!info.region||!info.channel)&&!result.incompleteCustomers[code])
           result.incompleteCustomers[code]={rawCode,name,regionRead:info.region||'(blank)',channelRead:info.channel||'(blank)',ltrs:0,amount:0};
       }
@@ -10631,15 +10634,12 @@ let _sprAllRows = [];
 
 function buildSalesPerRouteData(transactions) {
   // Mirrors buildTypeSalesData exactly — reads t.route (Column F) the same
-  // way Type Sales reads t.type (Column E). Route is stamped onto every
-  // transaction from refData.customers[code].route during SAP parsing.
+  // way Type Sales reads t.type (Column E).
   const routeMap = {};
-
   for (const t of transactions) {
     const route = (t.route && t.route.trim() && t.route.trim() !== '0')
       ? t.route.trim()
       : 'UNASSIGNED';
-
     if (!routeMap[route]) {
       routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
     }
@@ -10649,7 +10649,7 @@ function buildSalesPerRouteData(transactions) {
     routeMap[route].transactions += 1;
     if (t.custCode) routeMap[route].customers.add(t.custCode);
   }
-
+  console.log('[SPR] routeMap keys:', Object.keys(routeMap));
   return routeMap;
 }
 
