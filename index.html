@@ -10630,38 +10630,47 @@ function projRun() {
 let _sprAllRows = [];
 
 function populateSalesPerRoutePage(data) {
-  if (!data || !data.transactions || !data.transactions.length) return;
-
-  const txns = data.transactions;
-
-  // Build route pivot — route is baked into each transaction from Customers sheet Column F
-  const routeMap = {};
-
-  // ── Seed ALL known routes from the Customers sheet so they appear even with zero sales ──
-  if (refData && refData.routes) {
-    for (const r of refData.routes) {
-      if (!routeMap[r]) {
-        routeMap[r] = { route: r, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
+  // Use refData.routeMap if available (from Google Sheets API)
+  let routeMap = {};
+  
+  if (window.refData && window.refData.routeMap && Object.keys(window.refData.routeMap).length > 0) {
+    // Use pre-calculated route data from Google Sheets
+    routeMap = window.refData.routeMap;
+    console.log('📊 Using route data from Google Sheets:', routeMap);
+  } else if (data && data.transactions && data.transactions.length) {
+    // Fallback: Build from transactions if Google Sheets data not available
+    const txns = data.transactions;
+    
+    if (window.refData && window.refData.routes) {
+      for (const r of window.refData.routes) {
+        if (!routeMap[r]) {
+          routeMap[r] = { route: r, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
+        }
       }
     }
-  }
-
-  for (const t of txns) {
-    const route = (t.route && t.route.trim() && t.route.trim() !== '0') ? t.route.trim() : 'UNASSIGNED';
-    if (!routeMap[route]) {
-      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
+    
+    for (const t of txns) {
+      const route = (t.route && t.route.trim() && t.route.trim() !== '0') ? t.route.trim() : 'UNASSIGNED';
+      if (!routeMap[route]) {
+        routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0 };
+      }
+      routeMap[route].amount       += t.amount  || 0;
+      routeMap[route].ltrs         += t.ltrs    || 0;
+      routeMap[route].qty          += t.qty     || 0;
+      routeMap[route].transactions += 1;
+      if (t.custCode) routeMap[route].customers.add(t.custCode);
     }
-    routeMap[route].amount       += t.amount  || 0;
-    routeMap[route].ltrs         += t.ltrs    || 0;
-    routeMap[route].qty          += t.qty     || 0;
-    routeMap[route].transactions += 1;
-    if (t.custCode) routeMap[route].customers.add(t.custCode);
+  } else {
+    console.warn('⚠️ No route data available');
+    routeMap = {};
   }
 
   _sprAllRows = Object.values(routeMap)
-    .map(r => ({ ...r, customers: r.customers.size }))
+    .map(r => ({ 
+      ...r, 
+      customers: r.customers instanceof Set ? r.customers.size : (r.customers || 0)
+    }))
     .sort((a, b) => {
-      // Always push UNASSIGNED to the bottom
       if (a.route === 'UNASSIGNED' && b.route !== 'UNASSIGNED') return 1;
       if (b.route === 'UNASSIGNED' && a.route !== 'UNASSIGNED') return -1;
       return b.amount - a.amount;
@@ -10669,7 +10678,7 @@ function populateSalesPerRoutePage(data) {
 
   // Period label
   const periodEl = document.getElementById('sprPeriod');
-  if (periodEl && data.period) periodEl.textContent = 'Period: ' + data.period;
+  if (periodEl && data && data.period) periodEl.textContent = 'Period: ' + data.period;
 
   // Summary stats — exclude UNASSIGNED from named route count
   const grandAmt  = _sprAllRows.reduce((s, r) => s + r.amount, 0);
@@ -10752,40 +10761,98 @@ function filterSprTable() {
 
 </script>
 
-    <!-- ✅ Route Loading Code - Initialize reference data from Customers sheet -->
+    <!-- ✅ Route Loading Code - Fetch from Google Sheets API -->
     <script>
+    
     function initializeReferenceData() {
       window.refData = window.refData || {};
       
-      // Check if google.script.run is available
-      if (typeof google === 'undefined' || !google.script || !google.script.run) {
-        console.warn('⚠️ Google Apps Script not yet available, retrying...');
-        // Retry after a short delay
-        setTimeout(initializeReferenceData, 500);
-        return;
-      }
+      // Fetch Customers sheet using Google Visualization API (no auth required)
+      const customersUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Customers`;
       
-      // Now safely call getAllRoutes()
-      google.script.run
-        .withSuccessHandler(function(routes) {
-          window.refData.routes = routes;
-          console.log('✅ Routes loaded from Customers sheet:', routes);
+      fetch(customersUrl)
+        .then(r => r.text())
+        .then(csv => {
+          if (!csv || csv.startsWith('google.')) {
+            console.warn('⚠️ Failed to fetch Customers sheet');
+            window.refData.routes = [];
+            return;
+          }
+          
+          // Parse CSV
+          const lines = csv.trim().split('\n');
+          if (lines.length < 2) {
+            console.warn('⚠️ No customer data found');
+            window.refData.routes = [];
+            return;
+          }
+          
+          // Parse header row
+          const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+          const routeColIdx = headers.findIndex(h => h.toLowerCase().includes('route'));
+          const amountColIdx = headers.findIndex(h => h.toLowerCase().includes('amount'));
+          const volumeColIdx = headers.findIndex(h => h.toLowerCase().includes('volume') || h.toLowerCase().includes('litre'));
+          const qtyColIdx = headers.findIndex(h => h.toLowerCase().includes('qty'));
+          const custCodeColIdx = headers.findIndex(h => h.toLowerCase().includes('code'));
+          
+          console.log('📊 Column indices:', { route: routeColIdx, amount: amountColIdx, volume: volumeColIdx, qty: qtyColIdx });
+          
+          // Build route map
+          const routeMap = {};
+          
+          for (let i = 1; i < lines.length; i++) {
+            const cells = lines[i].split(',').map(c => c.replace(/"/g, '').trim());
+            const route = (cells[routeColIdx] && cells[routeColIdx] !== '0') 
+              ? cells[routeColIdx] 
+              : 'UNASSIGNED';
+            
+            if (!routeMap[route]) {
+              routeMap[route] = { 
+                route, 
+                amount: 0, 
+                ltrs: 0, 
+                qty: 0, 
+                customers: new Set(), 
+                transactions: 0 
+              };
+            }
+            
+            const amount = parseFloat(cells[amountColIdx]) || 0;
+            const volume = parseFloat(cells[volumeColIdx]) || 0;
+            const qty = parseInt(cells[qtyColIdx]) || 0;
+            const custCode = cells[custCodeColIdx] || '';
+            
+            routeMap[route].amount += amount;
+            routeMap[route].ltrs += volume;
+            routeMap[route].qty += qty;
+            routeMap[route].transactions += 1;
+            if (custCode) routeMap[route].customers.add(custCode);
+          }
+          
+          // Store routes and full route data
+          window.refData.routes = Object.keys(routeMap);
+          window.refData.routeMap = routeMap;
+          
+          console.log('✅ Routes loaded from Customers sheet:', window.refData.routes);
+          console.log('📈 Route data:', routeMap);
+          
+          // Auto-populate Sales Per Route page
+          populateSalesPerRoutePage({ period: 'All Time' });
         })
-        .withFailureHandler(function(err) {
+        .catch(err => {
           console.error('❌ Failed to load routes:', err);
           window.refData.routes = [];
-        })
-        .getAllRoutes();
+          window.refData.routeMap = {};
+        });
     }
 
-    // Wait for document to be ready AND Google Apps Script to be available
+    // Wait for document to be ready
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function() {
-        // Add small delay to ensure Google Apps Script library is loaded
         setTimeout(initializeReferenceData, 100);
       });
     } else {
-      // Document already loaded, but still need to wait for Google Apps Script
+      // Document already loaded
       setTimeout(initializeReferenceData, 100);
     }
     </script>
