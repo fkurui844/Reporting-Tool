@@ -2317,17 +2317,32 @@
         <div class="missing-head-right">
           <span class="badge-warn" id="missingBadge"></span>
           <button class="btn-copy" onclick="copyMissing()">Copy list</button>
+          <button class="btn-copy" id="registerAllBtn" onclick="registerAllMissing()"
+            style="background:#0f2744;color:#fff;border-color:#0f2744;margin-left:4px;">✚ Register all</button>
         </div>
       </div>
-      <div class="missing-table-wrap">
-        <table>
-          <colgroup><col style="width:22%"><col style="width:46%"><col style="width:16%"><col style="width:16%"></colgroup>
-          <thead><tr><th>SAP Code</th><th>Name in SAP</th><th>Ltrs/Kgs</th><th>Amt KSH</th></tr></thead>
+      <div style="padding:8px 16px;background:#fffbeb;border-bottom:1px solid #f6ad2b;font-size:12px;color:#92400e;font-weight:500;">
+        Fill in the details below and click <strong>Register</strong> to add each customer to the in-app database — no sheet editing needed. Changes apply immediately on this session. Use <strong>Register all</strong> to bulk-fill with defaults.
+      </div>
+      <div class="missing-table-wrap" style="max-height:420px;overflow-y:auto;">
+        <table id="missingTable">
+          <colgroup>
+            <col style="width:13%"><col style="width:22%"><col style="width:13%">
+            <col style="width:13%"><col style="width:13%"><col style="width:13%">
+            <col style="width:7%"><col style="width:6%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>SAP Code</th><th>Name in SAP</th>
+              <th>Region</th><th>Channel</th><th>Type</th><th>Route</th>
+              <th style="text-align:right;">Amt KSH</th><th></th>
+            </tr>
+          </thead>
           <tbody id="missingTbody"></tbody>
         </table>
       </div>
       <div class="missing-hint">
-        Add these to the <strong>Customers</strong> sheet then click <strong>↻ Reload</strong> and re-upload.
+        Registered customers are added to the <strong>in-app database</strong> for this session. To make permanent, also add them to your <strong>Customers</strong> sheet.
       </div>
     </div>
 
@@ -3698,6 +3713,7 @@ function processFile(file) {
     setTimeout(()=>{
       try{
         const data=parseSAP(e.target.result);
+        window._lastRawSAP = e.target.result;
         setProgress(true,80,'Building report…');
         setTimeout(()=>{renderReport(data);setProgress(false);},200);
       }catch(err){
@@ -4258,13 +4274,54 @@ function renderReport(data){
   const mc=document.getElementById('missingCard');
   if(missingArr.length){
     mc.style.display='block';
+    window._missingArr = missingArr;
     document.getElementById('missingTitle').textContent=`⚠ ${missingArr.length} customer${missingArr.length>1?'s':''} in SAP not found in Customers sheet`;
     document.getElementById('missingBadge').textContent=fmt(missingArr.reduce((s,c)=>s+c.amount,0))+' KSH unclassified';
-    document.getElementById('missingTbody').innerHTML=missingArr.map(c=>`
-      <tr>
-        <td style="font-family:'DM Mono',monospace;font-size:11px;">${c.rawCode}</td>
-        <td>${c.name}</td><td>${fmt(c.ltrs)}</td><td>${fmt(c.amount)}</td>
-      </tr>`).join('');
+
+    // Collect known regions, channels, types, routes for datalist suggestions
+    const knownRegions  = [...new Set(Object.values(refData.customers).map(c=>c.region).filter(Boolean))].sort();
+    const knownChannels = [...new Set(Object.values(refData.customers).map(c=>c.channel).filter(Boolean))].sort();
+    const knownTypes    = [...new Set(Object.values(refData.customers).map(c=>c.type).filter(Boolean))].sort();
+    const knownRoutes   = [...(refData.routes instanceof Set ? refData.routes : new Set())].sort();
+
+    document.getElementById('missingTbody').innerHTML = missingArr.map((c, idx) => {
+      const regId = `mreg-${idx}`, chanId = `mchan-${idx}`, typeId = `mtype-${idx}`, routeId = `mroute-${idx}`;
+      const isRegistered = !!refData.customers[c.code] || !!refData.customers[c.rawCode];
+      const inp = (id, ph, val='') =>
+        `<input id="${id}" value="${val}" placeholder="${ph}"
+          style="width:100%;padding:4px 7px;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);">`;
+      return `<tr id="miss-row-${idx}" style="${isRegistered?'opacity:0.45;':''}">
+        <td style="font-family:'DM Mono',monospace;font-size:11px;padding:7px 10px;">${c.rawCode}</td>
+        <td style="padding:7px 10px;font-size:12px;font-weight:600;color:var(--text-head);">${c.name}</td>
+        <td style="padding:5px 6px;">${inp(regId,'e.g. EASTERN')}</td>
+        <td style="padding:5px 6px;">${inp(chanId,'e.g. DISTRIBUTOR')}</td>
+        <td style="padding:5px 6px;">${inp(typeId,'e.g. DISTRIBUTOR')}</td>
+        <td style="padding:5px 6px;">${inp(routeId,'e.g. MACHAKOS')}</td>
+        <td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:600;">${fmt(c.amount)}</td>
+        <td style="padding:5px 6px;text-align:center;">
+          ${isRegistered
+            ? `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Done</span>`
+            : `<button onclick="registerMissingCustomer(${idx},'${c.rawCode}','${c.code.replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')"
+                style="padding:4px 10px;background:#0f2744;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;">
+                Register
+               </button>`}
+        </td>
+      </tr>`;
+    }).join('');
+
+    // Inject datalist suggestions for each row
+    missingArr.forEach((c, idx) => {
+      const makeList = (id, items) => {
+        const dl = document.createElement('datalist'); dl.id = id + '-dl';
+        items.forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
+        document.body.appendChild(dl);
+        const inp = document.getElementById(id); if (inp) inp.setAttribute('list', id + '-dl');
+      };
+      makeList(`mreg-${idx}`, knownRegions);
+      makeList(`mchan-${idx}`, knownChannels);
+      makeList(`mtype-${idx}`, knownTypes);
+      makeList(`mroute-${idx}`, knownRoutes);
+    });
   } else { mc.style.display='none'; }
 
   // Missing Products
@@ -11057,6 +11114,76 @@ function filterSprTable() {
   }
 
   renderSprTable(filtered, displayGrandAmt);
+}
+
+function registerMissingCustomer(idx, rawCode, code, name) {
+  const get = id => (document.getElementById(id)||{}).value || '';
+  const entry = {
+    outlet:  name,
+    region:  get(`mreg-${idx}`).trim().toUpperCase()   || 'UNKNOWN',
+    channel: get(`mchan-${idx}`).trim().toUpperCase()  || 'UNKNOWN',
+    type:    get(`mtype-${idx}`).trim().toUpperCase()  || 'UNKNOWN',
+    route:   get(`mroute-${idx}`).trim().toUpperCase() || '',
+  };
+
+  // Register under both raw and stripped code
+  refData.customers[code]    = entry;
+  if (rawCode !== code) refData.customers[rawCode] = entry;
+  if (entry.route) {
+    if (!refData.routes) refData.routes = new Set();
+    refData.routes.add(entry.route);
+  }
+
+  // Mark row as done
+  const row = document.getElementById(`miss-row-${idx}`);
+  if (row) {
+    row.style.opacity = '0.45';
+    const btn = row.querySelector('button');
+    if (btn) btn.outerHTML = `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Done</span>`;
+  }
+
+  // Count remaining
+  const remaining = (window._missingArr||[]).filter((c,i) => {
+    return !refData.customers[c.code] && !refData.customers[c.rawCode];
+  }).length;
+
+  showToast(`✓ ${name} registered${entry.route ? ' → ' + entry.route : ''}`, 'ok');
+
+  if (remaining === 0) {
+    showToast('All customers registered! Re-processing data…', 'ok');
+    setTimeout(() => {
+      if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); }
+    }, 800);
+  }
+}
+
+function registerAllMissing() {
+  const arr = window._missingArr || [];
+  let count = 0;
+  arr.forEach((c, idx) => {
+    if (refData.customers[c.code] || refData.customers[c.rawCode]) return;
+    const entry = {
+      outlet:  c.name,
+      region:  (document.getElementById(`mreg-${idx}`)?.value || '').trim().toUpperCase()   || 'UNKNOWN',
+      channel: (document.getElementById(`mchan-${idx}`)?.value || '').trim().toUpperCase()  || 'UNKNOWN',
+      type:    (document.getElementById(`mtype-${idx}`)?.value || '').trim().toUpperCase()  || 'UNKNOWN',
+      route:   (document.getElementById(`mroute-${idx}`)?.value || '').trim().toUpperCase() || '',
+    };
+    refData.customers[c.code] = entry;
+    if (c.rawCode !== c.code) refData.customers[c.rawCode] = entry;
+    if (entry.route && refData.routes) refData.routes.add(entry.route);
+    const row = document.getElementById(`miss-row-${idx}`);
+    if (row) {
+      row.style.opacity = '0.45';
+      const btn = row.querySelector('button');
+      if (btn) btn.outerHTML = `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Done</span>`;
+    }
+    count++;
+  });
+  showToast(`✓ ${count} customer${count!==1?'s':''} registered. Re-processing…`, 'ok');
+  setTimeout(() => {
+    if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); }
+  }, 900);
 }
 
 function clearSprFilters() {
