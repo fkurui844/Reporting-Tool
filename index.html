@@ -2327,15 +2327,14 @@
       <div class="missing-table-wrap" style="max-height:420px;overflow-y:auto;">
         <table id="missingTable">
           <colgroup>
-            <col style="width:13%"><col style="width:22%"><col style="width:13%">
-            <col style="width:13%"><col style="width:13%"><col style="width:13%">
-            <col style="width:7%"><col style="width:6%">
+            <col style="width:16%"><col style="width:42%"><col style="width:12%"><col style="width:16%"><col style="width:14%">
           </colgroup>
           <thead>
             <tr>
               <th>SAP Code</th><th>Name in SAP</th>
-              <th>Region</th><th>Channel</th><th>Type</th><th>Route</th>
-              <th style="text-align:right;">Amt KSH</th><th></th>
+              <th style="text-align:right;">Ltrs/Kgs</th>
+              <th style="text-align:right;">Amt KSH</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="missingTbody"></tbody>
@@ -2343,6 +2342,71 @@
       </div>
       <div class="missing-hint">
         Registered customers are added to the <strong>in-app database</strong> for this session. To make permanent, also add them to your <strong>Customers</strong> sheet.
+      </div>
+    </div>
+
+    <!-- New Customer Registration Modal -->
+    <div id="regCustOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9100;backdrop-filter:blur(3px);" onclick="closeRegModal()"></div>
+    <div id="regCustModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:540px;max-width:96vw;background:var(--surface);border-radius:16px;box-shadow:0 24px 80px rgba(0,0,0,0.3);z-index:9101;overflow:hidden;font-family:'DM Sans',sans-serif;">
+      <!-- Header -->
+      <div style="background:#0f2744;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#fff;">✚ Register New Customer</div>
+          <div id="regCustSubtitle" style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px;"></div>
+        </div>
+        <button onclick="closeRegModal()" style="background:rgba(255,255,255,0.12);border:none;border-radius:8px;color:#fff;font-size:18px;font-weight:700;width:34px;height:34px;cursor:pointer;line-height:1;">✕</button>
+      </div>
+      <!-- SAP info strip -->
+      <div id="regCustInfoStrip" style="background:#f0f7ff;border-bottom:1px solid #dde3ec;padding:12px 20px;display:flex;gap:24px;flex-wrap:wrap;">
+        <div><div style="font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.05em;">SAP Code</div><div id="regCustCode" style="font-size:14px;font-weight:700;font-family:'DM Mono',monospace;color:#0f2744;margin-top:2px;"></div></div>
+        <div><div style="font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Name in SAP</div><div id="regCustName" style="font-size:14px;font-weight:700;color:#0f2744;margin-top:2px;"></div></div>
+        <div><div style="font-size:10px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.05em;">Revenue</div><div id="regCustAmt" style="font-size:14px;font-weight:700;color:#E1245A;margin-top:2px;"></div></div>
+      </div>
+      <!-- Form -->
+      <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Location / Region *</label>
+          <input id="regLocation" list="regLocList" placeholder="e.g. EASTERN" autocomplete="off"
+            style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);outline:none;"
+            onfocus="this.style.borderColor='#0f2744'" onblur="this.style.borderColor='var(--border)'">
+          <datalist id="regLocList"></datalist>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Channel *</label>
+          <input id="regChannel" list="regChanList" placeholder="e.g. DISTRIBUTOR" autocomplete="off"
+            style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);outline:none;"
+            onfocus="this.style.borderColor='#0f2744'" onblur="this.style.borderColor='var(--border)'">
+          <datalist id="regChanList"></datalist>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Type *</label>
+          <input id="regType" list="regTypeList" placeholder="e.g. WHOLESALER" autocomplete="off"
+            style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);outline:none;"
+            onfocus="this.style.borderColor='#0f2744'" onblur="this.style.borderColor='var(--border)'">
+          <datalist id="regTypeList"></datalist>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Route</label>
+          <input id="regRoute" list="regRouteList" placeholder="e.g. MACHAKOS" autocomplete="off"
+            style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);outline:none;"
+            onfocus="this.style.borderColor='#0f2744'" onblur="this.style.borderColor='var(--border)'">
+          <datalist id="regRouteList"></datalist>
+        </div>
+      </div>
+      <!-- Actions -->
+      <div style="padding:0 20px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button id="regSaveLocalBtn" onclick="confirmRegLocal()"
+          style="flex:1;padding:11px;background:#eef2f7;border:1.5px solid #0f2744;border-radius:9px;color:#0f2744;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">
+          ✓ Register (this session only)
+        </button>
+        <button id="regSaveSheetBtn" onclick="confirmRegSheet()"
+          style="flex:1;padding:11px;background:#0f2744;border:1.5px solid #0f2744;border-radius:9px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">
+          ☁ Register + Save to Google Sheet
+        </button>
+      </div>
+      <div style="padding:0 20px 16px;font-size:11px;color:#718096;line-height:1.5;">
+        <strong>Register (session only)</strong> — adds to in-app database immediately, re-processes data. Not saved permanently.<br>
+        <strong>Register + Save to Sheet</strong> — also appends the customer as a new row in your <strong>Customers</strong> Google Sheet.
       </div>
     </div>
 
@@ -4285,43 +4349,22 @@ function renderReport(data){
     const knownRoutes   = [...(refData.routes instanceof Set ? refData.routes : new Set())].sort();
 
     document.getElementById('missingTbody').innerHTML = missingArr.map((c, idx) => {
-      const regId = `mreg-${idx}`, chanId = `mchan-${idx}`, typeId = `mtype-${idx}`, routeId = `mroute-${idx}`;
       const isRegistered = !!refData.customers[c.code] || !!refData.customers[c.rawCode];
-      const inp = (id, ph, val='') =>
-        `<input id="${id}" value="${val}" placeholder="${ph}"
-          style="width:100%;padding:4px 7px;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);">`;
-      return `<tr id="miss-row-${idx}" style="${isRegistered?'opacity:0.45;':''}">
-        <td style="font-family:'DM Mono',monospace;font-size:11px;padding:7px 10px;">${c.rawCode}</td>
-        <td style="padding:7px 10px;font-size:12px;font-weight:600;color:var(--text-head);">${c.name}</td>
-        <td style="padding:5px 6px;">${inp(regId,'e.g. EASTERN')}</td>
-        <td style="padding:5px 6px;">${inp(chanId,'e.g. DISTRIBUTOR')}</td>
-        <td style="padding:5px 6px;">${inp(typeId,'e.g. DISTRIBUTOR')}</td>
-        <td style="padding:5px 6px;">${inp(routeId,'e.g. MACHAKOS')}</td>
-        <td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:600;">${fmt(c.amount)}</td>
-        <td style="padding:5px 6px;text-align:center;">
+      return `<tr id="miss-row-${idx}" style="${isRegistered ? 'opacity:0.45;' : ''}">
+        <td style="font-family:'DM Mono',monospace;font-size:11px;padding:9px 12px;">${c.rawCode}</td>
+        <td style="padding:9px 12px;font-size:13px;font-weight:600;color:var(--text-head);">${c.name}</td>
+        <td style="padding:9px 12px;text-align:right;font-size:12px;color:var(--text-muted);">${fmt(c.ltrs)}</td>
+        <td style="padding:9px 12px;text-align:right;font-size:13px;font-weight:700;">${fmt(c.amount)}</td>
+        <td style="padding:7px 12px;text-align:center;">
           ${isRegistered
             ? `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Done</span>`
-            : `<button onclick="registerMissingCustomer(${idx},'${c.rawCode}','${c.code.replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')"
-                style="padding:4px 10px;background:#0f2744;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;">
-                Register
+            : `<button onclick="openRegModal(${idx})"
+                style="padding:5px 12px;background:#0f2744;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;">
+                ✚ Register
                </button>`}
         </td>
       </tr>`;
     }).join('');
-
-    // Inject datalist suggestions for each row
-    missingArr.forEach((c, idx) => {
-      const makeList = (id, items) => {
-        const dl = document.createElement('datalist'); dl.id = id + '-dl';
-        items.forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
-        document.body.appendChild(dl);
-        const inp = document.getElementById(id); if (inp) inp.setAttribute('list', id + '-dl');
-      };
-      makeList(`mreg-${idx}`, knownRegions);
-      makeList(`mchan-${idx}`, knownChannels);
-      makeList(`mtype-${idx}`, knownTypes);
-      makeList(`mroute-${idx}`, knownRoutes);
-    });
   } else { mc.style.display='none'; }
 
   // Missing Products
@@ -11116,44 +11159,137 @@ function filterSprTable() {
   renderSprTable(filtered, displayGrandAmt);
 }
 
-function registerMissingCustomer(idx, rawCode, code, name) {
-  const get = id => (document.getElementById(id)||{}).value || '';
-  const entry = {
-    outlet:  name,
-    region:  get(`mreg-${idx}`).trim().toUpperCase()   || 'UNKNOWN',
-    channel: get(`mchan-${idx}`).trim().toUpperCase()  || 'UNKNOWN',
-    type:    get(`mtype-${idx}`).trim().toUpperCase()  || 'UNKNOWN',
-    route:   get(`mroute-${idx}`).trim().toUpperCase() || '',
-  };
+// ── Missing Customer Registration ──────────────────────────────
+let _regCurrentIdx = null;
 
-  // Register under both raw and stripped code
-  refData.customers[code]    = entry;
-  if (rawCode !== code) refData.customers[rawCode] = entry;
+function openRegModal(idx) {
+  const arr = window._missingArr || [];
+  const c = arr[idx];
+  if (!c) return;
+  _regCurrentIdx = idx;
+
+  // Populate info strip
+  document.getElementById('regCustSubtitle').textContent = `Customer ${idx + 1} of ${arr.length}`;
+  document.getElementById('regCustCode').textContent = c.rawCode;
+  document.getElementById('regCustName').textContent = c.name;
+  document.getElementById('regCustAmt').textContent  = 'KSH ' + Math.round(c.amount).toLocaleString();
+
+  // Clear fields
+  ['regLocation','regChannel','regType','regRoute'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+
+  // Populate datalist suggestions from existing customers
+  const custs = Object.values(refData.customers);
+  const fill = (listId, vals) => {
+    const dl = document.getElementById(listId);
+    dl.innerHTML = [...new Set(vals.filter(Boolean))].sort().map(v=>`<option value="${v}">`).join('');
+  };
+  fill('regLocList',   custs.map(c=>c.region));
+  fill('regChanList',  custs.map(c=>c.channel));
+  fill('regTypeList',  custs.map(c=>c.type));
+  fill('regRouteList', [...(refData.routes instanceof Set ? refData.routes : new Set())]);
+
+  document.getElementById('regCustOverlay').style.display = 'block';
+  document.getElementById('regCustModal').style.display   = 'block';
+  setTimeout(() => document.getElementById('regLocation').focus(), 80);
+}
+
+function closeRegModal() {
+  document.getElementById('regCustOverlay').style.display = 'none';
+  document.getElementById('regCustModal').style.display   = 'none';
+  _regCurrentIdx = null;
+}
+
+function getRegFormValues() {
+  return {
+    location: document.getElementById('regLocation').value.trim().toUpperCase() || 'UNKNOWN',
+    channel:  document.getElementById('regChannel').value.trim().toUpperCase()  || 'UNKNOWN',
+    type:     document.getElementById('regType').value.trim().toUpperCase()     || 'UNKNOWN',
+    route:    document.getElementById('regRoute').value.trim().toUpperCase()    || '',
+  };
+}
+
+function applyRegToMemory(idx, vals) {
+  const arr = window._missingArr || [];
+  const c = arr[idx];
+  if (!c) return;
+  const entry = { outlet: c.name, region: vals.location, channel: vals.channel, type: vals.type, route: vals.route };
+  refData.customers[c.code]    = entry;
+  if (c.rawCode !== c.code) refData.customers[c.rawCode] = entry;
   if (entry.route) {
     if (!refData.routes) refData.routes = new Set();
     refData.routes.add(entry.route);
   }
-
-  // Mark row as done
+  // Mark row done in table
   const row = document.getElementById(`miss-row-${idx}`);
   if (row) {
     row.style.opacity = '0.45';
-    const btn = row.querySelector('button');
+    const btn = row.querySelector('button[onclick*="openRegModal"]');
     if (btn) btn.outerHTML = `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Done</span>`;
   }
+}
 
-  // Count remaining
-  const remaining = (window._missingArr||[]).filter((c,i) => {
-    return !refData.customers[c.code] && !refData.customers[c.rawCode];
-  }).length;
+function confirmRegLocal() {
+  const idx = _regCurrentIdx;
+  if (idx === null) return;
+  const vals = getRegFormValues();
+  applyRegToMemory(idx, vals);
+  closeRegModal();
+  showToast(`✓ Registered (session). Re-processing…`, 'ok');
+  setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 600);
+}
 
-  showToast(`✓ ${name} registered${entry.route ? ' → ' + entry.route : ''}`, 'ok');
+function confirmRegSheet() {
+  const idx = _regCurrentIdx;
+  if (idx === null) return;
+  const arr = window._missingArr || [];
+  const c = arr[idx];
+  const vals = getRegFormValues();
 
-  if (remaining === 0) {
-    showToast('All customers registered! Re-processing data…', 'ok');
-    setTimeout(() => {
-      if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); }
-    }, 800);
+  const btn = document.getElementById('regSaveSheetBtn');
+  btn.disabled = true;
+  btn.textContent = '☁ Saving to Sheet…';
+
+  const payload = {
+    sapCode:  c.rawCode,
+    name:     c.name,
+    location: vals.location,
+    channel:  vals.channel,
+    type:     vals.type,
+    route:    vals.route,
+    ltrsKgs:  Math.round(c.ltrs || 0),
+    amtKsh:   Math.round(c.amount || 0),
+  };
+
+  if (typeof google !== 'undefined' && google.script) {
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.textContent = '☁ Register + Save to Google Sheet';
+        if (res && res.success) {
+          applyRegToMemory(idx, vals);
+          closeRegModal();
+          showToast(`✓ ${c.name} saved to Customers sheet`, 'ok');
+          setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 600);
+        } else {
+          showToast('Sheet error: ' + (res && res.message ? res.message : 'Unknown error'), 'err');
+        }
+      })
+      .withFailureHandler(e => {
+        btn.disabled = false;
+        btn.textContent = '☁ Register + Save to Google Sheet';
+        showToast('Failed: ' + e.message, 'err');
+      })
+      .addCustomer(payload);
+  } else {
+    // Fallback: session-only if Apps Script not available
+    btn.disabled = false;
+    btn.textContent = '☁ Register + Save to Google Sheet';
+    applyRegToMemory(idx, vals);
+    closeRegModal();
+    showToast('⚠ Google Sheet API not available in this context. Registered session-only.', 'err');
+    setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 600);
   }
 }
 
@@ -11163,15 +11299,10 @@ function registerAllMissing() {
   arr.forEach((c, idx) => {
     if (refData.customers[c.code] || refData.customers[c.rawCode]) return;
     const entry = {
-      outlet:  c.name,
-      region:  (document.getElementById(`mreg-${idx}`)?.value || '').trim().toUpperCase()   || 'UNKNOWN',
-      channel: (document.getElementById(`mchan-${idx}`)?.value || '').trim().toUpperCase()  || 'UNKNOWN',
-      type:    (document.getElementById(`mtype-${idx}`)?.value || '').trim().toUpperCase()  || 'UNKNOWN',
-      route:   (document.getElementById(`mroute-${idx}`)?.value || '').trim().toUpperCase() || '',
+      outlet: c.name, region: 'UNKNOWN', channel: 'UNKNOWN', type: 'UNKNOWN', route: ''
     };
     refData.customers[c.code] = entry;
     if (c.rawCode !== c.code) refData.customers[c.rawCode] = entry;
-    if (entry.route && refData.routes) refData.routes.add(entry.route);
     const row = document.getElementById(`miss-row-${idx}`);
     if (row) {
       row.style.opacity = '0.45';
@@ -11180,10 +11311,8 @@ function registerAllMissing() {
     }
     count++;
   });
-  showToast(`✓ ${count} customer${count!==1?'s':''} registered. Re-processing…`, 'ok');
-  setTimeout(() => {
-    if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); }
-  }, 900);
+  showToast(`✓ ${count} customer${count!==1?'s':''} registered (UNKNOWN fields). Re-processing…`, 'ok');
+  setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 900);
 }
 
 function clearSprFilters() {
