@@ -10749,12 +10749,19 @@ function buildSalesPerRouteData(transactions) {
     // Track per-category breakdown
     const cat = (t.category && t.category.trim()) ? t.category.trim().toUpperCase() : 'UNCLASSIFIED';
     if (!routeMap[route].categories[cat]) {
-      routeMap[route].categories[cat] = { amount: 0, ltrs: 0, qty: 0, transactions: 0 };
+      routeMap[route].categories[cat] = { amount: 0, ltrs: 0, qty: 0, transactions: 0, customerMap: {} };
     }
     routeMap[route].categories[cat].amount       += t.amount || 0;
     routeMap[route].categories[cat].ltrs         += toDisplayLtrs(t.ltrs || 0, cat);
     routeMap[route].categories[cat].qty          += t.qty    || 0;
     routeMap[route].categories[cat].transactions += 1;
+    if (t.custCode) {
+      if (!routeMap[route].categories[cat].customerMap[t.custCode]) {
+        routeMap[route].categories[cat].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0 };
+      }
+      routeMap[route].categories[cat].customerMap[t.custCode].amount += t.amount || 0;
+      routeMap[route].categories[cat].customerMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs || 0, cat);
+    }
   }
   // Resolve dominant location for each route
   for (const r of Object.values(routeMap)) {
@@ -10897,8 +10904,15 @@ function renderSprTable(rows, grandAmt) {
       const isActiveCat = activeCat && cat === activeCat;
       const catBg = isActiveCat ? '#fffbeb' : 'var(--inc-bg)';
       const catBorder = isActiveCat ? '#f6ad2b' : catColor;
-      // When category filter active, show all rows expanded; hide non-matching rows
       const hideRow = activeCat && !isActiveCat ? 'display:none;' : (activeCat ? '' : 'display:none;');
+      const catCustCount = cd.customerMap ? Object.keys(cd.customerMap).length : 0;
+      const catCustKey = `${rowId}-cat-${ci}`;
+      // Store cat customer data for popup
+      _sprRowDataMap[catCustKey] = { route: r.route + ' › ' + cat, location: r.location, amount: cd.amount, customerMap: cd.customerMap || {} };
+      const custCell = catCustCount > 0
+        ? `<span onclick="event.stopPropagation();openSprCustPopup('${catCustKey}')" title="View customers for ${cat}"
+             style="color:#0891b2;font-weight:600;border-bottom:1px dashed #0891b2;cursor:pointer;">${catCustCount}</span>`
+        : `<span style="color:var(--text-muted);">—</span>`;
       return `<tr class="spr-cat-row" data-parent="${rowId}" style="${hideRow}background:${catBg};border-left:3px solid ${catBorder};${isActiveCat?'font-weight:700;':''}">
         <td style="padding:7px 12px;color:var(--text-muted);font-size:11px;"></td>
         <td style="padding:7px 12px;padding-left:28px;" colspan="2">
@@ -10914,7 +10928,7 @@ function renderSprTable(rows, grandAmt) {
         <td style="padding:7px 12px;text-align:right;font-weight:600;font-family:'DM Mono',monospace;font-size:12px;color:var(--text-head);">${fmtN(cd.amount)}</td>
         <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">${catShare}%</td>
         <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:11px;">${fmtN(cd.ltrs)}</td>
-        <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>
+        <td style="padding:7px 12px;text-align:right;font-size:11px;">${custCell}</td>
       </tr>`;
     }).join('') : '';
 
