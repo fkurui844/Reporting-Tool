@@ -2792,6 +2792,24 @@
       <!-- Category filter banner -->
       <div id="sprCatBanner" style="display:none;align-items:center;gap:8px;background:#fffbeb;border:1px solid #f6ad2b;border-radius:8px;padding:9px 14px;margin-bottom:10px;font-size:12px;color:#92400e;font-weight:500;"></div>
 
+      <!-- Customer list popup -->
+      <div id="sprCustOverlay" onclick="closeSprCustPopup()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;"></div>
+      <div id="sprCustPopup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:520px;max-width:95vw;max-height:80vh;background:var(--surface);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.25);z-index:9001;overflow:hidden;display:flex;flex-direction:column;">
+        <div style="background:#0f2744;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+          <div>
+            <div id="sprCustPopupTitle" style="font-size:15px;font-weight:700;color:#fff;"></div>
+            <div id="sprCustPopupSub" style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px;"></div>
+          </div>
+          <button onclick="closeSprCustPopup()" style="background:rgba(255,255,255,0.12);border:none;border-radius:7px;color:#fff;font-size:16px;font-weight:700;width:30px;height:30px;cursor:pointer;line-height:1;">✕</button>
+        </div>
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
+          <input id="sprCustSearch" type="text" placeholder="🔍  Search customer…" oninput="filterSprCustList()"
+            style="width:100%;padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);">
+        </div>
+        <div id="sprCustList" style="overflow-y:auto;flex:1;padding:8px 0;"></div>
+        <div id="sprCustTotal" style="padding:10px 18px;border-top:1px solid var(--border);background:var(--th-bg);font-size:12px;font-weight:700;color:#0f2744;flex-shrink:0;display:flex;justify-content:space-between;"></div>
+      </div>
+
       <!-- Table -->
       <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border);background:var(--surface);">
         <table id="sprTable" style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -10699,6 +10717,7 @@ function projRun() {
 // ── Sales Per Route Page ───────────────────────────────────────────────────
 let _sprAllRows = [];
 let _sprFilteredRows = [];
+let _sprRowDataMap = {}; // rowId → row data for customer popup
 
 function buildSalesPerRouteData(transactions) {
   // Mirrors buildTypeSalesData exactly — reads t.route (Column F) the same
@@ -10709,13 +10728,20 @@ function buildSalesPerRouteData(transactions) {
       ? t.route.trim()
       : 'UNASSIGNED';
     if (!routeMap[route]) {
-      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), transactions: 0, regions: {}, categories: {} };
+      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), customerMap: {}, transactions: 0, regions: {}, categories: {} };
     }
     routeMap[route].amount       += t.amount  || 0;
     routeMap[route].ltrs         += toDisplayLtrs(t.ltrs || 0, (t.category || '').toUpperCase());
     routeMap[route].qty          += t.qty     || 0;
     routeMap[route].transactions += 1;
-    if (t.custCode) routeMap[route].customers.add(t.custCode);
+    if (t.custCode) {
+      routeMap[route].customers.add(t.custCode);
+      if (!routeMap[route].customerMap[t.custCode]) {
+        routeMap[route].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0 };
+      }
+      routeMap[route].customerMap[t.custCode].amount += t.amount || 0;
+      routeMap[route].customerMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs || 0, (t.category || '').toUpperCase());
+    }
     // Track region frequency to derive dominant location per route
     if (t.region && t.region !== 'UNKNOWN') {
       routeMap[route].regions[t.region] = (routeMap[route].regions[t.region] || 0) + 1;
@@ -10835,7 +10861,9 @@ function renderSprTable(rows, grandAmt) {
 
   const catColors = ['#E1245A','#7c3aed','#0891b2','#f6ad2b','#16a34a','#db2777','#0f2744','#d97706','#0284c7','#65a30d'];
 
+  _sprRowDataMap = {};
   document.getElementById('sprTbody').innerHTML = rows.map((r, i) => {
+    _sprRowDataMap['spr-cat-' + i] = r;
     const share = grandAmt > 0 ? (r.amount / grandAmt * 100).toFixed(1) : '0.0';
     const barW  = grandAmt > 0 ? Math.max(2, Math.round(r.amount / grandAmt * 100)) : 0;
     const isUnassigned = r.route === 'UNASSIGNED';
@@ -10862,8 +10890,9 @@ function renderSprTable(rows, grandAmt) {
           : '');
 
     const catRows = hasCats ? catEntries.map(([cat, cd], ci) => {
-      const catShare = r.amount > 0 ? (cd.amount / r.amount * 100).toFixed(1) : '0.0';
-      const catBarW  = r.amount > 0 ? Math.max(2, Math.round(cd.amount / r.amount * 100)) : 0;
+      const baseAmt  = r._origAmount || r.amount;
+      const catShare = baseAmt > 0 ? (cd.amount / baseAmt * 100).toFixed(1) : '0.0';
+      const catBarW  = baseAmt > 0 ? Math.max(2, Math.round(cd.amount / baseAmt * 100)) : 0;
       const catColor = catColors[ci % catColors.length];
       const isActiveCat = activeCat && cat === activeCat;
       const catBg = isActiveCat ? '#fffbeb' : 'var(--inc-bg)';
@@ -10889,7 +10918,7 @@ function renderSprTable(rows, grandAmt) {
       </tr>`;
     }).join('') : '';
 
-    return `<tr id="${rowId}-row" style="background:${bg};${isUnassigned ? 'opacity:0.75;' : ''}cursor:${hasCats?'pointer':'default'};" ${hasCats?`onclick="toggleSprCat('${rowId}',null)"`:''}>
+    return `<tr id="${rowId}-row" style="background:${bg};${isUnassigned ? 'opacity:0.75;' : ''}cursor:${(hasCats && !activeCat)?'pointer':'default'};" ${(hasCats && !activeCat)?`onclick="toggleSprCat('${rowId}',null)"`:''}>
       <td style="padding:9px 12px;color:var(--text-muted);font-size:12px;">${isUnassigned ? '—' : i + 1}</td>
       <td style="padding:9px 12px;">
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
@@ -10904,7 +10933,12 @@ function renderSprTable(rows, grandAmt) {
       <td style="padding:9px 12px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;font-size:13px;${isUnassigned?'color:var(--text-muted);':''}">${fmtN(r.amount)}</td>
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${share}%</td>
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:12px;">${fmtN(r.ltrs)}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${r.customers}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;${r.customers > 0 ? 'cursor:pointer;' : ''}" 
+          ${r.customers > 0 ? `onclick="event.stopPropagation();openSprCustPopup('${rowId}')" title="Click to view customer names"` : ''}>
+        ${r.customers > 0
+          ? `<span style="color:#0891b2;font-weight:600;border-bottom:1px dashed #0891b2;">${r.customers}</span>`
+          : r.customers}
+      </td>
     </tr>${catRows}`;
   }).join('');
 
@@ -10952,7 +10986,7 @@ function filterSprTable() {
       })
       .map(r => {
         const cd = r.categories[cat];
-        return { ...r, amount: cd.amount, ltrs: cd.ltrs, _catFiltered: cat };
+        return { ...r, amount: cd.amount, ltrs: cd.ltrs, _catFiltered: cat, _origAmount: r.amount };
       })
       .filter(r => !minRev || r.amount >= minRev);
   } else {
@@ -11018,6 +11052,68 @@ function clearSprFilters() {
   document.getElementById('sprMinRev').value    = '';
   document.getElementById('sprSort').value      = 'revenue_desc';
   filterSprTable();
+}
+
+function openSprCustPopup(rowId) {
+  const r = _sprRowDataMap[rowId];
+  if (!r || !r.customerMap) return;
+  const fmtN = v => Math.round(v).toLocaleString();
+
+  // Sort customers by revenue descending
+  window._sprCustAll = Object.entries(r.customerMap)
+    .map(([code, d]) => ({ code, name: d.name || code, amount: d.amount, ltrs: d.ltrs }))
+    .sort((a, b) => b.amount - a.amount);
+
+  document.getElementById('sprCustPopupTitle').textContent = r.route === 'UNASSIGNED' ? 'Not Yet Classified' : r.route;
+  document.getElementById('sprCustPopupSub').textContent   = `${window._sprCustAll.length} customer${window._sprCustAll.length !== 1 ? 's' : ''} · ${r.location || ''}`;
+  document.getElementById('sprCustSearch').value = '';
+  document.getElementById('sprCustTotal').innerHTML =
+    `<span>Route Total</span><span style="color:#E1245A;">KSH ${fmtN(r.amount)}</span>`;
+
+  renderSprCustList(window._sprCustAll, r.amount);
+
+  document.getElementById('sprCustOverlay').style.display = 'block';
+  document.getElementById('sprCustPopup').style.display   = 'flex';
+  setTimeout(() => document.getElementById('sprCustSearch').focus(), 80);
+}
+
+function renderSprCustList(customers, routeTotal) {
+  const fmtN = v => Math.round(v).toLocaleString();
+  if (!customers.length) {
+    document.getElementById('sprCustList').innerHTML =
+      `<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">No customers found.</div>`;
+    return;
+  }
+  document.getElementById('sprCustList').innerHTML = customers.map((c, i) => {
+    const share = routeTotal > 0 ? (c.amount / routeTotal * 100).toFixed(1) : '0.0';
+    const barW  = routeTotal > 0 ? Math.max(2, Math.round(c.amount / routeTotal * 100)) : 0;
+    const bg    = i % 2 === 0 ? 'var(--surface)' : 'var(--th-bg)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 18px;background:${bg};border-bottom:1px solid var(--border);">
+      <span style="font-size:11px;color:var(--text-muted);min-width:20px;text-align:right;">${i + 1}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:var(--text-head);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${c.name}">${c.name}</div>
+        <div style="margin-top:3px;height:3px;border-radius:99px;background:var(--border);"><div style="height:3px;border-radius:99px;background:#0891b2;width:${barW}%;"></div></div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:12px;font-weight:700;font-family:'DM Mono',monospace;color:var(--text-head);">KSH ${fmtN(c.amount)}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${share}% · ${fmtN(c.ltrs)} L</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterSprCustList() {
+  const q = (document.getElementById('sprCustSearch').value || '').toLowerCase().trim();
+  const filtered = q
+    ? (window._sprCustAll || []).filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q))
+    : (window._sprCustAll || []);
+  const routeTotal = (window._sprCustAll || []).reduce((s, c) => s + c.amount, 0);
+  renderSprCustList(filtered, routeTotal);
+}
+
+function closeSprCustPopup() {
+  document.getElementById('sprCustOverlay').style.display = 'none';
+  document.getElementById('sprCustPopup').style.display   = 'none';
 }
 
 function exportSprExcel() {
