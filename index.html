@@ -2404,9 +2404,16 @@
           ☁ Register + Save to Google Sheet
         </button>
       </div>
-      <div style="padding:0 20px 16px;font-size:11px;color:#718096;line-height:1.5;">
-        <strong>Register (session only)</strong> — adds to in-app database immediately, re-processes data. Not saved permanently.<br>
-        <strong>Register + Save to Sheet</strong> — also appends the customer as a new row in your <strong>Customers</strong> Google Sheet.
+      <div style="padding:0 20px 6px;display:flex;gap:8px;align-items:center;">
+        <button onclick="copyRegRowToClipboard()" id="regCopyRowBtn"
+          style="width:100%;padding:8px;background:#f0fdf4;border:1.5px solid #16a34a;border-radius:9px;color:#15803d;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">
+          📋 Copy row — paste directly into Google Sheet (A → F)
+        </button>
+      </div>
+      <div style="padding:6px 20px 16px;font-size:11px;color:#718096;line-height:1.6;">
+        <strong>Register (session only)</strong> — adds to in-app database immediately, re-processes all pages.<br>
+        <strong>Register + Save to Sheet</strong> — also appends as a new last row in your Customers Google Sheet (requires Apps Script to handle the <code>route</code> field).<br>
+        <strong>Copy row</strong> — copies <code>CODE · OUTLET · LOCATION · CHANNEL · TYPE · ROUTE</code> as tab-separated values ready to paste into row A of the next empty line in the sheet.
       </div>
     </div>
 
@@ -3199,6 +3206,10 @@
         <div class="fg">
           <label>Type</label>
           <input type="text" id="fType" placeholder="e.g. MT TIER I">
+        </div>
+        <div class="fg">
+          <label>Route</label>
+          <input type="text" id="fRoute" placeholder="e.g. MACHAKOS">
         </div>
         <div class="fg">
           <label>Ltrs / Kgs</label>
@@ -5335,7 +5346,7 @@ function openAddModal(){
   isEditMode=false;
   document.getElementById('modalTitle').textContent='Add New Customer';
   document.getElementById('saveBtnText').textContent='Add Customer';
-  ['fSap','fName','fLocation','fChannel','fType','fLtrs','fAmt'].forEach(id=>document.getElementById(id).value='');
+  ['fSap','fName','fLocation','fChannel','fType','fRoute','fLtrs','fAmt'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fSap').disabled=false;
   document.getElementById('formOverlay').classList.add('open');
   setTimeout(()=>document.getElementById('fSap').focus(),100);
@@ -5351,6 +5362,7 @@ function openEditModal(c){
   document.getElementById('fLocation').value=c.location||'';
   document.getElementById('fChannel').value=c.channel||'';
   document.getElementById('fType').value=c.type||'';
+  document.getElementById('fRoute').value=c.route||'';
   document.getElementById('fLtrs').value=c.ltrsKgs||'';
   document.getElementById('fAmt').value=c.amtKsh||'';
   document.getElementById('formOverlay').classList.add('open');
@@ -5369,6 +5381,7 @@ function saveCustomer(){
     location: document.getElementById('fLocation').value.trim(),
     channel:  document.getElementById('fChannel').value.trim(),
     type:     document.getElementById('fType').value.trim(),
+    route:    document.getElementById('fRoute').value.trim(),
     ltrsKgs:  document.getElementById('fLtrs').value||0,
     amtKsh:   document.getElementById('fAmt').value||0,
   };
@@ -11195,6 +11208,24 @@ function openRegModal(idx) {
   setTimeout(() => document.getElementById('regLocation').focus(), 80);
 }
 
+function copyRegRowToClipboard() {
+  const idx = _regCurrentIdx;
+  const arr = window._missingArr || [];
+  const c = arr[idx];
+  if (!c) return;
+  const vals = getRegFormValues();
+  // Tab-separated to match Google Sheets paste: CODE, OUTLET, LOCATION, CHANNEL, TYPE, ROUTE
+  const row = [c.rawCode, c.name, vals.location, vals.channel, vals.type, vals.route].join('\t');
+  navigator.clipboard.writeText(row).then(() => {
+    const btn = document.getElementById('regCopyRowBtn');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied! Open sheet → click next empty row A → Ctrl+V (or Cmd+V)';
+    btn.style.background = '#16a34a';
+    btn.style.color = '#fff';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = '#f0fdf4'; btn.style.color = '#15803d'; }, 4000);
+  }).catch(() => showToast('Copy failed — try a different browser', 'err'));
+}
+
 function closeRegModal() {
   document.getElementById('regCustOverlay').style.display = 'none';
   document.getElementById('regCustModal').style.display   = 'none';
@@ -11251,13 +11282,14 @@ function confirmRegSheet() {
   btn.disabled = true;
   btn.textContent = '☁ Saving to Sheet…';
 
+  // Payload matches Apps Script addCustomer: sapCode(A), name(B), location(C), channel(D), type(E), route(F)
   const payload = {
     sapCode:  c.rawCode,
     name:     c.name,
-    location: vals.location,
-    channel:  vals.channel,
-    type:     vals.type,
-    route:    vals.route,
+    location: vals.location,   // Column C
+    channel:  vals.channel,    // Column D
+    type:     vals.type,       // Column E
+    route:    vals.route,      // Column F
     ltrsKgs:  Math.round(c.ltrs || 0),
     amtKsh:   Math.round(c.amount || 0),
   };
@@ -11270,16 +11302,22 @@ function confirmRegSheet() {
         if (res && res.success) {
           applyRegToMemory(idx, vals);
           closeRegModal();
-          showToast(`✓ ${c.name} saved to Customers sheet`, 'ok');
-          setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 600);
+          showToast(`✓ ${c.name} saved to Customers sheet as last entry`, 'ok');
+          // Refresh Customers page list so new entry appears immediately
+          if (typeof loadCustomers === 'function') loadCustomers();
+          setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 700);
         } else {
           showToast('Sheet error: ' + (res && res.message ? res.message : 'Unknown error'), 'err');
+          // Show duplicate warning more clearly
+          if (res && res.message && res.message.includes('already exists')) {
+            showToast(`⚠ ${c.rawCode} already exists in the sheet. Use Register (session only) instead.`, 'err');
+          }
         }
       })
       .withFailureHandler(e => {
         btn.disabled = false;
         btn.textContent = '☁ Register + Save to Google Sheet';
-        showToast('Failed: ' + e.message, 'err');
+        showToast('Google Sheet save failed: ' + (e.message || 'Unknown error') + '. Try "Register (session only)" instead.', 'err');
       })
       .addCustomer(payload);
   } else {
