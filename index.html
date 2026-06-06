@@ -3428,6 +3428,10 @@ window.GSHEET_ID = '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8'; // ✅ YOUR S
 window.gsheetToken = null;
 window.gsheetApiReady = false;
 
+// ── Session Registration Tracking ────────────────────────
+// Track which customers have been registered in this session (by SAP code)
+window._sessionRegisteredCodes = new Set();
+
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
 // Initialize Google OAuth when page loads
@@ -4382,8 +4386,9 @@ function renderReport(data){
     const knownRoutes   = [...(refData.routes instanceof Set ? refData.routes : new Set())].sort();
 
     document.getElementById('missingTbody').innerHTML = missingArr.map((c, idx) => {
-      const isRegistered = !!refData.customers[c.code] || !!refData.customers[c.rawCode];
-      return `<tr id="miss-row-${idx}" style="${isRegistered ? 'opacity:0.45;' : ''}">
+      // Check if registered: either in refData OR in this session's registry
+      const isRegistered = !!refData.customers[c.code] || !!refData.customers[c.rawCode] || window._sessionRegisteredCodes.has(c.rawCode) || window._sessionRegisteredCodes.has(c.code);
+      return `<tr id="miss-row-${c.rawCode}" style="${isRegistered ? 'opacity:0.45;' : ''}">
         <td style="font-family:'DM Mono',monospace;font-size:11px;padding:9px 12px;">${c.rawCode}</td>
         <td style="padding:9px 12px;font-size:13px;font-weight:600;color:var(--text-head);">${c.name}</td>
         <td style="padding:9px 12px;text-align:right;font-size:12px;color:var(--text-muted);">${fmt(c.ltrs)}</td>
@@ -4391,7 +4396,7 @@ function renderReport(data){
         <td style="padding:7px 12px;text-align:center;">
           ${isRegistered
             ? `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Done</span>`
-            : `<button onclick="openRegModal(${idx})"
+            : `<button onclick="openRegModal('${c.rawCode}')"
                 style="padding:5px 12px;background:#0f2744;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;">
                 ✚ Register
                </button>`}
@@ -11196,12 +11201,16 @@ function filterSprTable() {
 
 // ── Missing Customer Registration ──────────────────────────────
 let _regCurrentIdx = null;
+let _regCurrentSapCode = null; // ← Track SAP code for proper identification
 
-function openRegModal(idx) {
+function openRegModal(sapCode) {
   const arr = window._missingArr || [];
+  // Find customer by SAP code
+  const idx = arr.findIndex(c => c.rawCode === sapCode || c.code === sapCode);
   const c = arr[idx];
   if (!c) return;
   _regCurrentIdx = idx;
+  _regCurrentSapCode = sapCode; // ← Track the SAP code for proper identification
 
   // Populate info strip
   document.getElementById('regCustSubtitle').textContent = `Customer ${idx + 1} of ${arr.length}`;
@@ -11252,6 +11261,7 @@ function closeRegModal() {
   document.getElementById('regCustOverlay').style.display = 'none';
   document.getElementById('regCustModal').style.display   = 'none';
   _regCurrentIdx = null;
+  _regCurrentSapCode = null;
 }
 
 function getRegFormValues() {
@@ -11267,6 +11277,11 @@ function applyRegToMemory(idx, vals) {
   const arr = window._missingArr || [];
   const c = arr[idx];
   if (!c) return;
+  
+  // Track this customer as registered
+  window._sessionRegisteredCodes.add(c.rawCode);
+  window._sessionRegisteredCodes.add(c.code);
+  
   const entry = { outlet: c.name, region: vals.location, channel: vals.channel, type: vals.type, route: vals.route };
   refData.customers[c.code]    = entry;
   if (c.rawCode !== c.code) refData.customers[c.rawCode] = entry;
@@ -11274,11 +11289,12 @@ function applyRegToMemory(idx, vals) {
     if (!refData.routes) refData.routes = new Set();
     refData.routes.add(entry.route);
   }
-  // Mark row done in table
-  const row = document.getElementById(`miss-row-${idx}`);
+  
+  // Mark row done in table using SAP code (not index)
+  const row = document.getElementById(`miss-row-${c.rawCode}`);
   if (row) {
     row.style.opacity = '0.45';
-    const btn = row.querySelector('button[onclick*="openRegModal"]');
+    const btn = row.querySelector('button');
     if (btn) btn.outerHTML = `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Done</span>`;
   }
 }
@@ -11403,13 +11419,19 @@ function registerAllMissing() {
   const arr = window._missingArr || [];
   let count = 0;
   arr.forEach((c, idx) => {
-    if (refData.customers[c.code] || refData.customers[c.rawCode]) return;
+    if (refData.customers[c.code] || refData.customers[c.rawCode] || window._sessionRegisteredCodes.has(c.rawCode) || window._sessionRegisteredCodes.has(c.code)) return;
+    
+    // Track as registered
+    window._sessionRegisteredCodes.add(c.rawCode);
+    window._sessionRegisteredCodes.add(c.code);
+    
     const entry = {
       outlet: c.name, region: 'UNKNOWN', channel: 'UNKNOWN', type: 'UNKNOWN', route: ''
     };
     refData.customers[c.code] = entry;
     if (c.rawCode !== c.code) refData.customers[c.rawCode] = entry;
-    const row = document.getElementById(`miss-row-${idx}`);
+    
+    const row = document.getElementById(`miss-row-${c.rawCode}`);
     if (row) {
       row.style.opacity = '0.45';
       const btn = row.querySelector('button');
