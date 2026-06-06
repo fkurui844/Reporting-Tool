@@ -11140,7 +11140,9 @@ function filterSprTable() {
   let custRoutes = null;
   if (custQ) {
     const customers = Object.values(refData.customers);
-    const matchingCusts = customers.filter(c =>
+    // ← Filter customers by location if location filter is active
+    const custList = loc ? customers.filter(c => (c.region || '') === loc) : customers;
+    const matchingCusts = custList.filter(c =>
       (c.sapCode && c.sapCode.toLowerCase().includes(custQ)) ||
       (c.outlet && c.outlet.toLowerCase().includes(custQ)) ||
       (c.name && c.name.toLowerCase().includes(custQ))
