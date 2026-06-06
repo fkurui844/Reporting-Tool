@@ -11158,14 +11158,19 @@ function filterSprTable() {
         if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
         if (custRoutes && !custRoutes.has(r.route)) return false; // ← Filter by customer's routes
         
-        // ← Check if route has customers in selected location (not just primary location)
+        // ← Check if route serves selected location (primary location OR has customers there)
         if (loc) {
+          const primaryMatchesLoc = (r.location || '') === loc;
+          
+          // Also check if route has customers in that location (for multi-location routes)
           const hasCustInLoc = r.customerMap && Object.keys(r.customerMap).some(code => {
             const custData = refData.customers[code] || {};
             const custLocation = custData.location || custData.region || r.location;
             return custLocation === loc;
           });
-          if (!hasCustInLoc) return false;
+          
+          // Show route if EITHER primary location matches OR has customers in that location
+          if (!primaryMatchesLoc && !hasCustInLoc) return false;
         }
         
         if (!Object.keys(r.categories || {}).includes(cat)) return false;
@@ -11200,14 +11205,19 @@ function filterSprTable() {
       if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
       if (custRoutes && !custRoutes.has(r.route)) return false; // ← Filter by customer's routes
       
-      // ← Check if route has customers in selected location (not just primary location)
+      // ← Check if route serves selected location (primary location OR has customers there)
       if (loc) {
+        const primaryMatchesLoc = (r.location || '') === loc;
+        
+        // Also check if route has customers in that location (for multi-location routes)
         const hasCustInLoc = r.customerMap && Object.keys(r.customerMap).some(code => {
           const custData = refData.customers[code] || {};
           const custLocation = custData.location || custData.region || r.location;
           return custLocation === loc;
         });
-        if (!hasCustInLoc) return false;
+        
+        // Show route if EITHER primary location matches OR has customers in that location
+        if (!primaryMatchesLoc && !hasCustInLoc) return false;
       }
       
       if (minRev && r.amount < minRev) return false;
