@@ -2815,10 +2815,17 @@
           <span id="sprPeriod" style="font-size:12px;color:var(--text-muted);margin-left:auto;"></span>
         </div>
         <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
-          <!-- Search -->
+          <!-- Search by Route -->
           <div style="display:flex;flex-direction:column;gap:4px;">
-            <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Search</label>
+            <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Search Route</label>
             <input id="sprSearch" type="text" placeholder="Route name…"
+              oninput="filterSprTable()"
+              style="padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);width:190px;">
+          </div>
+          <!-- Search by Customer -->
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Search Customer</label>
+            <input id="sprCustomerSearch" type="text" placeholder="Code or Name…"
               oninput="filterSprTable()"
               style="padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);width:190px;">
           </div>
@@ -11122,11 +11129,24 @@ function renderSprTable(rows, grandAmt) {
 }
 function filterSprTable() {
   const q       = (document.getElementById('sprSearch').value || '').toLowerCase().trim();
+  const custQ   = (document.getElementById('sprCustomerSearch').value || '').toLowerCase().trim(); // ← Customer search
   const loc     = (document.getElementById('sprLocFilter').value || '').trim();
   const cat     = (document.getElementById('sprCatFilter').value || '').trim();
   const minRev  = parseFloat(document.getElementById('sprMinRev').value) || 0;
   const sortBy  = document.getElementById('sprSort').value || 'revenue_desc';
   const grandAmt = _sprAllRows.reduce((s, r) => s + r.amount, 0);
+
+  // If customer search is active, find matching customers and their routes
+  let custRoutes = null;
+  if (custQ) {
+    const customers = Object.values(refData.customers);
+    const matchingCusts = customers.filter(c =>
+      (c.sapCode && c.sapCode.toLowerCase().includes(custQ)) ||
+      (c.outlet && c.outlet.toLowerCase().includes(custQ)) ||
+      (c.name && c.name.toLowerCase().includes(custQ))
+    );
+    custRoutes = new Set(matchingCusts.map(c => c.route).filter(Boolean));
+  }
 
   // When a category is selected, project each route's numbers down to that category only
   let displayRows;
@@ -11134,6 +11154,7 @@ function filterSprTable() {
     displayRows = _sprAllRows
       .filter(r => {
         if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
+        if (custRoutes && !custRoutes.has(r.route)) return false; // ← Filter by customer's routes
         if (loc && (r.location || '') !== loc) return false;
         if (!Object.keys(r.categories || {}).includes(cat)) return false;
         return true;
@@ -11146,6 +11167,7 @@ function filterSprTable() {
   } else {
     displayRows = _sprAllRows.filter(r => {
       if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
+      if (custRoutes && !custRoutes.has(r.route)) return false; // ← Filter by customer's routes
       if (loc && (r.location || '') !== loc) return false;
       if (minRev && r.amount < minRev) return false;
       return true;
@@ -11170,7 +11192,7 @@ function filterSprTable() {
   });
 
   // Active filter count badge
-  const activeCount = [q, loc, cat, minRev > 0, sortBy !== 'revenue_desc'].filter(Boolean).length;
+  const activeCount = [q, custQ, loc, cat, minRev > 0, sortBy !== 'revenue_desc'].filter(Boolean).length;
   const badge = document.getElementById('sprActiveFiltersCount');
   const clearBtn = document.getElementById('sprClearBtn');
   if (badge)    { badge.textContent = activeCount; badge.style.display = activeCount ? 'inline-block' : 'none'; }
@@ -11444,11 +11466,12 @@ function registerAllMissing() {
 }
 
 function clearSprFilters() {
-  document.getElementById('sprSearch').value   = '';
-  document.getElementById('sprLocFilter').value = '';
-  document.getElementById('sprCatFilter').value = '';
-  document.getElementById('sprMinRev').value    = '';
-  document.getElementById('sprSort').value      = 'revenue_desc';
+  document.getElementById('sprSearch').value      = '';
+  document.getElementById('sprCustomerSearch').value = ''; // ← Clear customer search
+  document.getElementById('sprLocFilter').value  = '';
+  document.getElementById('sprCatFilter').value  = '';
+  document.getElementById('sprMinRev').value     = '';
+  document.getElementById('sprSort').value       = 'revenue_desc';
   filterSprTable();
 }
 
