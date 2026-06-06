@@ -11488,7 +11488,17 @@ function openSprCustPopup(rowId) {
   // Sort customers by revenue descending
   // ← Filter by location if a location filter is active
   window._sprCustAll = Object.entries(r.customerMap)
-    .map(([code, d]) => ({ code, name: d.name || code, amount: d.amount, ltrs: d.ltrs, location: d.location }))
+    .map(([code, d]) => {
+      // Look up customer in full database to get their location
+      const custData = refData.customers[code] || {};
+      return { 
+        code, 
+        name: d.name || code, 
+        amount: d.amount, 
+        ltrs: d.ltrs, 
+        location: custData.region || r.location // Use customer's region, fallback to route location
+      };
+    })
     .filter(c => !locFilter || (c.location || '') === locFilter) // ← Only show customers from selected location
     .sort((a, b) => b.amount - a.amount);
 
