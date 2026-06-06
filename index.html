@@ -11166,8 +11166,12 @@ function filterSprTable() {
         // ← Calculate filtered customer count when location filter is active
         const filteredCustCount = loc && cd.customerMap
           ? Object.values(cd.customerMap).filter(c => {
-              const custData = refData.customers[Object.entries(cd.customerMap).find(([k,v]) => v === c)?.[0]] || {};
-              return (custData.region || r.location) === loc;
+              const custEntry = Object.entries(cd.customerMap).find(([k,v]) => v === c);
+              if (!custEntry) return false;
+              const custData = refData.customers[custEntry[0]] || {};
+              // Use 'location' from sheet, fallback to 'region' from registration
+              const custLocation = custData.location || custData.region || r.location;
+              return custLocation === loc;
             }).length
           : (cd.customerMap ? Object.keys(cd.customerMap).length : 0);
         
@@ -11195,7 +11199,9 @@ function filterSprTable() {
       customers: loc && r.customerMap 
         ? Object.keys(r.customerMap).filter(code => {
             const custData = refData.customers[code] || {};
-            return (custData.region || r.location) === loc;
+            // Use 'location' from sheet, fallback to 'region' from registration
+            const custLocation = custData.location || custData.region || r.location;
+            return custLocation === loc;
           }).length
         : r.customers
     }));
@@ -11516,12 +11522,14 @@ function openSprCustPopup(rowId) {
     .map(([code, d]) => {
       // Look up customer in full database to get their location
       const custData = refData.customers[code] || {};
+      // Use 'location' from sheet, fallback to 'region' from registration
+      const custLocation = custData.location || custData.region || r.location;
       return { 
         code, 
         name: d.name || code, 
         amount: d.amount, 
         ltrs: d.ltrs, 
-        location: custData.region || r.location // Use customer's region, fallback to route location
+        location: custLocation
       };
     })
     .filter(c => !locFilter || (c.location || '') === locFilter) // ← Only show customers from selected location
