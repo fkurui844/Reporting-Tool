@@ -11163,7 +11163,22 @@ function filterSprTable() {
       })
       .map(r => {
         const cd = r.categories[cat];
-        return { ...r, amount: cd.amount, ltrs: cd.ltrs, _catFiltered: cat, _origAmount: r.amount };
+        // ← Calculate filtered customer count when location filter is active
+        const filteredCustCount = loc && cd.customerMap
+          ? Object.values(cd.customerMap).filter(c => {
+              const custData = refData.customers[Object.entries(cd.customerMap).find(([k,v]) => v === c)?.[0]] || {};
+              return (custData.region || r.location) === loc;
+            }).length
+          : (cd.customerMap ? Object.keys(cd.customerMap).length : 0);
+        
+        return { 
+          ...r, 
+          amount: cd.amount, 
+          ltrs: cd.ltrs, 
+          customers: filteredCustCount, // ← Use filtered count
+          _catFiltered: cat, 
+          _origAmount: r.amount 
+        };
       })
       .filter(r => !minRev || r.amount >= minRev);
   } else {
@@ -11173,7 +11188,17 @@ function filterSprTable() {
       if (loc && (r.location || '') !== loc) return false;
       if (minRev && r.amount < minRev) return false;
       return true;
-    });
+    })
+    // ← Calculate filtered customer count when location filter is active
+    .map(r => ({
+      ...r,
+      customers: loc && r.customerMap 
+        ? Object.keys(r.customerMap).filter(code => {
+            const custData = refData.customers[code] || {};
+            return (custData.region || r.location) === loc;
+          }).length
+        : r.customers
+    }));
   }
 
   let filtered = displayRows;
