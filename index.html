@@ -11157,7 +11157,17 @@ function filterSprTable() {
       .filter(r => {
         if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
         if (custRoutes && !custRoutes.has(r.route)) return false; // ← Filter by customer's routes
-        if (loc && (r.location || '') !== loc) return false;
+        
+        // ← Check if route has customers in selected location (not just primary location)
+        if (loc) {
+          const hasCustInLoc = r.customerMap && Object.keys(r.customerMap).some(code => {
+            const custData = refData.customers[code] || {};
+            const custLocation = custData.location || custData.region || r.location;
+            return custLocation === loc;
+          });
+          if (!hasCustInLoc) return false;
+        }
+        
         if (!Object.keys(r.categories || {}).includes(cat)) return false;
         return true;
       })
@@ -11189,7 +11199,17 @@ function filterSprTable() {
     displayRows = _sprAllRows.filter(r => {
       if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
       if (custRoutes && !custRoutes.has(r.route)) return false; // ← Filter by customer's routes
-      if (loc && (r.location || '') !== loc) return false;
+      
+      // ← Check if route has customers in selected location (not just primary location)
+      if (loc) {
+        const hasCustInLoc = r.customerMap && Object.keys(r.customerMap).some(code => {
+          const custData = refData.customers[code] || {};
+          const custLocation = custData.location || custData.region || r.location;
+          return custLocation === loc;
+        });
+        if (!hasCustInLoc) return false;
+      }
+      
       if (minRev && r.amount < minRev) return false;
       return true;
     })
