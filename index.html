@@ -3421,6 +3421,28 @@ let isEditMode    = false;
 let editingSapCode = '';  // holds SAP code during edit — avoids reading disabled field
 let pendingDelete = null;
 
+// ── Google Sheets API Configuration ────────────────────────
+// ✅ CONFIGURED FOR YOUR SPREADSHEET
+window.GOOGLE_CLIENT_ID = ''; // Optional: Set this if you created OAuth credentials
+window.GSHEET_ID = '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8'; // ✅ YOUR SPREADSHEET ID
+window.gsheetToken = null;
+window.gsheetApiReady = false;
+
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+
+// Initialize Google OAuth when page loads
+window.addEventListener('load', () => {
+  // Check localStorage for saved token
+  const savedToken = localStorage.getItem('gsheet_token');
+  const savedSheetId = localStorage.getItem('gsheet_id');
+  if (savedToken && savedSheetId) {
+    window.gsheetToken = savedToken;
+    window.GSHEET_ID = savedSheetId;
+    window.gsheetApiReady = true;
+    console.log('✓ Google Sheets API ready (cached credentials)');
+  }
+});
+
 // ── Volume unit mode ────────────────────────────────────
 // 'mixed'  = default: Ltrs/Kgs as stored in the data
 // 'litres' = convert Kg-based categories to Litres
@@ -11271,7 +11293,7 @@ function confirmRegLocal() {
   setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 600);
 }
 
-function confirmRegSheet() {
+async function confirmRegSheet() {
   const idx = _regCurrentIdx;
   if (idx === null) return;
   const arr = window._missingArr || [];
@@ -11282,19 +11304,20 @@ function confirmRegSheet() {
   btn.disabled = true;
   btn.textContent = '☁ Saving to Sheet…';
 
-  // Payload matches Apps Script addCustomer: sapCode(A), name(B), location(C), channel(D), type(E), route(F)
+  // Payload: sapCode(A), name(B), location(C), channel(D), type(E), route(F), ltrsKgs, amtKsh
   const payload = {
     sapCode:  c.rawCode,
     name:     c.name,
-    location: vals.location,   // Column C
-    channel:  vals.channel,    // Column D
-    type:     vals.type,       // Column E
-    route:    vals.route,      // Column F
+    location: vals.location,
+    channel:  vals.channel,
+    type:     vals.type,
+    route:    vals.route,
     ltrsKgs:  Math.round(c.ltrs || 0),
     amtKsh:   Math.round(c.amount || 0),
   };
 
   if (typeof google !== 'undefined' && google.script) {
+    // Use Apps Script if available
     google.script.run
       .withSuccessHandler(res => {
         btn.disabled = false;
@@ -11302,33 +11325,78 @@ function confirmRegSheet() {
         if (res && res.success) {
           applyRegToMemory(idx, vals);
           closeRegModal();
-          showToast(`✓ ${c.name} saved to Customers sheet as last entry`, 'ok');
-          // Refresh Customers page list so new entry appears immediately
+          showToast(`✓ ${c.name} saved to Customers sheet`, 'ok');
           if (typeof loadCustomers === 'function') loadCustomers();
           setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 700);
         } else {
           showToast('Sheet error: ' + (res && res.message ? res.message : 'Unknown error'), 'err');
-          // Show duplicate warning more clearly
           if (res && res.message && res.message.includes('already exists')) {
-            showToast(`⚠ ${c.rawCode} already exists in the sheet. Use Register (session only) instead.`, 'err');
+            showToast(`⚠ ${c.rawCode} already exists. Use Register (session only) instead.`, 'err');
           }
         }
       })
       .withFailureHandler(e => {
         btn.disabled = false;
         btn.textContent = '☁ Register + Save to Google Sheet';
-        showToast('Google Sheet save failed: ' + (e.message || 'Unknown error') + '. Try "Register (session only)" instead.', 'err');
+        showToast('Google Sheet save failed: ' + (e.message || 'Unknown error'), 'err');
       })
       .addCustomer(payload);
+  } else if (window.gsheetApiReady) {
+    // Use Google Sheets API directly
+    try {
+      await appendCustomerToSheet(payload);
+      applyRegToMemory(idx, vals);
+      closeRegModal();
+      showToast(`✓ ${c.name} saved to Customers sheet`, 'ok');
+      setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 600);
+    } catch (err) {
+      showToast('Failed to save: ' + (err.message || 'Unknown error'), 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '☁ Register + Save to Google Sheet';
+    }
   } else {
-    // Fallback: session-only if Apps Script not available
+    // Fallback: session-only
     btn.disabled = false;
     btn.textContent = '☁ Register + Save to Google Sheet';
     applyRegToMemory(idx, vals);
     closeRegModal();
-    showToast('⚠ Google Sheet API not available in this context. Registered session-only.', 'err');
+    showToast('📝 Registered (session only). To save to Google Sheets, authorize API access in Settings.', 'ok');
     setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 600);
   }
+}
+
+async function appendCustomerToSheet(payload) {
+  const sheetId = window.GSHEET_ID;
+  const accessToken = window.gsheetToken;
+  if (!sheetId || !accessToken) throw new Error('Sheet ID or auth token missing');
+
+  const range = 'Customers!A:H';
+  const values = [[
+    payload.sapCode,
+    payload.name,
+    payload.location || '',
+    payload.channel || '',
+    payload.type || '',
+    payload.route || '',
+    payload.ltrsKgs || 0,
+    payload.amtKsh || 0
+  ]];
+
+  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}:append?valueInputOption=USER_ENTERED`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ values })
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error?.message || 'Failed to append row');
+  }
+  return await response.json();
 }
 
 function registerAllMissing() {
