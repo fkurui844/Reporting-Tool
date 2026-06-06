@@ -11482,18 +11482,26 @@ function openSprCustPopup(rowId) {
   if (!r || !r.customerMap) return;
   const fmtN = v => Math.round(v).toLocaleString();
 
+  // Get active location filter
+  const locFilter = (document.getElementById('sprLocFilter').value || '').trim();
+
   // Sort customers by revenue descending
+  // ← Filter by location if a location filter is active
   window._sprCustAll = Object.entries(r.customerMap)
-    .map(([code, d]) => ({ code, name: d.name || code, amount: d.amount, ltrs: d.ltrs }))
+    .map(([code, d]) => ({ code, name: d.name || code, amount: d.amount, ltrs: d.ltrs, location: d.location }))
+    .filter(c => !locFilter || (c.location || '') === locFilter) // ← Only show customers from selected location
     .sort((a, b) => b.amount - a.amount);
 
   document.getElementById('sprCustPopupTitle').textContent = r.route === 'UNASSIGNED' ? 'Not Yet Classified' : r.route;
-  document.getElementById('sprCustPopupSub').textContent   = `${window._sprCustAll.length} customer${window._sprCustAll.length !== 1 ? 's' : ''} · ${r.location || ''}`;
+  document.getElementById('sprCustPopupSub').textContent   = `${window._sprCustAll.length} customer${window._sprCustAll.length !== 1 ? 's' : ''} · ${r.location || ''}${locFilter ? ` (filtered: ${locFilter})` : ''}`;
   document.getElementById('sprCustSearch').value = '';
+  
+  // Calculate total only for filtered customers
+  const filteredTotal = window._sprCustAll.reduce((s, c) => s + c.amount, 0);
   document.getElementById('sprCustTotal').innerHTML =
-    `<span>Route Total</span><span style="color:#E1245A;">KSH ${fmtN(r.amount)}</span>`;
+    `<span>Route Total</span><span style="color:#E1245A;">KSH ${fmtN(filteredTotal)}</span>`;
 
-  renderSprCustList(window._sprCustAll, r.amount);
+  renderSprCustList(window._sprCustAll, filteredTotal);
 
   document.getElementById('sprCustOverlay').style.display = 'block';
   document.getElementById('sprCustPopup').style.display   = 'flex';
