@@ -3688,6 +3688,57 @@ function normalizeCat(s){
   return MAP[s] || s;
 }
 
+// Normalize a route key for resilient matching:
+// strips leading/trailing whitespace, collapses internal runs of whitespace,
+// removes common punctuation, and uppercases — so "CBD Upper", "CBD  UPPER",
+// "cbd-upper" and "CBD UPPER" all resolve to the same key.
+function normalizeRoute(s) {
+  return String(s || '').toUpperCase().trim()
+    .replace(/[-_./\\]/g, ' ')   // punctuation → space
+    .replace(/\s+/g, ' ')        // collapse whitespace
+    .trim();
+}
+
+// Build a normalized lookup index from refData.routeTargets so we can match
+// SAP route names to sheet route names without requiring exact spelling.
+// Returns the target entry or null.
+function lookupRouteTarget(routeName) {
+  const tgts = refData.routeTargets || {};
+  const key  = normalizeRoute(routeName);
+  // 1. Exact normalized match
+  for (const k of Object.keys(tgts)) {
+    if (normalizeRoute(k) === key) return tgts[k];
+  }
+  // 2. Substring match — sheet key starts with SAP key or vice-versa
+  //    e.g. "CBD UPPER" matches "CBD UPPER HILL" or vice versa
+  for (const k of Object.keys(tgts)) {
+    const nk = normalizeRoute(k);
+    if (nk.startsWith(key) || key.startsWith(nk)) return tgts[k];
+  }
+  return null;
+}
+
+// Same fuzzy resolution for routeCategoryTargets.
+function lookupRouteCategoryTarget(routeName, cat) {
+  const allRouteCatTgts = refData.routeCategoryTargets || {};
+  const key = normalizeRoute(routeName);
+  let routeEntry = null;
+  // Find the right route bucket (normalized)
+  for (const k of Object.keys(allRouteCatTgts)) {
+    if (normalizeRoute(k) === key) { routeEntry = allRouteCatTgts[k]; break; }
+  }
+  if (!routeEntry) {
+    // Fallback: substring match
+    for (const k of Object.keys(allRouteCatTgts)) {
+      const nk = normalizeRoute(k);
+      if (nk.startsWith(key) || key.startsWith(nk)) { routeEntry = allRouteCatTgts[k]; break; }
+    }
+  }
+  if (!routeEntry) return null;
+  const normCat = normalizeCat(cat);
+  return routeEntry[normCat] || routeEntry[cat] || null;
+}
+
 function parseTargetSheet(csv) {
   const lines=csv.trim().split('\n');
   const hdrs=parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
@@ -3742,7 +3793,7 @@ function parseRouteTargetSheet(csv) {
   if (!refData.routeCategoryTargets) refData.routeCategoryTargets = {};
   for (let i = 1; i < lines.length; i++) {
     const cols  = parseCSVLine(lines[i]);
-    const route = (cols[routeIdx] || '').trim().toUpperCase();
+    const route = normalizeRoute(cols[routeIdx] || '');
     if (!route) continue;
     const ksh  = kIdx  >= 0 ? parseFloat((cols[kIdx]  || '').replace(/,/g,'')) || 0 : 0;
     const ltrs = lIdx  >= 0 ? parseFloat((cols[lIdx]  || '').replace(/,/g,'')) || 0 : 0;
@@ -10955,7 +11006,7 @@ function buildSalesPerRouteData(transactions) {
       ? entries.sort((a, b) => b[1] - a[1])[0][0]
       : '—';
     // Attach route-level targets if available
-    const tgt = (refData.routeTargets || {})[r.route.toUpperCase()] || null;
+    const tgt = lookupRouteTarget(r.route);
     r.revTarget = tgt ? tgt.ksh  : null;
     r.volTarget = tgt ? tgt.ltrs : null;
   }
@@ -11106,6 +11157,34 @@ function renderSprTable(rows, grandAmt) {
         ? `<span onclick="event.stopPropagation();openSprCustPopup('${catCustKey}')" title="View customers for ${cat}"
              style="color:#0891b2;font-weight:600;border-bottom:1px dashed #0891b2;cursor:pointer;">${catCustCount}</span>`
         : `<span style="color:var(--text-muted);">—</span>`;
+
+      // Category-level targets from routeCategoryTargets
+      const catTgt = hasRouteTgts
+        ? lookupRouteCategoryTarget(r.route, cat)
+        : null;
+      const catRevTgt = catTgt ? catTgt.ksh  : null;
+      const catVolTgt = catTgt ? catTgt.ltrs : null;
+      const catRevPct = catRevTgt > 0 ? (cd.amount / catRevTgt * 100) : null;
+      const catVolPct = catVolTgt > 0 ? (cd.ltrs   / catVolTgt * 100) : null;
+      const attColor  = pct => pct === null ? '' : pct >= 100 ? '#1db87a' : pct >= 70 ? '#f6ad2b' : '#E1245A';
+
+      const catRevTgtCell = hasRouteTgts
+        ? (catRevTgt
+            ? `<td style="padding:7px 12px;text-align:right;font-size:11px;">
+                <div style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text-muted);">${fmtN(catRevTgt)}</div>
+                <div style="font-size:10px;font-weight:700;color:${attColor(catRevPct)};margin-top:1px;">${catRevPct !== null ? catRevPct.toFixed(1)+'%' : '—'}</div>
+               </td>`
+            : `<td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>`)
+        : '';
+      const catVolTgtCell = hasRouteTgts
+        ? (catVolTgt
+            ? `<td style="padding:7px 12px;text-align:right;font-size:11px;">
+                <div style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text-muted);">${fmtN(catVolTgt)}</div>
+                <div style="font-size:10px;font-weight:700;color:${attColor(catVolPct)};margin-top:1px;">${catVolPct !== null ? catVolPct.toFixed(1)+'%' : '—'}</div>
+               </td>`
+            : `<td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>`)
+        : '';
+
       return `<tr class="spr-cat-row" data-parent="${rowId}" style="${hideRow}background:${catBg};border-left:3px solid ${catBorder};${isActiveCat?'font-weight:700;':''}">
         <td style="padding:7px 12px;color:var(--text-muted);font-size:11px;"></td>
         <td style="padding:7px 12px;padding-left:28px;" colspan="2">
@@ -11119,10 +11198,10 @@ function renderSprTable(rows, grandAmt) {
           </div>
         </td>
         <td style="padding:7px 12px;text-align:right;font-weight:600;font-family:'DM Mono',monospace;font-size:12px;color:var(--text-head);">${fmtN(cd.amount)}</td>
-        ${hasRouteTgts ? `<td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>` : ''}
+        ${catRevTgtCell}
         <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">${catShare}%</td>
         <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:11px;">${fmtN(cd.ltrs)}</td>
-        ${hasRouteTgts ? `<td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>` : ''}
+        ${catVolTgtCell}
         <td style="padding:7px 12px;text-align:right;font-size:11px;">${custCell}</td>
       </tr>`;
     }).join('') : '';
@@ -11804,6 +11883,14 @@ function exportSprHTML() {
       const catShare = r.amount > 0 ? (cd.amount / r.amount * 100).toFixed(1) : '0.0';
       const catBarW  = r.amount > 0 ? Math.max(2, Math.round(cd.amount / r.amount * 100)) : 0;
       const cc = catColors[ci % catColors.length];
+      const catTgt = hasRouteTgtsExp
+        ? lookupRouteCategoryTarget(r.route, cat)
+        : null;
+      const catRevTgt = catTgt ? catTgt.ksh  : null;
+      const catVolTgt = catTgt ? catTgt.ltrs : null;
+      const catRevPct = catRevTgt > 0 ? (cd.amount / catRevTgt * 100) : null;
+      const catVolPct = catVolTgt > 0 ? (cd.ltrs   / catVolTgt * 100) : null;
+      const attColor  = pct => pct === null ? '#718096' : pct >= 100 ? '#1db87a' : pct >= 70 ? '#f6ad2b' : '#E1245A';
       return `<tr style="background:#fafbff;border-left:3px solid ${cc};">
         <td style="padding:6px 12px;"></td>
         <td style="padding:6px 12px 6px 28px;" colspan="2">
@@ -11812,10 +11899,20 @@ function exportSprHTML() {
           <div style="margin-top:3px;height:3px;border-radius:99px;background:#e2e8f0;width:140px;"><div style="height:3px;border-radius:99px;background:${cc};width:${catBarW}%;"></div></div>
         </td>
         <td style="padding:6px 12px;text-align:right;font-weight:600;font-size:12px;color:#0f2744;">${fmtN(cd.amount)}</td>
-        ${hasRouteTgtsExp ? `<td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">—</td>` : ''}
+        ${hasRouteTgtsExp ? (catRevTgt
+          ? `<td style="padding:6px 12px;text-align:right;font-size:11px;">
+               <div style="font-family:monospace;font-weight:600;color:#718096;">${fmtN(catRevTgt)}</div>
+               <div style="font-size:10px;font-weight:700;color:${attColor(catRevPct)};">${catRevPct !== null ? catRevPct.toFixed(1)+'%' : '—'}</div>
+             </td>`
+          : `<td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">—</td>`) : ''}
         <td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">${catShare}%</td>
         <td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">${fmtN(cd.ltrs)}</td>
-        ${hasRouteTgtsExp ? `<td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">—</td>` : ''}
+        ${hasRouteTgtsExp ? (catVolTgt
+          ? `<td style="padding:6px 12px;text-align:right;font-size:11px;">
+               <div style="font-family:monospace;font-weight:600;color:#718096;">${fmtN(catVolTgt)}</div>
+               <div style="font-size:10px;font-weight:700;color:${attColor(catVolPct)};">${catVolPct !== null ? catVolPct.toFixed(1)+'%' : '—'}</div>
+             </td>`
+          : `<td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">—</td>`) : ''}
         <td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">—</td>
       </tr>`;
     }).join('');
