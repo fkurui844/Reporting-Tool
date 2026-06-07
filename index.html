@@ -11156,21 +11156,16 @@ function filterSprTable() {
     displayRows = _sprAllRows
       .filter(r => {
         if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
-        if (custRoutes && !custRoutes.has(r.route)) return false; // ← Filter by customer's routes
+        if (custRoutes && !custRoutes.has(r.route)) return false;
         
-        // ← Check if route serves selected location (primary location OR has customers there)
+        // Check if route has customers in selected location
         if (loc) {
-          const primaryMatchesLoc = (r.location || '') === loc;
-          
-          // Also check if route has customers in that location (for multi-location routes)
           const hasCustInLoc = r.customerMap && Object.keys(r.customerMap).some(code => {
             const custData = refData.customers[code] || {};
             const custLocation = custData.location || custData.region || r.location;
-            return custLocation === loc;
+            return (custLocation || '').trim() === loc.trim();
           });
-          
-          // Show route if EITHER primary location matches OR has customers in that location
-          if (!primaryMatchesLoc && !hasCustInLoc) return false;
+          if (!hasCustInLoc) return false;
         }
         
         if (!Object.keys(r.categories || {}).includes(cat)) return false;
@@ -11203,25 +11198,50 @@ function filterSprTable() {
   } else {
     displayRows = _sprAllRows.filter(r => {
       if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
-      if (custRoutes && !custRoutes.has(r.route)) return false; // ← Filter by customer's routes
+      if (custRoutes && !custRoutes.has(r.route)) return false;
       
-      // ← Check if route serves selected location (primary location OR has customers there)
+      // Check if route has customers in selected location
       if (loc) {
-        const primaryMatchesLoc = (r.location || '') === loc;
-        
-        // Also check if route has customers in that location (for multi-location routes)
         const hasCustInLoc = r.customerMap && Object.keys(r.customerMap).some(code => {
           const custData = refData.customers[code] || {};
           const custLocation = custData.location || custData.region || r.location;
-          return custLocation === loc;
+          return (custLocation || '').trim() === loc.trim();
         });
-        
-        // Show route if EITHER primary location matches OR has customers in that location
-        if (!primaryMatchesLoc && !hasCustInLoc) return false;
+        if (!hasCustInLoc) return false;
       }
       
       if (minRev && r.amount < minRev) return false;
       return true;
+    })
+    // ← When location filter is active, transform routes to show location-specific data
+    .map(r => {
+      if (!loc || !r.customerMap) return r;
+      
+      // Calculate location-specific totals
+      let locAmount = 0, locLtrs = 0, locCusts = 0;
+      const locCustomers = {};
+      
+      Object.entries(r.customerMap).forEach(([code, custData]) => {
+        const fullCustData = refData.customers[code] || {};
+        const custLocation = (fullCustData.location || fullCustData.region || r.location || '').trim();
+        
+        if (custLocation === loc.trim()) {
+          locCustomers[code] = custData;
+          locAmount += custData.amount || 0;
+          locLtrs += custData.ltrs || 0;
+          locCusts++;
+        }
+      });
+      
+      // Return route with location-specific data
+      return {
+        ...r,
+        amount: locAmount,
+        ltrs: locLtrs,
+        customers: locCusts,
+        customerMap: locCustomers,
+        location: loc // Show filtered location
+      };
     })
     // ← Calculate filtered customer count when location filter is active
     .map(r => ({
