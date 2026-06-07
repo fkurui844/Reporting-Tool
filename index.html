@@ -11800,54 +11800,80 @@ function exportSprExcel() {
 
   const wb = XLSX.utils.book_new();
   const FONT = 'Calibri';
+  const hasRouteTgtsXls = Object.keys(refData.routeTargets || {}).length > 0;
 
   // ── Sheet 1: Routes Summary ──────────────────────────────────────
-  const routeHeader = ['#','Route','Location','Revenue (KSH)','Rev Share %','Volume (L)','Qty','Customers','Transactions'];
+  const routeHeader = ['#','Route','Location','Revenue (KSH)',
+    ...(hasRouteTgtsXls ? ['Rev Target (KSH)','Rev Att %'] : []),
+    'Volume (L)',
+    ...(hasRouteTgtsXls ? ['Vol Target (L)','Vol Att %'] : []),
+    'Qty','Customers','Transactions'];
   const grandAmt = _sprFilteredRows.reduce((s, r) => s + r.amount, 0);
   const routeData = _sprFilteredRows.map((r, i) => {
-    const share = grandAmt > 0 ? parseFloat((r.amount / grandAmt * 100).toFixed(1)) : 0;
+    const revTgt = r.revTarget || null;
+    const volTgt = r.volTarget || null;
+    const revAtt = revTgt > 0 ? parseFloat((r.amount / revTgt * 100).toFixed(1)) : null;
+    const volAtt = volTgt > 0 ? parseFloat((r.ltrs   / volTgt * 100).toFixed(1)) : null;
     return [
       r.route === 'UNASSIGNED' ? '—' : i + 1,
       r.route === 'UNASSIGNED' ? 'Not Yet Classified' : r.route,
       r.location || '—',
       Math.round(r.amount),
-      share,
+      ...(hasRouteTgtsXls ? [revTgt !== null ? Math.round(revTgt) : '—', revAtt !== null ? revAtt : '—'] : []),
       Math.round(r.ltrs),
+      ...(hasRouteTgtsXls ? [volTgt !== null ? Math.round(volTgt) : '—', volAtt !== null ? volAtt : '—'] : []),
       Math.round(r.qty),
       r.customers || 0,
       r.transactions
     ];
   });
   // Totals row
+  const totalRevTgt = hasRouteTgtsXls ? _sprFilteredRows.reduce((s,r)=>s+(r.revTarget||0),0) : null;
+  const totalVolTgt = hasRouteTgtsXls ? _sprFilteredRows.reduce((s,r)=>s+(r.volTarget||0),0) : null;
+  const totalAmt    = _sprFilteredRows.reduce((s,r)=>s+r.amount,0);
+  const totalLtrs   = _sprFilteredRows.reduce((s,r)=>s+r.ltrs,0);
+  const grandRevAtt = totalRevTgt > 0 ? parseFloat((totalAmt  / totalRevTgt * 100).toFixed(1)) : null;
+  const grandVolAtt = totalVolTgt > 0 ? parseFloat((totalLtrs / totalVolTgt * 100).toFixed(1)) : null;
   routeData.push([
-    '', 'GRAND TOTAL',  '',
-    Math.round(_sprFilteredRows.reduce((s,r)=>s+r.amount,0)),
-    100,
-    Math.round(_sprFilteredRows.reduce((s,r)=>s+r.ltrs,0)),
+    '', 'GRAND TOTAL', '',
+    Math.round(totalAmt),
+    ...(hasRouteTgtsXls ? [totalRevTgt > 0 ? Math.round(totalRevTgt) : '—', grandRevAtt !== null ? grandRevAtt : '—'] : []),
+    Math.round(totalLtrs),
+    ...(hasRouteTgtsXls ? [totalVolTgt > 0 ? Math.round(totalVolTgt) : '—', grandVolAtt !== null ? grandVolAtt : '—'] : []),
     Math.round(_sprFilteredRows.reduce((s,r)=>s+r.qty,0)),
     _sprFilteredRows.reduce((s,r)=>s+(r.customers||0),0),
     _sprFilteredRows.reduce((s,r)=>s+r.transactions,0)
   ]);
 
   const ws1 = XLSX.utils.aoa_to_sheet([routeHeader, ...routeData]);
-  ws1['!cols'] = [4,28,22,18,12,14,10,12,14].map(w=>({wch:w}));
+  const w1 = [4,28,22,18,...(hasRouteTgtsXls?[18,12]:[]),14,...(hasRouteTgtsXls?[14,12]:[]),10,12,14];
+  ws1['!cols'] = w1.map(w=>({wch:w}));
   XLSX.utils.book_append_sheet(wb, ws1, 'Routes Summary');
 
   // ── Sheet 2: Category Breakdown ──────────────────────────────────
-  const catHeader = ['Route','Location','Category','Revenue (KSH)','Cat Rev Share %','Volume (L)','Qty','Transactions'];
+  const catHeader = ['Route','Location','Category','Revenue (KSH)',
+    ...(hasRouteTgtsXls ? ['Rev Target (KSH)','Rev Att %'] : []),
+    'Volume (L)',
+    ...(hasRouteTgtsXls ? ['Vol Target (L)','Vol Att %'] : []),
+    'Qty','Transactions'];
   const catData = [];
   _sprFilteredRows.forEach(r => {
     const routeName = r.route === 'UNASSIGNED' ? 'Not Yet Classified' : r.route;
     const entries = Object.entries(r.categories || {}).sort((a,b)=>b[1].amount-a[1].amount);
     entries.forEach(([cat, cd]) => {
-      const catShare = r.amount > 0 ? parseFloat((cd.amount / r.amount * 100).toFixed(1)) : 0;
+      const catTgt   = hasRouteTgtsXls ? lookupRouteCategoryTarget(r.route, cat) : null;
+      const catRevTgt = catTgt ? catTgt.ksh  : null;
+      const catVolTgt = catTgt ? catTgt.ltrs : null;
+      const catRevAtt = catRevTgt > 0 ? parseFloat((cd.amount / catRevTgt * 100).toFixed(1)) : null;
+      const catVolAtt = catVolTgt > 0 ? parseFloat((cd.ltrs   / catVolTgt * 100).toFixed(1)) : null;
       catData.push([
         routeName,
         r.location || '—',
         cat,
         Math.round(cd.amount),
-        catShare,
+        ...(hasRouteTgtsXls ? [catRevTgt !== null ? Math.round(catRevTgt) : '—', catRevAtt !== null ? catRevAtt : '—'] : []),
         Math.round(cd.ltrs),
+        ...(hasRouteTgtsXls ? [catVolTgt !== null ? Math.round(catVolTgt) : '—', catVolAtt !== null ? catVolAtt : '—'] : []),
         Math.round(cd.qty),
         cd.transactions
       ]);
@@ -11855,7 +11881,8 @@ function exportSprExcel() {
   });
 
   const ws2 = XLSX.utils.aoa_to_sheet([catHeader, ...catData]);
-  ws2['!cols'] = [28,22,20,18,16,14,10,14].map(w=>({wch:w}));
+  const w2 = [28,22,20,18,...(hasRouteTgtsXls?[18,12]:[]),14,...(hasRouteTgtsXls?[14,12]:[]),10,14];
+  ws2['!cols'] = w2.map(w=>({wch:w}));
   XLSX.utils.book_append_sheet(wb, ws2, 'Category Breakdown');
 
   XLSX.writeFile(wb, `Sales_Per_Route_${period.replace(/\s|–|\/|\./g,'_')}.xlsx`);
