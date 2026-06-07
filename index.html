@@ -3523,7 +3523,7 @@ const SHEET_ID = '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8';
 
 async function loadSheetData() {
   setSheetDot('loading', 'Loading reference data from Google Sheet…');
-  const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Type Targets'];
+  const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Type Targets', 'Route Targets', 'RouteTargets'];
   const results = {};
 
   for (const s of sheets) {
@@ -3540,7 +3540,7 @@ async function loadSheetData() {
     } catch { results[s] = null; }
   }
 
-  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {}, routes: new Set() };
+  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, routeTargets: {}, routeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {}, routes: new Set() };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'] || results['Target'] || results['Regional Targets'])
@@ -3548,6 +3548,8 @@ async function loadSheetData() {
   const locTgtSheet = results['Location Targets'] || results['Loc Targets'] || results['Location Category Targets'];
   if (locTgtSheet) parseLocationCategoryTargetSheet(locTgtSheet);
   if (results['Type Targets']) parseTypeCategoryTargetSheet(results['Type Targets']);
+  const routeTgtSheet = results['Route Targets'] || results['RouteTargets'];
+  if (routeTgtSheet) parseRouteTargetSheet(routeTgtSheet);
 
   const cc  = refData.customerTotal || Object.keys(refData.customers).length;
   const pc  = Object.keys(refData.products).length;
@@ -3724,6 +3726,42 @@ function parseTargetSheet(csv) {
 
 // Parse a sheet with columns: Location | Category | Target KSH | Target Ltrs/Kgs
 // Populates refData.locationCategoryTargets[LOCATION][CATEGORY] = { ksh, ltrs }
+// Parse a Route Targets sheet: Route | Category | Monthly Target Vol (Ltrs/Kgs) | Monthly Target KSH
+// Supports both per-route rows AND per-route+category rows.
+// Populates refData.routeTargets[ROUTE_NAME_UPPER] = { ksh, ltrs }          (aggregated totals)
+//           refData.routeCategoryTargets[ROUTE][CAT] = { ksh, ltrs }         (per-category breakdown)
+function parseRouteTargetSheet(csv) {
+  const lines = csv.trim().split('\n');
+  const hdrs  = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
+  const routeIdx = findCol(hdrs, ['route','route name','name','territory','area']);
+  const catIdx   = findCol(hdrs, ['category','cat','product','sku']);
+  const kIdx     = findCol(hdrs, ['in ksh','target in ksh','monthly target in ksh','ksh','rev','revenue','amount','value','sales']);
+  const lIdx     = findCol(hdrs, ['in vol','target in vol','monthly target in vol','ltrs kgs','vol','ltr','litre','volume','qty','quantity','kg']);
+  console.log('[RouteTargets] Headers:', hdrs, '| routeIdx:', routeIdx, 'catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
+  if (routeIdx < 0) { console.warn('[RouteTargets] No route column detected — skipping'); return; }
+  if (!refData.routeCategoryTargets) refData.routeCategoryTargets = {};
+  for (let i = 1; i < lines.length; i++) {
+    const cols  = parseCSVLine(lines[i]);
+    const route = (cols[routeIdx] || '').trim().toUpperCase();
+    if (!route) continue;
+    const ksh  = kIdx  >= 0 ? parseFloat((cols[kIdx]  || '').replace(/,/g,'')) || 0 : 0;
+    const ltrs = lIdx  >= 0 ? parseFloat((cols[lIdx]  || '').replace(/,/g,'')) || 0 : 0;
+    // Aggregate into route-level totals (works for both flat and category-breakdown sheets)
+    if (!refData.routeTargets[route]) refData.routeTargets[route] = { ksh: 0, ltrs: 0 };
+    refData.routeTargets[route].ksh  += ksh;
+    refData.routeTargets[route].ltrs += ltrs;
+    // Store per-category breakdown if a category column exists
+    if (catIdx >= 0) {
+      const cat = normalizeCat((cols[catIdx] || '').trim());
+      if (cat) {
+        if (!refData.routeCategoryTargets[route]) refData.routeCategoryTargets[route] = {};
+        refData.routeCategoryTargets[route][cat] = { ksh, ltrs };
+      }
+    }
+  }
+  console.log('[RouteTargets] Loaded:', Object.keys(refData.routeTargets).length, 'routes');
+}
+
 function parseLocationCategoryTargetSheet(csv) {
   const lines = csv.trim().split('\n');
   const hdrs  = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
@@ -10910,12 +10948,16 @@ function buildSalesPerRouteData(transactions) {
       routeMap[route].categories[cat].customerMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs || 0, cat);
     }
   }
-  // Resolve dominant location for each route
+  // Resolve dominant location and attach route targets for each route
   for (const r of Object.values(routeMap)) {
     const entries = Object.entries(r.regions);
     r.location = entries.length
       ? entries.sort((a, b) => b[1] - a[1])[0][0]
       : '—';
+    // Attach route-level targets if available
+    const tgt = (refData.routeTargets || {})[r.route.toUpperCase()] || null;
+    r.revTarget = tgt ? tgt.ksh  : null;
+    r.volTarget = tgt ? tgt.ltrs : null;
   }
   console.log('[SPR] routeMap keys:', Object.keys(routeMap));
   return routeMap;
@@ -10996,20 +11038,24 @@ function renderSprTable(rows, grandAmt) {
   const revHeader = activeCat ? `Revenue (KSH) — ${activeCat}` : 'Revenue (KSH)';
   const volHeader = activeCat ? `Volume (L) — ${activeCat}` : 'Volume (L)';
 
+  const hasRouteTgts = Object.keys(refData.routeTargets || {}).length > 0;
+
   document.getElementById('sprThead').innerHTML = `
     <tr>
       <th ${thL}>#</th>
       <th ${thL}>Route</th>
       <th ${thL}>Location</th>
       <th ${thR}>${revHeader}</th>
+      ${hasRouteTgts ? `<th ${thR}>Rev Target</th>` : ''}
       <th ${thR}>Rev Share</th>
       <th ${thR}>${volHeader}</th>
+      ${hasRouteTgts ? `<th ${thR}>Vol Target</th>` : ''}
       <th ${thR}>Customers</th>
     </tr>`;
 
   if (!rows.length) {
     document.getElementById('sprTbody').innerHTML =
-      `<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--text-muted);">No routes match your search.</td></tr>`;
+      `<tr><td colspan="${hasRouteTgts ? 9 : 7}" style="padding:32px;text-align:center;color:var(--text-muted);">No routes match your search.</td></tr>`;
     return;
   }
 
@@ -11073,8 +11119,10 @@ function renderSprTable(rows, grandAmt) {
           </div>
         </td>
         <td style="padding:7px 12px;text-align:right;font-weight:600;font-family:'DM Mono',monospace;font-size:12px;color:var(--text-head);">${fmtN(cd.amount)}</td>
+        ${hasRouteTgts ? `<td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>` : ''}
         <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">${catShare}%</td>
         <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:11px;">${fmtN(cd.ltrs)}</td>
+        ${hasRouteTgts ? `<td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>` : ''}
         <td style="padding:7px 12px;text-align:right;font-size:11px;">${custCell}</td>
       </tr>`;
     }).join('') : '';
@@ -11092,8 +11140,26 @@ function renderSprTable(rows, grandAmt) {
       </td>
       <td style="padding:9px 12px;">${locationCell}</td>
       <td style="padding:9px 12px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;font-size:13px;${isUnassigned?'color:var(--text-muted);':''}">${fmtN(r.amount)}</td>
+      ${hasRouteTgts ? (() => {
+          if (!r.revTarget) return `<td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">—</td>`;
+          const pct = r.revTarget > 0 ? (r.amount / r.revTarget * 100) : 0;
+          const tColor = pct >= 100 ? '#1db87a' : pct >= 70 ? '#f6ad2b' : '#E1245A';
+          return `<td style="padding:9px 12px;text-align:right;font-size:12px;">
+            <div style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text-muted);">${fmtN(r.revTarget)}</div>
+            <div style="font-size:10px;font-weight:700;color:${tColor};margin-top:2px;">${pct.toFixed(1)}%</div>
+          </td>`;
+        })() : ''}
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">${share}%</td>
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:12px;">${fmtN(r.ltrs)}</td>
+      ${hasRouteTgts ? (() => {
+          if (!r.volTarget) return `<td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">—</td>`;
+          const pct = r.volTarget > 0 ? (r.ltrs / r.volTarget * 100) : 0;
+          const tColor = pct >= 100 ? '#1db87a' : pct >= 70 ? '#f6ad2b' : '#E1245A';
+          return `<td style="padding:9px 12px;text-align:right;font-size:12px;">
+            <div style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text-muted);">${fmtN(r.volTarget)}</div>
+            <div style="font-size:10px;font-weight:700;color:${tColor};margin-top:2px;">${pct.toFixed(1)}%</div>
+          </td>`;
+        })() : ''}
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;${r.customers > 0 ? 'cursor:pointer;' : ''}" 
           ${r.customers > 0 ? `onclick="event.stopPropagation();openSprCustPopup('${rowId}')" title="Click to view customer names"` : ''}>
         ${r.customers > 0
@@ -11112,6 +11178,13 @@ function renderSprTable(rows, grandAmt) {
   const tdT = `style="padding:11px 12px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;font-size:13px;color:#ffffff;background:#0f2744;border-top:2px solid #0a1e38;"`;
   const tdTL = `style="padding:11px 12px;text-align:left;font-weight:700;font-size:12px;color:#ffffff;background:#0f2744;border-top:2px solid #0a1e38;"`;
 
+  const totalRevTarget = rows.reduce((s, r) => s + (r.revTarget || 0), 0);
+  const totalVolTarget = rows.reduce((s, r) => s + (r.volTarget || 0), 0);
+  const grandRevPct = totalRevTarget > 0 ? (totalAmt / totalRevTarget * 100) : null;
+  const grandVolPct = totalVolTarget > 0 ? (totalLtrs / totalVolTarget * 100) : null;
+  const tRevTgtColor = grandRevPct === null ? '' : grandRevPct >= 100 ? '#4ade80' : grandRevPct >= 70 ? '#f6ad2b' : '#f87171';
+  const tVolTgtColor = grandVolPct === null ? '' : grandVolPct >= 100 ? '#4ade80' : grandVolPct >= 70 ? '#f6ad2b' : '#f87171';
+
   document.getElementById('sprTbody').innerHTML += `
     <tr>
       <td ${tdTL}></td>
@@ -11122,8 +11195,14 @@ function renderSprTable(rows, grandAmt) {
       </td>
       <td ${tdTL}></td>
       <td ${tdT}>${fmtN(totalAmt)}</td>
+      ${hasRouteTgts ? `<td style="padding:11px 12px;text-align:right;background:#0f2744;border-top:2px solid #0a1e38;">
+        ${totalRevTarget > 0 ? `<div style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:rgba(255,255,255,0.8);">${fmtN(totalRevTarget)}</div><div style="font-size:10px;font-weight:700;color:${tRevTgtColor};margin-top:2px;">${grandRevPct !== null ? grandRevPct.toFixed(1)+'%' : '—'}</div>` : '<span style="color:rgba(255,255,255,0.4);">—</span>'}
+      </td>` : ''}
       <td style="padding:11px 12px;text-align:right;font-size:12px;color:rgba(255,255,255,0.7);background:#0f2744;border-top:2px solid #0a1e38;">100%</td>
       <td ${tdT}>${fmtN(totalLtrs)}</td>
+      ${hasRouteTgts ? `<td style="padding:11px 12px;text-align:right;background:#0f2744;border-top:2px solid #0a1e38;">
+        ${totalVolTarget > 0 ? `<div style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:rgba(255,255,255,0.8);">${fmtN(totalVolTarget)}</div><div style="font-size:10px;font-weight:700;color:${tVolTgtColor};margin-top:2px;">${grandVolPct !== null ? grandVolPct.toFixed(1)+'%' : '—'}</div>` : '<span style="color:rgba(255,255,255,0.4);">—</span>'}
+      </td>` : ''}
       <td ${tdT}>${fmtN(totalCusts)}</td>
     </tr>`;
 }
@@ -11715,6 +11794,7 @@ function exportSprHTML() {
   const grandAmt = _sprFilteredRows.reduce((s, r) => s + r.amount, 0);
   const catColors = ['#E1245A','#7c3aed','#0891b2','#f6ad2b','#16a34a','#db2777','#0f2744','#d97706','#0284c7','#65a30d'];
 
+  const hasRouteTgtsExp = Object.keys(refData.routeTargets || {}).length > 0;
   const rows = _sprFilteredRows.map((r, i) => {
     const isUnassigned = r.route === 'UNASSIGNED';
     const share = grandAmt > 0 ? (r.amount / grandAmt * 100).toFixed(1) : '0.0';
@@ -11732,13 +11812,21 @@ function exportSprHTML() {
           <div style="margin-top:3px;height:3px;border-radius:99px;background:#e2e8f0;width:140px;"><div style="height:3px;border-radius:99px;background:${cc};width:${catBarW}%;"></div></div>
         </td>
         <td style="padding:6px 12px;text-align:right;font-weight:600;font-size:12px;color:#0f2744;">${fmtN(cd.amount)}</td>
+        ${hasRouteTgtsExp ? `<td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">—</td>` : ''}
         <td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">${catShare}%</td>
         <td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">${fmtN(cd.ltrs)}</td>
+        ${hasRouteTgtsExp ? `<td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">—</td>` : ''}
         <td style="padding:6px 12px;text-align:right;font-size:11px;color:#718096;">—</td>
       </tr>`;
     }).join('');
 
     const bg = isUnassigned ? '#f8f9fc' : (i % 2 === 0 ? '#ffffff' : '#f8f9fc');
+    const revTgt = r.revTarget;
+    const volTgt = r.volTarget;
+    const revPct = revTgt && revTgt > 0 ? (r.amount / revTgt * 100) : null;
+    const volPct = volTgt && volTgt > 0 ? (r.ltrs   / volTgt * 100) : null;
+    const revTgtColor = revPct === null ? '' : revPct >= 100 ? '#1db87a' : revPct >= 70 ? '#f6ad2b' : '#E1245A';
+    const volTgtColor = volPct === null ? '' : volPct >= 100 ? '#1db87a' : volPct >= 70 ? '#f6ad2b' : '#E1245A';
     return `<tr style="background:${bg};${isUnassigned?'opacity:0.75;':''}">
       <td style="padding:9px 12px;color:#718096;font-size:12px;">${isUnassigned?'—':i+1}</td>
       <td style="padding:9px 12px;">
@@ -11747,8 +11835,14 @@ function exportSprHTML() {
       </td>
       <td style="padding:9px 12px;"><span style="font-size:12px;font-weight:600;color:#718096;background:#f0f2f5;border:1px solid #dde3ec;border-radius:6px;padding:2px 8px;">${r.location||'—'}</span></td>
       <td style="padding:9px 12px;text-align:right;font-weight:700;font-family:monospace;font-size:13px;">${fmtN(r.amount)}</td>
+      ${hasRouteTgtsExp ? `<td style="padding:9px 12px;text-align:right;font-size:12px;">
+        ${revTgt ? `<div style="font-family:monospace;font-weight:600;color:#718096;">${fmtN(revTgt)}</div><div style="font-size:10px;font-weight:700;color:${revTgtColor};">${revPct !== null ? revPct.toFixed(1)+'%' : '—'}</div>` : '—'}
+      </td>` : ''}
       <td style="padding:9px 12px;text-align:right;color:#718096;font-size:12px;">${share}%</td>
       <td style="padding:9px 12px;text-align:right;color:#718096;font-family:monospace;font-size:12px;">${fmtN(r.ltrs)}</td>
+      ${hasRouteTgtsExp ? `<td style="padding:9px 12px;text-align:right;font-size:12px;">
+        ${volTgt ? `<div style="font-family:monospace;font-weight:600;color:#718096;">${fmtN(volTgt)}</div><div style="font-size:10px;font-weight:700;color:${volTgtColor};">${volPct !== null ? volPct.toFixed(1)+'%' : '—'}</div>` : '—'}
+      </td>` : ''}
       <td style="padding:9px 12px;text-align:right;color:#718096;font-size:12px;">${r.customers}</td>
     </tr>${catRows}`;
   }).join('');
@@ -11756,6 +11850,8 @@ function exportSprHTML() {
   const totalAmt  = _sprFilteredRows.reduce((s,r)=>s+r.amount,0);
   const totalLtrs = _sprFilteredRows.reduce((s,r)=>s+r.ltrs,0);
   const totalCusts= _sprFilteredRows.reduce((s,r)=>s+(r.customers||0),0);
+  const totalRevTarget = _sprFilteredRows.reduce((s,r)=>s+(r.revTarget||0),0);
+  const totalVolTarget = _sprFilteredRows.reduce((s,r)=>s+(r.volTarget||0),0);
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -11808,8 +11904,10 @@ th.r{text-align:right;}
     <table>
       <thead><tr>
         <th>#</th><th>Route</th><th>Location</th>
-        <th class="r">Revenue (KSH)</th><th class="r">Rev Share</th>
-        <th class="r">Volume (L)</th><th class="r">Customers</th>
+        <th class="r">Revenue (KSH)</th>${hasRouteTgtsExp ? '<th class="r">Rev Target</th>' : ''}
+        <th class="r">Rev Share</th>
+        <th class="r">Volume (L)</th>${hasRouteTgtsExp ? '<th class="r">Vol Target</th>' : ''}
+        <th class="r">Customers</th>
       </tr></thead>
       <tbody>
         ${rows}
@@ -11818,8 +11916,10 @@ th.r{text-align:right;}
           <td style="padding:11px 12px;color:#fff;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Grand Total &nbsp;·&nbsp; ${_sprFilteredRows.filter(r=>r.route!=='UNASSIGNED').length} routes</td>
           <td style="padding:11px 12px;"></td>
           <td style="padding:11px 12px;text-align:right;color:#fff;font-weight:700;font-family:monospace;font-size:13px;">${fmtN(totalAmt)}</td>
+          ${hasRouteTgtsExp ? `<td style="padding:11px 12px;text-align:right;color:rgba(255,255,255,0.7);font-family:monospace;font-size:13px;">${totalRevTarget > 0 ? fmtN(totalRevTarget) : '—'}</td>` : ''}
           <td style="padding:11px 12px;text-align:right;color:rgba(255,255,255,0.7);font-size:12px;">100%</td>
           <td style="padding:11px 12px;text-align:right;color:#fff;font-weight:700;font-family:monospace;font-size:13px;">${fmtN(totalLtrs)}</td>
+          ${hasRouteTgtsExp ? `<td style="padding:11px 12px;text-align:right;color:rgba(255,255,255,0.7);font-family:monospace;font-size:13px;">${totalVolTarget > 0 ? fmtN(totalVolTarget) : '—'}</td>` : ''}
           <td style="padding:11px 12px;text-align:right;color:#fff;font-weight:700;font-size:13px;">${fmtN(totalCusts)}</td>
         </tr>
       </tbody>
