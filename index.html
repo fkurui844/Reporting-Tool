@@ -2900,7 +2900,18 @@
             style="width:100%;padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);">
         </div>
         <div id="sprCustList" style="overflow-y:auto;flex:1;padding:8px 0;"></div>
-        <div id="sprCustTotal" style="padding:10px 18px;border-top:1px solid var(--border);background:var(--th-bg);font-size:12px;font-weight:700;color:#0f2744;flex-shrink:0;display:flex;justify-content:space-between;"></div>
+        <div id="sprCustTotal" style="padding:10px 18px;border-top:1px solid var(--border);background:var(--th-bg);font-size:12px;font-weight:700;color:#0f2744;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <span id="sprCustTotalLabel"></span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span id="sprCustTotalAmt"></span>
+            <button onclick="exportSprCustExcel()" title="Export customers to Excel"
+              style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:#1db87a;border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:background 0.2s;"
+              onmouseover="this.style.background='#17a36b'" onmouseout="this.style.background='#1db87a'">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export Excel
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Table -->
@@ -3128,14 +3139,10 @@
           <span class="sc-section-title">👤 Customer Movement</span>
           <span class="sc-section-sub">Customers gained or lost between periods</span>
           <div class="sc-export-wrap" onclick="event.stopPropagation()">
-            <button class="btn-sc-export" onclick="scExportHTML('scTableMovement','Customer Movement')">⬇ Export</button>
-            <div class="sc-export-wrap" onclick="event.stopPropagation()">
-              <button class="btn-sc-export" style="padding:6px 8px;min-width:unset;" onclick="scToggleExportMenu('scTableMovement_menu')">▾</button>
-              <div class="sc-export-menu" id="scTableMovement_menu">
-                <button onclick="scExportExcel('scTableMovement','Customer Movement');scToggleExportMenu('scTableMovement_menu')">📗 Download Excel (.xlsx)</button>
-                <button onclick="scExportHTML('scTableMovement','Customer Movement');scToggleExportMenu('scTableMovement_menu')">🌐 Download HTML (web view)</button>
-              </div>
-            </div>
+            <button class="btn-sc-export" onclick="scToggleExportMenu('scTableMovement_menu')">⬇ Export ▾</button>
+            <div class="sc-export-menu" id="scTableMovement_menu">
+              <button onclick="scExportExcel('scTableMovement','Customer Movement');scToggleExportMenu('scTableMovement_menu')">📗 Download Excel (.xlsx)</button>
+              <button onclick="scExportHTML('scTableMovement','Customer Movement');scToggleExportMenu('scTableMovement_menu')">🌐 Download HTML (web view)</button>
             </div>
           </div>
         </div>
@@ -11745,8 +11752,8 @@ function openSprCustPopup(rowId) {
   
   // Calculate total only for filtered customers
   const filteredTotal = window._sprCustAll.reduce((s, c) => s + c.amount, 0);
-  document.getElementById('sprCustTotal').innerHTML =
-    `<span>Route Total</span><span style="color:#E1245A;">KSH ${fmtN(filteredTotal)}</span>`;
+  document.getElementById('sprCustTotalLabel').textContent = 'Route Total';
+  document.getElementById('sprCustTotalAmt').innerHTML = `<span style="color:#E1245A;">KSH ${fmtN(filteredTotal)}</span>`;
 
   renderSprCustList(window._sprCustAll, filteredTotal);
 
@@ -11792,6 +11799,40 @@ function filterSprCustList() {
 function closeSprCustPopup() {
   document.getElementById('sprCustOverlay').style.display = 'none';
   document.getElementById('sprCustPopup').style.display   = 'none';
+}
+
+function exportSprCustExcel() {
+  const customers = window._sprCustAll;
+  if (!customers || !customers.length) { showToast('No customer data to export.', 'err'); return; }
+
+  const routeTitle = document.getElementById('sprCustPopupTitle').textContent || 'Route';
+  const fmtN = v => Math.round(v);
+
+  // Build worksheet data
+  const routeTotal = customers.reduce((s, c) => s + c.amount, 0);
+  const rows = [
+    ['#', 'Customer Code', 'Customer Name', 'Revenue (KSH)', 'Revenue Share (%)', 'Volume (L)']
+  ];
+  customers.forEach((c, i) => {
+    const share = routeTotal > 0 ? +(c.amount / routeTotal * 100).toFixed(1) : 0;
+    rows.push([i + 1, c.code, c.name, fmtN(c.amount), share, fmtN(c.ltrs)]);
+  });
+  // Totals row
+  rows.push(['', '', 'TOTAL', fmtN(routeTotal), 100, fmtN(customers.reduce((s,c)=>s+c.ltrs,0))]);
+
+  const wb  = XLSX.utils.book_new();
+  const ws  = XLSX.utils.aoa_to_sheet(rows);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 4 }, { wch: 18 }, { wch: 36 }, { wch: 18 }, { wch: 18 }, { wch: 14 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+
+  const safeName = routeTitle.replace(/[\/\\?*:\[\]]/g, '_');
+  XLSX.writeFile(wb, `${safeName}_Customers.xlsx`);
+  showToast(`Exported ${customers.length} customers ✓`, 'ok');
 }
 
 function exportSprExcel() {
