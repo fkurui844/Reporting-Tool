@@ -11237,7 +11237,12 @@ function renderSprTable(rows, grandAmt) {
       const catBg = isActiveCat ? '#fffbeb' : 'var(--inc-bg)';
       const catBorder = isActiveCat ? '#f6ad2b' : catColor;
       const hideRow = activeCat && !isActiveCat ? 'display:none;' : (activeCat ? '' : 'display:none;');
-      const catCustCount = cd.customerMap ? Object.keys(cd.customerMap).length : 0;
+      // Intersect category customerMap with the route's (already location-filtered) customerMap
+      // so category customer counts never exceed the route total
+      const routeCustKeys = r.customerMap ? new Set(Object.keys(r.customerMap)) : new Set();
+      const catCustCount = cd.customerMap
+        ? Object.keys(cd.customerMap).filter(k => routeCustKeys.size === 0 || routeCustKeys.has(k)).length
+        : 0;
       const catCustKey = `${rowId}-cat-${ci}`;
       // Store cat customer data for popup
       _sprRowDataMap[catCustKey] = { route: r.route + ' › ' + cat, location: r.location, amount: cd.amount, customerMap: cd.customerMap || {} };
