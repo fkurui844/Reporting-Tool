@@ -4018,8 +4018,8 @@ function parseSAP(text){
       continue;
     }
     if(line.includes('GRAND TOTAL')||line.includes('TOTALS'))continue;
-    // Match standard 440/330 codes AND zero-padded variants (e.g. 00000000332 = packaging service codes)
-    const sapColFinal=cols.find(c=>/^0*(440|330)\d{8}$/.test(c)||/^0{6,}\d{1,5}$/.test(c));
+    // Match standard 440/330 codes only (11-digit SAP material codes, with or without leading zeros)
+    const sapColFinal=cols.find(c=>/^0*(440|330)\d{8}$/.test(c));
     if(sapColFinal&&curCust){
       const matCode=sapColFinal.replace(/^0+/,'')||sapColFinal;
       const nums=cols.filter(c=>/^-?[\d,]+\.?\d*$/.test(c.replace(/\s/,'')));
@@ -11273,7 +11273,7 @@ function renderSprTable(rows, grandAmt) {
 
       return `<tr class="spr-cat-row" data-parent="${rowId}" style="${hideRow}background:${catBg};border-left:3px solid ${catBorder};${isActiveCat?'font-weight:700;':''}">
         <td style="padding:7px 12px;color:var(--text-muted);font-size:11px;"></td>
-        <td style="padding:7px 12px;padding-left:28px;" colspan="2">
+        <td style="padding:7px 12px;padding-left:28px;">
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catBorder};flex-shrink:0;"></span>
             <span style="font-size:12px;font-weight:700;color:var(--text-head);letter-spacing:0.03em;">${esc(cat)}</span>
@@ -11283,6 +11283,7 @@ function renderSprTable(rows, grandAmt) {
             <div style="height:3px;border-radius:99px;background:${catBorder};width:${catBarW}%;"></div>
           </div>
         </td>
+        <td style="padding:7px 12px;"></td>
         <td style="padding:7px 12px;text-align:right;font-weight:600;font-family:'DM Mono',monospace;font-size:12px;color:var(--text-head);">${fmtN(cd.amount)}</td>
         ${catRevTgtCell}
         <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:11px;">${fmtN(cd.ltrs)}</td>
