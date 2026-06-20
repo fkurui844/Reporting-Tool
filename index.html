@@ -3907,8 +3907,9 @@ function normaliseType(raw) {
   if (/^INST/i.test(s))       return 'INSTITUTION';
   if (/^EXPORT/i.test(s))     return 'EXPORTS';
   for (const canon of TYPE_CANONICAL) {
-    // Exact match or s is an unambiguous prefix of canon (min 4 chars to avoid e.g. 'E' → EXPORTS)
-    if (s === canon || s.startsWith(canon) || (s.length >= 4 && canon.startsWith(s))) return canon;
+    // Only exact match or s is a prefix OF canon (e.g. 'DIST' → DISTRIBUTOR)
+    // Removed canon.startsWith(s) which caused e.g. 'EXPO' → EXPORTS false match
+    if (s === canon || s.startsWith(canon)) return canon;
   }
   return null;
 }
