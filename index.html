@@ -11082,7 +11082,7 @@ function buildSalesPerRouteData(transactions) {
     routeMap[route].categories[cat].transactions += 1;
     if (t.custCode) {
       if (!routeMap[route].categories[cat].customerMap[t.custCode]) {
-        routeMap[route].categories[cat].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0 };
+        routeMap[route].categories[cat].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0, region: t.region || '' };
       }
       routeMap[route].categories[cat].customerMap[t.custCode].amount += t.amount || 0;
       routeMap[route].categories[cat].customerMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs || 0, cat);
@@ -11237,12 +11237,15 @@ function renderSprTable(rows, grandAmt) {
       const catBg = isActiveCat ? '#fffbeb' : 'var(--inc-bg)';
       const catBorder = isActiveCat ? '#f6ad2b' : catColor;
       const hideRow = activeCat && !isActiveCat ? 'display:none;' : (activeCat ? '' : 'display:none;');
-      // Intersect category customerMap with the route's already-location-filtered customerMap
-      // r.customerMap has been rebuilt to only include customers for the active location filter
-      const routeCustKeys = r.customerMap ? new Set(Object.keys(r.customerMap)) : new Set();
-      const catCustCount = cd.customerMap
-        ? Object.keys(cd.customerMap).filter(k => !routeCustKeys.size || routeCustKeys.has(k)).length
-        : 0;
+      // Count category customers, filtered by active location if set
+      const activeLoc = (document.getElementById('sprLocFilter') && document.getElementById('sprLocFilter').value) || '';
+      const catCustEntries = cd.customerMap ? Object.entries(cd.customerMap) : [];
+      const catCustCount = activeLoc
+        ? catCustEntries.filter(([k, v]) => {
+            const reg = (v.region || r.location || '').trim();
+            return reg === activeLoc.trim();
+          }).length
+        : catCustEntries.length;
       const catCustKey = `${rowId}-cat-${ci}`;
       // Store cat customer data for popup
       _sprRowDataMap[catCustKey] = { route: r.route + ' › ' + cat, location: r.location, amount: cd.amount, customerMap: cd.customerMap || {} };
