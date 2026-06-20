@@ -11062,7 +11062,7 @@ function buildSalesPerRouteData(transactions) {
     if (t.custCode) {
       routeMap[route].customers.add(t.custCode);
       if (!routeMap[route].customerMap[t.custCode]) {
-        routeMap[route].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0 };
+        routeMap[route].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0, region: t.region || '' };
       }
       routeMap[route].customerMap[t.custCode].amount += t.amount || 0;
       routeMap[route].customerMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs || 0, (t.category || '').toUpperCase());
@@ -11237,11 +11237,11 @@ function renderSprTable(rows, grandAmt) {
       const catBg = isActiveCat ? '#fffbeb' : 'var(--inc-bg)';
       const catBorder = isActiveCat ? '#f6ad2b' : catColor;
       const hideRow = activeCat && !isActiveCat ? 'display:none;' : (activeCat ? '' : 'display:none;');
-      // Intersect category customerMap with the route's (already location-filtered) customerMap
-      // so category customer counts never exceed the route total
+      // Intersect category customerMap with the route's already-location-filtered customerMap
+      // r.customerMap has been rebuilt to only include customers for the active location filter
       const routeCustKeys = r.customerMap ? new Set(Object.keys(r.customerMap)) : new Set();
       const catCustCount = cd.customerMap
-        ? Object.keys(cd.customerMap).filter(k => routeCustKeys.size === 0 || routeCustKeys.has(k)).length
+        ? Object.keys(cd.customerMap).filter(k => !routeCustKeys.size || routeCustKeys.has(k)).length
         : 0;
       const catCustKey = `${rowId}-cat-${ci}`;
       // Store cat customer data for popup
@@ -11409,9 +11409,8 @@ function filterSprTable() {
         
         // Check if route has customers in selected location
         if (loc) {
-          const hasCustInLoc = r.customerMap && Object.keys(r.customerMap).some(code => {
-            const custData = refData.customers[code] || {};
-            const custLocation = custData.location || custData.region || r.location;
+          const hasCustInLoc = r.customerMap && Object.values(r.customerMap).some(custData => {
+            const custLocation = custData.region || r.location;
             return (custLocation || '').trim() === loc.trim();
           });
           if (!hasCustInLoc) return false;
@@ -11451,9 +11450,8 @@ function filterSprTable() {
       
       // Check if route has customers in selected location
       if (loc) {
-        const hasCustInLoc = r.customerMap && Object.keys(r.customerMap).some(code => {
-          const custData = refData.customers[code] || {};
-          const custLocation = custData.location || custData.region || r.location;
+        const hasCustInLoc = r.customerMap && Object.values(r.customerMap).some(custData => {
+          const custLocation = custData.region || r.location;
           return (custLocation || '').trim() === loc.trim();
         });
         if (!hasCustInLoc) return false;
@@ -11471,8 +11469,8 @@ function filterSprTable() {
       const locCustomers = {};
       
       Object.entries(r.customerMap).forEach(([code, custData]) => {
-        const fullCustData = refData.customers[code] || {};
-        const custLocation = (fullCustData.location || fullCustData.region || r.location || '').trim();
+        // Use region stored at parse time from the transaction itself (not refData lookup)
+        const custLocation = (custData.region || r.location || '').trim();
         
         if (custLocation === loc.trim()) {
           locCustomers[code] = custData;
@@ -11496,10 +11494,8 @@ function filterSprTable() {
     .map(r => ({
       ...r,
       customers: loc && r.customerMap 
-        ? Object.keys(r.customerMap).filter(code => {
-            const custData = refData.customers[code] || {};
-            // Use 'location' from sheet, fallback to 'region' from registration
-            const custLocation = custData.location || custData.region || r.location;
+        ? Object.values(r.customerMap).filter(custData => {
+            const custLocation = custData.region || r.location;
             return custLocation === loc;
           }).length
         : r.customers
