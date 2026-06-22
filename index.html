@@ -3574,9 +3574,16 @@ async function loadSheetData() {
   const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Type Targets', 'Route Targets', 'RouteTargets'];
   const results = {};
 
+  // gid map for sheets that need filter-safe export (export?format=csv ignores active filters)
+  // gviz/tq respects filters and will skip hidden rows — so for Customers we use export endpoint
+  const GID_MAP = { 'Customers': '629042856' };
+
   for (const s of sheets) {
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}`;
+      // Use export?format=csv for Customers (ignores filters), gviz for others
+      const url = GID_MAP[s]
+        ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_MAP[s]}`
+        : `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}`;
       const r = await fetch(url);
       if (r.ok) {
         const txt = await r.text();
