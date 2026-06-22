@@ -4000,7 +4000,7 @@ function parseSAP(text){
     const line=lines[i];
     const cols=line.split('\t').map(c=>c.trim());
     if(line.includes('CUSTOMER')&&!line.includes('TOTALS')&&!line.includes('CODE')&&!line.includes('GRAND')){
-      const cm=line.match(/(\d{7,10})\s+(.*)/);
+      const cm=line.match(/(\d{6,10})\s+(.*)/);
       if(cm){
         const rawCode=cm[1], code=rawCode.replace(/^0+/,'')||rawCode, name=cm[2].trim();
         const sapChan=(name.match(/^([A-Z]\d+)-/)||[])[1]||'';
@@ -4017,6 +4017,10 @@ function parseSAP(text){
           console.log(`[Route debug] code=${code} found=${found} info.route="${info?.route}" → route="${route}"`);
         if(found&&(!info.region||!info.channel)&&!result.incompleteCustomers[code])
           result.incompleteCustomers[code]={rawCode,name,regionRead:info.region||'(blank)',channelRead:info.channel||'(blank)',ltrs:0,amount:0};
+      } else {
+        // Customer header detected but code didn't match — reset to prevent previous customer
+        // absorbing this customer's product lines
+        curCust = null;
       }
       continue;
     }
