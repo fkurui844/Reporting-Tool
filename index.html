@@ -3697,6 +3697,9 @@ function parseCustomerSheet(csv) {
       if(!refData.customers[numP])           refData.customers[numP]           = entry; // '003593'
       const numStripped = numP.replace(/^0+/,'') || numP;
       if(!refData.customers[numStripped])    refData.customers[numStripped]    = entry; // '3593'
+      // Debug first 3 E-prefix entries
+      if(Object.keys(refData.customers).length < 20)
+        console.log(`[Sheet] raw="${rawTrimmed}" → keys stored: "${code}", "${rawTrimmed}", "${numP}", "${numStripped}"`);
     }
     // Track all distinct named routes from the Customers sheet
     if(entry.route) {
@@ -4023,6 +4026,14 @@ function parseSAP(text){
         // Try stripped code first, then raw code, then pure-numeric (in case SAP omits the E prefix)
         const numOnlyCode = strippedNum; // e.g. '3593' — numeric part only, no alpha prefix
         const info=refData.customers[code]||refData.customers[rawCode]||refData.customers[numOnlyCode]||refData.customers[numPart]; const found=!!info;
+        // Debug: log first 10 E-prefix lookup attempts to console
+        if (alphaPrefix && Object.keys(result.missingCustomers).length < 10) {
+          console.log(`[Lookup] rawCode="${rawCode}" code="${code}" numOnly="${numOnlyCode}" numPart="${numPart}" → found=${found}`);
+          if (!found) {
+            const sampleKeys = Object.keys(refData.customers).filter(k => k.includes(strippedNum) || k.includes(numPart)).slice(0,5);
+            console.log(`  ↳ Keys in refData containing "${strippedNum}":`, sampleKeys);
+          }
+        }
         const region=(found&&info.region)?info.region:inferRegion(sapChan);
         const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
         const rawRoute = (found && info && info.route) ? String(info.route).trim().toUpperCase() : '';
