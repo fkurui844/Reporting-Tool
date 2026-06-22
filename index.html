@@ -3691,6 +3691,13 @@ function parseCustomerSheet(csv) {
     // Also index by the raw code (with leading zeros) so lookup works
     // regardless of how the sheet stores the code
     if(rawTrimmed !== code) refData.customers[rawTrimmed] = entry;
+    // For alpha-prefixed codes (e.g. E003593), also index by pure numeric parts
+    // so SAP files that omit the prefix (storing just 003593 or 3593) still match
+    if(alphaP) {
+      if(!refData.customers[numP])           refData.customers[numP]           = entry; // '003593'
+      const numStripped = numP.replace(/^0+/,'') || numP;
+      if(!refData.customers[numStripped])    refData.customers[numStripped]    = entry; // '3593'
+    }
     // Track all distinct named routes from the Customers sheet
     if(entry.route) {
       if(!refData.routes) refData.routes = new Set();
@@ -4013,8 +4020,9 @@ function parseSAP(text){
         const code        = alphaPrefix + strippedNum;  // e.g. E1497 or 1497
         const name=cm[2].trim();
         const sapChan=(name.match(/^([A-Z]\d+)-/)||[])[1]||'';
-        // Try stripped code first, then raw code as fallback (handles zero-padding mismatches)
-        const info=refData.customers[code]||refData.customers[rawCode]; const found=!!info;
+        // Try stripped code first, then raw code, then pure-numeric (in case SAP omits the E prefix)
+        const numOnlyCode = strippedNum; // e.g. '3593' — numeric part only, no alpha prefix
+        const info=refData.customers[code]||refData.customers[rawCode]||refData.customers[numOnlyCode]||refData.customers[numPart]; const found=!!info;
         const region=(found&&info.region)?info.region:inferRegion(sapChan);
         const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
         const rawRoute = (found && info && info.route) ? String(info.route).trim().toUpperCase() : '';
@@ -4169,7 +4177,8 @@ function renderReport(data){
   const mtdProAmt   = (overallTgtAmt > 0 && elapsedDays) ? Math.round((overallTgtAmt / 30) * elapsedDays) : null;
   const mtdProLtr   = (overallTgtLtr > 0 && elapsedDays) ? Math.round((overallTgtLtr / 30) * elapsedDays) : null;
 
-  const missingArr = Object.values(data.missingCustomers).sort((a,b)=>b.amount-a.amount);
+  const missingArr = Object.values(data.missingCustomers)
+    .sort((a,b)=>b.amount-a.amount);
   lastMissing = missingArr;
 
   // Metrics — pre-compute target HTML to avoid nested template literals
