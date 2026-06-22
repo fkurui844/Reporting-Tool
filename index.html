@@ -3676,7 +3676,10 @@ function parseCustomerSheet(csv) {
     const raw = codeIdx>=0?cols[codeIdx]:'';
     if(!raw)continue;
     const rawTrimmed = raw.trim();
-    const code = rawTrimmed.replace(/^0+/,'') || rawTrimmed; // keep original if all zeros
+    // For codes with alpha prefix (e.g. E001497), strip zeros only from the numeric part
+    const alphaP = /^[A-Z]+/.test(rawTrimmed) ? rawTrimmed.match(/^[A-Z]+/)[0] : '';
+    const numP   = rawTrimmed.slice(alphaP.length);
+    const code   = alphaP + (numP.replace(/^0+/,'') || numP); // e.g. E001497 → E1497
     const entry={
       outlet:  nameIdx>=0?(cols[nameIdx]||'').trim():'',
       region:  locIdx>=0?(cols[locIdx]||'').trim().toUpperCase():'',
@@ -3688,6 +3691,13 @@ function parseCustomerSheet(csv) {
     // Also index by the raw code (with leading zeros) so lookup works
     // regardless of how the sheet stores the code
     if(rawTrimmed !== code) refData.customers[rawTrimmed] = entry;
+    // For alpha-prefixed codes (e.g. E003593), also index by pure numeric parts
+    // so SAP files that omit the prefix (storing just 003593 or 3593) still match
+    if(alphaP) {
+      if(!refData.customers[numP])           refData.customers[numP]           = entry; // '003593'
+      const numStripped = numP.replace(/^0+/,'') || numP;
+      if(!refData.customers[numStripped])    refData.customers[numStripped]    = entry; // '3593'
+    }
     // Track all distinct named routes from the Customers sheet
     if(entry.route) {
       if(!refData.routes) refData.routes = new Set();
@@ -3896,18 +3906,21 @@ const TYPE_CANONICAL = [
   'SALESMAN',
   'MT TIER I/II',
   'INSTITUTION',
-  'EXPORTS'
 ];
 
 // Normalise raw type strings from SAP/sheet to canonical names
 function normaliseType(raw) {
   const s = (raw || '').toUpperCase().trim();
   if (!s || s === 'UNKNOWN') return null;
-  if (/MT\s*TIER/i.test(s))  return 'MT TIER I/II';
-  if (/^INST/i.test(s))       return 'INSTITUTION';
-  if (/^EXPORT/i.test(s))     return 'EXPORTS';
+  if (/MT\s*TIER/i.test(s))       return 'MT TIER I/II';
+  // INST… prefix → INSTITUTION
+  if (/^INST/i.test(s))            return 'INSTITUTION';
+  // EXPORTS / EXPORT also belong to the INSTI/EXPO segment → INSTITUTION
+  // (C89 channel covers both Institutions and Exports; they share the same type bucket)
+  if (/^EXPORTS?$/i.test(s))       return 'INSTITUTION';
   for (const canon of TYPE_CANONICAL) {
-    if (s === canon || s.startsWith(canon) || canon.startsWith(s)) return canon;
+    // Only exact match or s is a prefix OF canon (e.g. 'DIST' → DISTRIBUTOR)
+    if (s === canon || s.startsWith(canon)) return canon;
   }
   return null;
 }
@@ -3997,12 +4010,19 @@ function parseSAP(text){
     const line=lines[i];
     const cols=line.split('\t').map(c=>c.trim());
     if(line.includes('CUSTOMER')&&!line.includes('TOTALS')&&!line.includes('CODE')&&!line.includes('GRAND')){
-      const cm=line.match(/(\d{7,10})\s+(.*)/);
+      const cm=line.match(/([A-Z]?\d{6,10})\s+(.*)/);
       if(cm){
-        const rawCode=cm[1], code=rawCode.replace(/^0+/,'')||rawCode, name=cm[2].trim();
+        const rawCode=cm[1];
+        // Preserve alpha prefix (e.g. E001497 → E1497), only strip numeric leading zeros
+        const alphaPrefix = /^[A-Z]/.test(rawCode) ? rawCode[0] : '';
+        const numPart     = rawCode.slice(alphaPrefix.length);
+        const strippedNum = numPart.replace(/^0+/,'') || numPart;
+        const code        = alphaPrefix + strippedNum;  // e.g. E1497 or 1497
+        const name=cm[2].trim();
         const sapChan=(name.match(/^([A-Z]\d+)-/)||[])[1]||'';
-        // Try stripped code first, then raw code as fallback (handles zero-padding mismatches)
-        const info=refData.customers[code]||refData.customers[rawCode]; const found=!!info;
+        // Try stripped code first, then raw code, then pure-numeric (in case SAP omits the E prefix)
+        const numOnlyCode = strippedNum; // e.g. '3593' — numeric part only, no alpha prefix
+        const info=refData.customers[code]||refData.customers[rawCode]||refData.customers[numOnlyCode]||refData.customers[numPart]; const found=!!info;
         const region=(found&&info.region)?info.region:inferRegion(sapChan);
         const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
         const rawRoute = (found && info && info.route) ? String(info.route).trim().toUpperCase() : '';
@@ -4014,12 +4034,16 @@ function parseSAP(text){
           console.log(`[Route debug] code=${code} found=${found} info.route="${info?.route}" → route="${route}"`);
         if(found&&(!info.region||!info.channel)&&!result.incompleteCustomers[code])
           result.incompleteCustomers[code]={rawCode,name,regionRead:info.region||'(blank)',channelRead:info.channel||'(blank)',ltrs:0,amount:0};
+      } else {
+        // Customer header detected but code didn't match — reset to prevent previous customer
+        // absorbing this customer's product lines
+        curCust = null;
       }
       continue;
     }
     if(line.includes('GRAND TOTAL')||line.includes('TOTALS'))continue;
-    // Match standard 440/330 codes AND zero-padded variants (e.g. 00000000332 = packaging service codes)
-    const sapColFinal=cols.find(c=>/^0*(440|330)\d{8}$/.test(c)||/^0{6,}\d{1,5}$/.test(c));
+    // Match standard 440/330 codes only (11-digit SAP material codes, with or without leading zeros)
+    const sapColFinal=cols.find(c=>/^0*(440|330)\d{8}$/.test(c));
     if(sapColFinal&&curCust){
       const matCode=sapColFinal.replace(/^0+/,'')||sapColFinal;
       const nums=cols.filter(c=>/^-?[\d,]+\.?\d*$/.test(c.replace(/\s/,'')));
@@ -4153,7 +4177,8 @@ function renderReport(data){
   const mtdProAmt   = (overallTgtAmt > 0 && elapsedDays) ? Math.round((overallTgtAmt / 30) * elapsedDays) : null;
   const mtdProLtr   = (overallTgtLtr > 0 && elapsedDays) ? Math.round((overallTgtLtr / 30) * elapsedDays) : null;
 
-  const missingArr = Object.values(data.missingCustomers).sort((a,b)=>b.amount-a.amount);
+  const missingArr = Object.values(data.missingCustomers)
+    .sort((a,b)=>b.amount-a.amount);
   lastMissing = missingArr;
 
   // Metrics — pre-compute target HTML to avoid nested template literals
@@ -11060,7 +11085,7 @@ function buildSalesPerRouteData(transactions) {
     if (t.custCode) {
       routeMap[route].customers.add(t.custCode);
       if (!routeMap[route].customerMap[t.custCode]) {
-        routeMap[route].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0 };
+        routeMap[route].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0, region: t.region || '' };
       }
       routeMap[route].customerMap[t.custCode].amount += t.amount || 0;
       routeMap[route].customerMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs || 0, (t.category || '').toUpperCase());
@@ -11080,7 +11105,7 @@ function buildSalesPerRouteData(transactions) {
     routeMap[route].categories[cat].transactions += 1;
     if (t.custCode) {
       if (!routeMap[route].categories[cat].customerMap[t.custCode]) {
-        routeMap[route].categories[cat].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0 };
+        routeMap[route].categories[cat].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0, region: t.region || '' };
       }
       routeMap[route].categories[cat].customerMap[t.custCode].amount += t.amount || 0;
       routeMap[route].categories[cat].customerMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs || 0, cat);
@@ -11235,7 +11260,15 @@ function renderSprTable(rows, grandAmt) {
       const catBg = isActiveCat ? '#fffbeb' : 'var(--inc-bg)';
       const catBorder = isActiveCat ? '#f6ad2b' : catColor;
       const hideRow = activeCat && !isActiveCat ? 'display:none;' : (activeCat ? '' : 'display:none;');
-      const catCustCount = cd.customerMap ? Object.keys(cd.customerMap).length : 0;
+      // Count category customers, filtered by active location if set
+      const activeLoc = (document.getElementById('sprLocFilter') && document.getElementById('sprLocFilter').value) || '';
+      const catCustEntries = cd.customerMap ? Object.entries(cd.customerMap) : [];
+      const catCustCount = activeLoc
+        ? catCustEntries.filter(([k, v]) => {
+            const reg = (v.region || r.location || '').trim();
+            return reg === activeLoc.trim();
+          }).length
+        : catCustEntries.length;
       const catCustKey = `${rowId}-cat-${ci}`;
       // Store cat customer data for popup
       _sprRowDataMap[catCustKey] = { route: r.route + ' › ' + cat, location: r.location, amount: cd.amount, customerMap: cd.customerMap || {} };
@@ -11273,7 +11306,7 @@ function renderSprTable(rows, grandAmt) {
 
       return `<tr class="spr-cat-row" data-parent="${rowId}" style="${hideRow}background:${catBg};border-left:3px solid ${catBorder};${isActiveCat?'font-weight:700;':''}">
         <td style="padding:7px 12px;color:var(--text-muted);font-size:11px;"></td>
-        <td style="padding:7px 12px;padding-left:28px;" colspan="2">
+        <td style="padding:7px 12px;padding-left:28px;">
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catBorder};flex-shrink:0;"></span>
             <span style="font-size:12px;font-weight:700;color:var(--text-head);letter-spacing:0.03em;">${esc(cat)}</span>
@@ -11283,6 +11316,7 @@ function renderSprTable(rows, grandAmt) {
             <div style="height:3px;border-radius:99px;background:${catBorder};width:${catBarW}%;"></div>
           </div>
         </td>
+        <td style="padding:7px 12px;"></td>
         <td style="padding:7px 12px;text-align:right;font-weight:600;font-family:'DM Mono',monospace;font-size:12px;color:var(--text-head);">${fmtN(cd.amount)}</td>
         ${catRevTgtCell}
         <td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:11px;">${fmtN(cd.ltrs)}</td>
@@ -11401,9 +11435,8 @@ function filterSprTable() {
         
         // Check if route has customers in selected location
         if (loc) {
-          const hasCustInLoc = r.customerMap && Object.keys(r.customerMap).some(code => {
-            const custData = refData.customers[code] || {};
-            const custLocation = custData.location || custData.region || r.location;
+          const hasCustInLoc = r.customerMap && Object.values(r.customerMap).some(custData => {
+            const custLocation = custData.region || r.location;
             return (custLocation || '').trim() === loc.trim();
           });
           if (!hasCustInLoc) return false;
@@ -11443,9 +11476,8 @@ function filterSprTable() {
       
       // Check if route has customers in selected location
       if (loc) {
-        const hasCustInLoc = r.customerMap && Object.keys(r.customerMap).some(code => {
-          const custData = refData.customers[code] || {};
-          const custLocation = custData.location || custData.region || r.location;
+        const hasCustInLoc = r.customerMap && Object.values(r.customerMap).some(custData => {
+          const custLocation = custData.region || r.location;
           return (custLocation || '').trim() === loc.trim();
         });
         if (!hasCustInLoc) return false;
@@ -11463,8 +11495,8 @@ function filterSprTable() {
       const locCustomers = {};
       
       Object.entries(r.customerMap).forEach(([code, custData]) => {
-        const fullCustData = refData.customers[code] || {};
-        const custLocation = (fullCustData.location || fullCustData.region || r.location || '').trim();
+        // Use region stored at parse time from the transaction itself (not refData lookup)
+        const custLocation = (custData.region || r.location || '').trim();
         
         if (custLocation === loc.trim()) {
           locCustomers[code] = custData;
@@ -11488,10 +11520,8 @@ function filterSprTable() {
     .map(r => ({
       ...r,
       customers: loc && r.customerMap 
-        ? Object.keys(r.customerMap).filter(code => {
-            const custData = refData.customers[code] || {};
-            // Use 'location' from sheet, fallback to 'region' from registration
-            const custLocation = custData.location || custData.region || r.location;
+        ? Object.values(r.customerMap).filter(custData => {
+            const custLocation = custData.region || r.location;
             return custLocation === loc;
           }).length
         : r.customers
