@@ -3896,19 +3896,20 @@ const TYPE_CANONICAL = [
   'SALESMAN',
   'MT TIER I/II',
   'INSTITUTION',
-  'EXPORTS'
 ];
 
 // Normalise raw type strings from SAP/sheet to canonical names
 function normaliseType(raw) {
   const s = (raw || '').toUpperCase().trim();
   if (!s || s === 'UNKNOWN') return null;
-  if (/MT\s*TIER/i.test(s))  return 'MT TIER I/II';
-  if (/^INST/i.test(s))       return 'INSTITUTION';
-  if (/^EXPORT/i.test(s))     return 'EXPORTS';
+  if (/MT\s*TIER/i.test(s))       return 'MT TIER I/II';
+  // INST… prefix → INSTITUTION
+  if (/^INST/i.test(s))            return 'INSTITUTION';
+  // EXPORTS / EXPORT also belong to the INSTI/EXPO segment → INSTITUTION
+  // (C89 channel covers both Institutions and Exports; they share the same type bucket)
+  if (/^EXPORTS?$/i.test(s))       return 'INSTITUTION';
   for (const canon of TYPE_CANONICAL) {
     // Only exact match or s is a prefix OF canon (e.g. 'DIST' → DISTRIBUTOR)
-    // Removed canon.startsWith(s) which caused e.g. 'EXPO' → EXPORTS false match
     if (s === canon || s.startsWith(canon)) return canon;
   }
   return null;
