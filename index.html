@@ -3606,7 +3606,7 @@ async function loadSheetData() {
   const routeTgtSheet = results['Route Targets'] || results['RouteTargets'];
   if (routeTgtSheet) parseRouteTargetSheet(routeTgtSheet);
 
-  const cc  = refData.customerTotal || Object.keys(refData.customers).length;
+  const cc  = refData.customerTotal || 0;
   const pc  = Object.keys(refData.products).length;
   const tc  = Object.keys(refData.categoryTargets).length || Object.keys(refData.targets).length;
   const lcCount  = Object.keys(refData.locationCategoryTargets).length;
@@ -3717,7 +3717,8 @@ function parseCustomerSheet(csv) {
       if(!refData.routes) refData.routes = new Set();
       refData.routes.add(entry.route);
     }
-    if(!entry.type.includes('STAFF')){
+    const isStaff = entry.type.includes('STAFF') || /^E/i.test(rawTrimmed);
+    if(!isStaff){
       refData.customerTotal = (refData.customerTotal || 0) + 1; // exclude staff from total
       const reg = entry.region || 'UNKNOWN';
       refData.regionTotals[reg] = (refData.regionTotals[reg] || 0) + 1;
@@ -4124,7 +4125,7 @@ function renderReport(data){
 
   const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
   const totalLtrs = data.transactions.reduce((s,t)=>s+toDisplayLtrs(t.ltrs, t.category),0);
-  const custCount = new Set(data.transactions.map(t=>t.custCode)).size;
+  const custCount = new Set(data.transactions.filter(t=>!/^E/i.test(t.custCode)).map(t=>t.custCode)).size;
 
   // Customer coverage banner
   const totalInSheet = refData.customerTotal || 0;
