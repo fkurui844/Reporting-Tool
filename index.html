@@ -3676,6 +3676,10 @@ function parseCustomerSheet(csv) {
     const raw = codeIdx>=0?cols[codeIdx]:'';
     if(!raw)continue;
     const rawTrimmed = raw.trim();
+    // Debug: inspect first 5 E-prefix raw values for invisible chars
+    if (/^E/i.test(rawTrimmed) && Object.keys(refData.customers).length < 15) {
+      console.log(`[Sheet raw] "${rawTrimmed}" len=${rawTrimmed.length} chars=[${[...rawTrimmed].map(c=>c.charCodeAt(0)).join(',')}]`);
+    }
     // For codes with alpha prefix (e.g. E001497), strip zeros only from the numeric part
     const alphaP = /^[A-Z]+/.test(rawTrimmed) ? rawTrimmed.match(/^[A-Z]+/)[0] : '';
     const numP   = rawTrimmed.slice(alphaP.length);
@@ -4016,6 +4020,10 @@ function parseSAP(text){
       const cm=line.match(/([A-Z]?\d{6,10})\s+(.*)/);
       if(cm){
         const rawCode=cm[1];
+        // Debug: inspect first 5 E-prefix SAP codes for invisible chars
+        if (/^E/i.test(rawCode) && Object.keys(result.missingCustomers).length < 5) {
+          console.log(`[SAP raw] "${rawCode}" len=${rawCode.length} chars=[${[...rawCode].map(c=>c.charCodeAt(0)).join(',')}]`);
+        }
         // Preserve alpha prefix (e.g. E001497 → E1497), only strip numeric leading zeros
         const alphaPrefix = /^[A-Z]/.test(rawCode) ? rawCode[0] : '';
         const numPart     = rawCode.slice(alphaPrefix.length);
