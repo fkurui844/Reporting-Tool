@@ -3676,7 +3676,10 @@ function parseCustomerSheet(csv) {
     const raw = codeIdx>=0?cols[codeIdx]:'';
     if(!raw)continue;
     const rawTrimmed = raw.trim();
-    const code = rawTrimmed.replace(/^0+/,'') || rawTrimmed; // keep original if all zeros
+    // For codes with alpha prefix (e.g. E001497), strip zeros only from the numeric part
+    const alphaP = /^[A-Z]+/.test(rawTrimmed) ? rawTrimmed.match(/^[A-Z]+/)[0] : '';
+    const numP   = rawTrimmed.slice(alphaP.length);
+    const code   = alphaP + (numP.replace(/^0+/,'') || numP); // e.g. E001497 → E1497
     const entry={
       outlet:  nameIdx>=0?(cols[nameIdx]||'').trim():'',
       region:  locIdx>=0?(cols[locIdx]||'').trim().toUpperCase():'',
@@ -4000,9 +4003,15 @@ function parseSAP(text){
     const line=lines[i];
     const cols=line.split('\t').map(c=>c.trim());
     if(line.includes('CUSTOMER')&&!line.includes('TOTALS')&&!line.includes('CODE')&&!line.includes('GRAND')){
-      const cm=line.match(/(\d{6,10})\s+(.*)/);
+      const cm=line.match(/([A-Z]?\d{6,10})\s+(.*)/);
       if(cm){
-        const rawCode=cm[1], code=rawCode.replace(/^0+/,'')||rawCode, name=cm[2].trim();
+        const rawCode=cm[1];
+        // Preserve alpha prefix (e.g. E001497 → E1497), only strip numeric leading zeros
+        const alphaPrefix = /^[A-Z]/.test(rawCode) ? rawCode[0] : '';
+        const numPart     = rawCode.slice(alphaPrefix.length);
+        const strippedNum = numPart.replace(/^0+/,'') || numPart;
+        const code        = alphaPrefix + strippedNum;  // e.g. E1497 or 1497
+        const name=cm[2].trim();
         const sapChan=(name.match(/^([A-Z]\d+)-/)||[])[1]||'';
         // Try stripped code first, then raw code as fallback (handles zero-padding mismatches)
         const info=refData.customers[code]||refData.customers[rawCode]; const found=!!info;
