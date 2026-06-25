@@ -3666,6 +3666,7 @@ function parseCSVLine(line) {
   const r=[]; let c='',inQ=false;
   for(let i=0;i<line.length;i++){
     const ch=line[i];
+    if(ch==='\r')continue;
     if(ch==='"'){inQ=!inQ;continue;}
     if(ch===','&&!inQ){r.push(c.trim());c='';continue;}
     c+=ch;
@@ -3678,7 +3679,7 @@ function findCol(hdrs, kws) {
 }
 
 function parseCustomerSheet(csv) {
-  const lines = csv.trim().split('\n');
+  const lines = csv.trim().split(/\r?\n/);
   const hdrs  = parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   console.log('[Customers] Headers detected:', hdrs); // debug — check browser console
   const codeIdx = findCol(hdrs,['sap code','sap','code','customer code','cust code','account']);
@@ -3737,7 +3738,7 @@ function parseCustomerSheet(csv) {
 }
 
 function parseProductSheet(csv) {
-  const lines=csv.trim().split('\n');
+  const lines=csv.trim().split(/\r?\n/);
   const hdrs=parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   const sapIdx=findCol(hdrs,['sap code','sap','material code']);
   const catIdx=findCol(hdrs,['category','cat']);
@@ -3821,7 +3822,7 @@ function lookupRouteCategoryTarget(routeName, cat) {
 }
 
 function parseTargetSheet(csv) {
-  const lines=csv.trim().split('\n');
+  const lines=csv.trim().split(/\r?\n/);
   const hdrs=parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   // Detect whether this sheet is keyed by region or by category
   const catIdx  = findCol(hdrs,['category','cat']);
@@ -3863,7 +3864,7 @@ function parseTargetSheet(csv) {
 // Populates refData.routeTargets[ROUTE_NAME_UPPER] = { ksh, ltrs }          (aggregated totals)
 //           refData.routeCategoryTargets[ROUTE][CAT] = { ksh, ltrs }         (per-category breakdown)
 function parseRouteTargetSheet(csv) {
-  const lines = csv.trim().split('\n');
+  const lines = csv.trim().split(/\r?\n/);
   const hdrs  = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   const routeIdx = findCol(hdrs, ['route','route name','name','territory','area']);
   const catIdx   = findCol(hdrs, ['category','cat','product','sku']);
@@ -3895,7 +3896,7 @@ function parseRouteTargetSheet(csv) {
 }
 
 function parseLocationCategoryTargetSheet(csv) {
-  const lines = csv.trim().split('\n');
+  const lines = csv.trim().split(/\r?\n/);
   const hdrs  = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   const locIdx = findCol(hdrs, ['location','region','territory','area','zone','branch','loc','reg']);
   const catIdx = findCol(hdrs, ['category','cat','product','sku']);
@@ -3949,7 +3950,7 @@ function normaliseType(raw) {
 }
 
 function parseTypeCategoryTargetSheet(csv) {
-  const lines   = csv.trim().split('\n');
+  const lines   = csv.trim().split(/\r?\n/);
   const hdrs    = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   const typeIdx = findCol(hdrs, ['type','channel','chan','trade channel','sales channel','segment']);
   const catIdx  = findCol(hdrs, ['category','cat','product','sku']);
