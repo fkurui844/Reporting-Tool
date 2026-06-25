@@ -3747,6 +3747,21 @@ function parseCustomerSheet(csv) {
       const numStripped = numP.replace(/^0+/,'') || numP;
       if(!refData.customers[numStripped])    refData.customers[numStripped]    = entry; // '3593'
     }
+    // For purely numeric codes (sheet stores '001497' without E prefix),
+    // also index by stripped value and common E-prefix variants so SAP lookup hits
+    if(!alphaP && rawTrimmed) {
+      const numStripped2 = rawTrimmed.replace(/^0+/,'') || rawTrimmed;           // '1497'
+      if(!refData.customers[numStripped2])          refData.customers[numStripped2]          = entry;
+      if(!refData.customers['E'+rawTrimmed])        refData.customers['E'+rawTrimmed]        = entry; // 'E001497'
+      if(!refData.customers['E'+numStripped2])      refData.customers['E'+numStripped2]      = entry; // 'E1497'
+      // Also pad to 6 and 7 digits with E prefix for robustness
+      const p6 = numStripped2.padStart(6,'0');
+      const p7 = numStripped2.padStart(7,'0');
+      if(!refData.customers['E'+p6]) refData.customers['E'+p6] = entry; // 'E001497'
+      if(!refData.customers['E'+p7]) refData.customers['E'+p7] = entry; // 'E0001497'
+      if(!refData.customers[p6])     refData.customers[p6]     = entry; // '001497'
+      if(!refData.customers[p7])     refData.customers[p7]     = entry; // '0001497'
+    }
     // Track all distinct named routes from the Customers sheet
     if(entry.route) {
       if(!refData.routes) refData.routes = new Set();
@@ -4073,9 +4088,17 @@ function parseSAP(text){
         const code        = alphaPrefix + strippedNum;  // e.g. E1497 or 1497
         const name=cm[2].trim();
         const sapChan=(name.match(/^([A-Z]\d+)-/)||[])[1]||'';
-        // Try stripped code first, then raw code, then pure-numeric (in case SAP omits the E prefix)
-        const numOnlyCode = strippedNum; // e.g. '3593' — numeric part only, no alpha prefix
-        const info=refData.customers[code]||refData.customers[rawCode]||refData.customers[numOnlyCode]||refData.customers[numPart]; const found=!!info;
+        // Try all variants: stripped (E1497), raw (E001497), numeric-only stripped (1497),
+        // numeric-only with leading zeros (001497), padded to 6 digits (001497)
+        const numOnlyCode = strippedNum; // e.g. '1497'
+        const numPadded6  = strippedNum.padStart(6, '0'); // e.g. '001497'
+        const numPadded7  = strippedNum.padStart(7, '0'); // e.g. '0001497'
+        const info=refData.customers[code]
+                ||refData.customers[rawCode]
+                ||refData.customers[numOnlyCode]
+                ||refData.customers[numPart]
+                ||refData.customers[numPadded6]
+                ||refData.customers[numPadded7]; const found=!!info;
         // Debug: log first 10 E-prefix lookup attempts to console
         if (Object.keys(result.missingCustomers).length < 10) {
           if (!found) {
@@ -4091,8 +4114,10 @@ function parseSAP(text){
         const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
         const rawRoute = (found && info && info.route) ? String(info.route).trim().toUpperCase() : '';
         const route = (rawRoute && rawRoute !== '0') ? rawRoute : '';
-        curCust={code,rawCode,name,found,region,channel,type:found?info.type:'',route};
-        if (!found && !result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
+        // E-prefix codes are staff accounts — never flag them as missing customers
+        const isStaffCode = alphaPrefix === 'E';
+        curCust={code,rawCode,name,found:found||isStaffCode,region,channel,type:found?info.type:(isStaffCode?'STAFF':''),route};
+        if (!found && !isStaffCode && !result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
         // Debug: log first 3 customers to verify route is being read
         if (Object.keys(result.missingCustomers).length + (result.transactions?.length||0) < 3)
         if(found&&(!info.region||!info.channel)&&!result.incompleteCustomers[code])
