@@ -3591,19 +3591,37 @@ async function loadSheetData() {
 
   for (const s of sheets) {
     try {
-      // For Customers: use export?format=csv with discovered GID to bypass active filters.
-      // Fall back to gviz if GID discovery failed.
-      const url = (s === 'Customers' && customersGid)
-        ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${customersGid}`
-        : `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}`;
-      const r = await fetch(url);
-      if (r.ok) {
-        const txt = await r.text();
-        // gviz returns HTTP 200 even on errors — check it's actually CSV
-        results[s] = (txt && !txt.startsWith('google.') && txt.includes(',')) ? txt : null;
-      } else {
-        results[s] = null;
+      const gvizUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}`;
+      let txt = null;
+
+      // For Customers: try export?format=csv first (bypasses active filters) then fall back to gviz
+      if (s === 'Customers' && customersGid) {
+        try {
+          const exportUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${customersGid}`;
+          const er = await fetch(exportUrl);
+          if (er.ok) {
+            const etxt = await er.text();
+            // Strip BOM if present
+            const cleaned = etxt.replace(/^﻿/, '').trim();
+            // Validate it's real CSV: must not be HTML and first line must look like headers
+            const isHtml = cleaned.startsWith('<') || cleaned.toLowerCase().includes('<!doctype');
+            const looksLikeCSV = !isHtml && cleaned.includes(',');
+            if (looksLikeCSV) txt = cleaned;
+          }
+        } catch { /* fall through to gviz */ }
       }
+
+      // Use gviz as primary (for non-Customers) or fallback
+      if (!txt) {
+        const r = await fetch(gvizUrl);
+        if (r.ok) {
+          const gtxt = await r.text();
+          const cleaned = gtxt.replace(/^﻿/, '').trim();
+          txt = (cleaned && !cleaned.startsWith('google.') && cleaned.includes(',')) ? cleaned : null;
+        }
+      }
+
+      results[s] = txt;
     } catch { results[s] = null; }
   }
 
@@ -3679,9 +3697,13 @@ function findCol(hdrs, kws) {
 }
 
 function parseCustomerSheet(csv) {
-  const lines = csv.trim().split(/\r?\n/);
+  // Strip BOM if present
+  const csvClean = csv.replace(/^\uFEFF/, '').trim();
+  const lines = csvClean.split(/\r?\n/);
   const hdrs  = parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
-  console.log('[Customers] Headers detected:', hdrs); // debug — check browser console
+  console.log('[Customers] Headers detected:', hdrs);
+  console.log('[Customers] First row raw bytes (first header):', [...(lines[0]||'').slice(0,20)].map(c=>c.charCodeAt(0)));
+  console.log('[Customers] Total rows:', lines.length);
   const codeIdx = findCol(hdrs,['sap code','sap','code','customer code','cust code','account']);
   const nameIdx = findCol(hdrs,['outlet','name','customer','client','account name','description']);
   const locIdx   = findCol(hdrs,['location','region','territory','area','zone','district','branch','loc','reg']);
@@ -3714,6 +3736,10 @@ function parseCustomerSheet(csv) {
     // Also index by the raw code (with leading zeros) so lookup works
     // regardless of how the sheet stores the code
     if(rawTrimmed !== code) refData.customers[rawTrimmed] = entry;
+    // Debug: log first 5 stored codes to verify they're clean
+    if (Object.keys(refData.customers).length <= 10) {
+      console.log('[Customers] Stored key:', JSON.stringify(code), 'rawTrimmed:', JSON.stringify(rawTrimmed), 'bytes:', [...rawTrimmed].map(c=>c.charCodeAt(0)));
+    }
     // For alpha-prefixed codes (e.g. E003593), also index by pure numeric parts
     // so SAP files that omit the prefix (storing just 003593 or 3593) still match
     if(alphaP) {
@@ -4051,10 +4077,14 @@ function parseSAP(text){
         const numOnlyCode = strippedNum; // e.g. '3593' — numeric part only, no alpha prefix
         const info=refData.customers[code]||refData.customers[rawCode]||refData.customers[numOnlyCode]||refData.customers[numPart]; const found=!!info;
         // Debug: log first 10 E-prefix lookup attempts to console
-        if (alphaPrefix && Object.keys(result.missingCustomers).length < 10) {
+        if (Object.keys(result.missingCustomers).length < 10) {
           if (!found) {
             const sampleKeys = Object.keys(refData.customers).filter(k => k.includes(strippedNum) || k.includes(numPart)).slice(0,5);
-            console.log(`  ↳ Keys in refData containing "${strippedNum}":`, sampleKeys);
+            console.log(`[SAP Lookup MISS] code="${code}" rawCode="${rawCode}" strippedNum="${strippedNum}" | Nearby keys:`, sampleKeys);
+            console.log(`[SAP Lookup MISS] refData.customers total keys:`, Object.keys(refData.customers).length);
+          } else {
+            if (Object.keys(result.missingCustomers).length + (result.transactions?.length||0) < 3)
+              console.log(`[SAP Lookup HIT] code="${code}" → region="${info.region}" channel="${info.channel}"`);
           }
         }
         const region=(found&&info.region)?info.region:inferRegion(sapChan);
