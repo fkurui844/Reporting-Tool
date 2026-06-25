@@ -3574,53 +3574,37 @@ async function loadSheetData() {
   const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Type Targets', 'Route Targets', 'RouteTargets'];
   const results = {};
 
-  // Helper: fetch a sheet CSV, trying filter-safe export first for Customers.
-  // export?format=csv ignores active sheet filters; gviz/tq respects them (skips hidden rows).
-  async function fetchSheetCSV(sheetName) {
-    if (sheetName === 'Customers') {
-      // Strategy: try export?format=csv (filter-safe). We discover the GID dynamically
-      // by scanning the spreadsheet's HTML index — no hardcoded GID needed.
-      // Step 1: fetch the spreadsheet page to find the Customers tab GID
-      try {
-        const indexR = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`);
-        if (indexR.ok) {
-          const html = await indexR.text();
-          // Sheet tab GIDs appear as "gid=NNNN" next to the sheet name in the HTML
-          // Pattern: looks for the Customers sheet name near its gid value
-          const gidMatch = html.match(/gid=(\d+)[^"]*"[^>]*>Customers</i)
-                        || html.match(/Customers[^<]*<[^>]*gid[=:](\d+)/i)
-                        || html.match(/"name"\s*:\s*"Customers"[^}]*"gid"\s*:\s*(\d+)/i)
-                        || html.match(/"gid"\s*:\s*(\d+)[^}]*"name"\s*:\s*"Customers"/i);
-          if (gidMatch) {
-            const gid = gidMatch[1];
-            const exportUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
-            const r = await fetch(exportUrl);
-            if (r.ok) {
-              const txt = await r.text();
-              if (txt && txt.includes(',') && !txt.startsWith('<')) return txt;
-            }
-          }
-        }
-      } catch { /* fall through */ }
-      // Step 2: try export without GID (exports first/active sheet — may work if Customers is first)
-      try {
-        const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`);
-        if (r.ok) {
-          const txt = await r.text();
-          if (txt && txt.includes(',') && !txt.startsWith('<')) return txt;
-        }
-      } catch { /* fall through */ }
+  // Dynamically discover the GID for the Customers sheet so the fetch always
+  // returns ALL rows regardless of active filters (export?format=csv ignores filters;
+  // gviz/tq respects them and skips hidden rows).
+  let customersGid = null;
+  try {
+    const metaUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Customers&range=A1`;
+    const metaR = await fetch(metaUrl);
+    if (metaR.ok) {
+      const metaTxt = await metaR.text();
+      // The gviz JSON response contains "gid":NNNN in its metadata
+      const gidMatch = metaTxt.match(/"gid"\s*:\s*(\d+)/);
+      if (gidMatch) customersGid = gidMatch[1];
     }
-    // Default: gviz (works for all sheets; for Customers only use if export failed)
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`);
-    if (!r.ok) return null;
-    const txt = await r.text();
-    return (txt && !txt.startsWith('google.') && txt.includes(',')) ? txt : null;
-  }
+  } catch { /* fall through — will use gviz as normal */ }
 
   for (const s of sheets) {
-    try { results[s] = await fetchSheetCSV(s); }
-    catch { results[s] = null; }
+    try {
+      // For Customers: use export?format=csv with discovered GID to bypass active filters.
+      // Fall back to gviz if GID discovery failed.
+      const url = (s === 'Customers' && customersGid)
+        ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${customersGid}`
+        : `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}`;
+      const r = await fetch(url);
+      if (r.ok) {
+        const txt = await r.text();
+        // gviz returns HTTP 200 even on errors — check it's actually CSV
+        results[s] = (txt && !txt.startsWith('google.') && txt.includes(',')) ? txt : null;
+      } else {
+        results[s] = null;
+      }
+    } catch { results[s] = null; }
   }
 
   refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, routeTargets: {}, routeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {}, routes: new Set() };
@@ -3711,6 +3695,9 @@ function parseCustomerSheet(csv) {
     const raw = codeIdx>=0?cols[codeIdx]:'';
     if(!raw)continue;
     const rawTrimmed = raw.trim();
+    // Debug: inspect first 5 E-prefix raw values for invisible chars
+    if (/^E/i.test(rawTrimmed) && Object.keys(refData.customers).length < 15) {
+    }
     // For codes with alpha prefix (e.g. E001497), strip zeros only from the numeric part
     const alphaP = /^[A-Z]+/.test(rawTrimmed) ? rawTrimmed.match(/^[A-Z]+/)[0] : '';
     const numP   = rawTrimmed.slice(alphaP.length);
@@ -4049,6 +4036,9 @@ function parseSAP(text){
       const cm=line.match(/([A-Z]?\d{6,10})\s+(.*)/);
       if(cm){
         const rawCode=cm[1];
+        // Debug: inspect first 5 E-prefix SAP codes for invisible chars
+        if (/^E/i.test(rawCode) && Object.keys(result.missingCustomers).length < 5) {
+        }
         // Preserve alpha prefix (e.g. E001497 → E1497), only strip numeric leading zeros
         const alphaPrefix = /^[A-Z]/.test(rawCode) ? rawCode[0] : '';
         const numPart     = rawCode.slice(alphaPrefix.length);
@@ -4059,15 +4049,21 @@ function parseSAP(text){
         // Try stripped code first, then raw code, then pure-numeric (in case SAP omits the E prefix)
         const numOnlyCode = strippedNum; // e.g. '3593' — numeric part only, no alpha prefix
         const info=refData.customers[code]||refData.customers[rawCode]||refData.customers[numOnlyCode]||refData.customers[numPart]; const found=!!info;
+        // Debug: log first 10 E-prefix lookup attempts to console
+        if (alphaPrefix && Object.keys(result.missingCustomers).length < 10) {
+          if (!found) {
+            const sampleKeys = Object.keys(refData.customers).filter(k => k.includes(strippedNum) || k.includes(numPart)).slice(0,5);
+            console.log(`  ↳ Keys in refData containing "${strippedNum}":`, sampleKeys);
+          }
+        }
         const region=(found&&info.region)?info.region:inferRegion(sapChan);
         const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
         const rawRoute = (found && info && info.route) ? String(info.route).trim().toUpperCase() : '';
         const route = (rawRoute && rawRoute !== '0') ? rawRoute : '';
-        curCust={code,rawCode,name,found,region,channel,type:found?info.type:'STAFF',route};
-        // E-prefix codes are STAFF accounts — never flag as missing even if not in Customers sheet
-        const isStaffCode = /^E/i.test(rawCode);
-        if (!found && !isStaffCode && !result.missingCustomers[code])
-          result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
+        curCust={code,rawCode,name,found,region,channel,type:found?info.type:'',route};
+        if (!found && !result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
+        // Debug: log first 3 customers to verify route is being read
+        if (Object.keys(result.missingCustomers).length + (result.transactions?.length||0) < 3)
         if(found&&(!info.region||!info.channel)&&!result.incompleteCustomers[code])
           result.incompleteCustomers[code]={rawCode,name,regionRead:info.region||'(blank)',channelRead:info.channel||'(blank)',ltrs:0,amount:0};
       } else {
@@ -4220,7 +4216,6 @@ function renderReport(data){
   const mtdProLtr   = (overallTgtLtr > 0 && elapsedDays) ? Math.round((overallTgtLtr / 30) * elapsedDays) : null;
 
   const missingArr = Object.values(data.missingCustomers)
-    .filter(c => !/^E/i.test(c.rawCode || ''))   // exclude E-prefix STAFF accounts
     .sort((a,b)=>b.amount-a.amount);
   lastMissing = missingArr;
 
