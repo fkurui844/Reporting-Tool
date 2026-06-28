@@ -3610,13 +3610,43 @@ async function loadSheetData() {
         } catch { /* fall through to gviz */ }
       }
 
-      // Use gviz as primary (for non-Customers) or fallback
+      // For Customers, gviz truncates at ~500 rows by default — paginate to get all rows.
+      // For other sheets, a single gviz fetch is fine.
       if (!txt) {
-        const r = await fetch(gvizUrl);
+        const isCustomers = (s === 'Customers');
+        const fetchUrl = isCustomers
+          ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}&tq=${encodeURIComponent('select *')}`
+          : gvizUrl;
+        const r = await fetch(fetchUrl);
         if (r.ok) {
           const gtxt = await r.text();
           const cleaned = gtxt.replace(/^﻿/, '').trim();
-          txt = (cleaned && !cleaned.startsWith('google.') && cleaned.includes(',')) ? cleaned : null;
+          let base = (cleaned && !cleaned.startsWith('google.') && cleaned.includes(',')) ? cleaned : null;
+
+          // Paginate Customers in batches until we get a short page (< 500 rows = last page)
+          if (isCustomers && base) {
+            const batchLines = base.split(/\r?\n/);
+            const headerLine = batchLines[0];
+            let allRows = batchLines.slice(1).filter(Boolean);
+            while (allRows.length > 0 && allRows.length % 500 === 0) {
+              try {
+                const offset = allRows.length;
+                const pageUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}&tq=${encodeURIComponent('select * offset ' + offset)}`;
+                const pr = await fetch(pageUrl);
+                if (!pr.ok) break;
+                const ptxt = await pr.text();
+                const pc = ptxt.replace(/^﻿/, '').trim();
+                if (!pc || pc.startsWith('google.') || !pc.includes(',')) break;
+                const newRows = pc.split(/\r?\n/).filter(Boolean);
+                if (!newRows.length) break;
+                allRows = allRows.concat(newRows);
+                if (newRows.length < 500) break;
+              } catch { break; }
+            }
+            txt = [headerLine, ...allRows].join('\n');
+          } else {
+            txt = base;
+          }
         }
       }
 
