@@ -22,7 +22,7 @@
       --text:      #1a202c;
       --text-muted:#718096;
       --text-head: #0f2744;
-      --row-hover: #eef0f5;
+      --row-hover: var(--row-hover);
       --row-total: #fff0f4;
       --row-pct:   #f0f2f5;
       --row-tgt:   #f8f9fc;
@@ -3488,6 +3488,7 @@ window.addEventListener('load', () => {
     window.gsheetToken = savedToken;
     window.GSHEET_ID = savedSheetId;
     window.gsheetApiReady = true;
+    console.log('✓ Google Sheets API ready (cached credentials)');
   }
 });
 
@@ -3573,90 +3574,29 @@ async function loadSheetData() {
   const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Type Targets', 'Route Targets', 'RouteTargets'];
   const results = {};
 
+  // gid map for sheets that need filter-safe export (export?format=csv ignores active filters)
+  // gviz/tq respects filters and will skip hidden rows — so for Customers we use export endpoint
+  const GID_MAP = { 'Customers': '629042856' };
+
   for (const s of sheets) {
     try {
-      const gvizUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}`;
-      let txt = null;
-
-      if (s === 'Customers') {
-        // export?format=csv has no row limit and works for public sheets without auth.
-        // This is the only reliable way to get all 3000+ rows — gviz truncates at ~500.
-        // Try sheet name directly (no GID lookup needed).
-        const urls = [
-          `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&sheet=Customers`,
-          `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&id=${SHEET_ID}&sheet=Customers`,
-        ];
-        for (const url of urls) {
-          if (txt) break;
-          try {
-            const er = await fetch(url);
-            if (!er.ok) continue;
-            const etxt = await er.text();
-            const cleaned = etxt.replace(/^﻿/, '').trim();
-            const isHtml = cleaned.startsWith('<') || cleaned.toLowerCase().includes('<!doctype');
-            if (!isHtml && cleaned.includes(',') && cleaned.split(/\r?\n/).length > 2) {
-              txt = cleaned;
-            }
-          } catch { /* try next */ }
-        }
-
-        // Fallback: paginated gviz (catches cases where export requires login)
-        if (!txt) {
-          try {
-            const firstUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Customers&tq=${encodeURIComponent('select *')}`;
-            const r = await fetch(firstUrl);
-            if (r.ok) {
-              const gtxt = await r.text();
-              const cleaned = gtxt.replace(/^﻿/, '').trim();
-              if (cleaned && !cleaned.startsWith('google.') && cleaned.includes(',')) {
-                const batchLines = cleaned.split(/\r?\n/);
-                const headerLine = batchLines[0];
-                let allRows = batchLines.slice(1).filter(Boolean);
-                // Keep paginating while we're getting full batches of 500
-                while (allRows.length > 0 && allRows.length % 500 === 0) {
-                  const offset = allRows.length;
-                  const pageUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Customers&tq=${encodeURIComponent('select * offset ' + offset)}`;
-                  try {
-                    const pr = await fetch(pageUrl);
-                    if (!pr.ok) break;
-                    const pc = (await pr.text()).replace(/^﻿/, '').trim();
-                    if (!pc || pc.startsWith('google.') || !pc.includes(',')) break;
-                    const newRows = pc.split(/\r?\n/).filter(Boolean);
-                    if (!newRows.length) break;
-                    allRows = allRows.concat(newRows);
-                    if (newRows.length < 500) break;
-                  } catch { break; }
-                }
-                txt = [headerLine, ...allRows].join('\n');
-              }
-            }
-          } catch { /* give up */ }
-        }
+      // Use export?format=csv for Customers (ignores filters), gviz for others
+      const url = GID_MAP[s]
+        ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_MAP[s]}`
+        : `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}`;
+      const r = await fetch(url);
+      if (r.ok) {
+        const txt = await r.text();
+        // gviz returns HTTP 200 even on errors — check it's actually CSV
+        results[s] = (txt && !txt.startsWith('google.') && txt.includes(',')) ? txt : null;
       } else {
-        // All other sheets: single gviz fetch (they are small enough)
-        const r = await fetch(gvizUrl);
-        if (r.ok) {
-          const gtxt = await r.text();
-          const cleaned = gtxt.replace(/^﻿/, '').trim();
-          txt = (cleaned && !cleaned.startsWith('google.') && cleaned.includes(',')) ? cleaned : null;
-        }
+        results[s] = null;
       }
-
-      results[s] = txt;
     } catch { results[s] = null; }
   }
 
   refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, routeTargets: {}, routeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {}, routes: new Set() };
-  if (results['Customers']) {
-    parseCustomerSheet(results['Customers']);
-    // Sanity check: warn if E-prefix codes are suspiciously absent
-    // (indicates gviz may have reformatted them or the export fell back to a bad path)
-    const eKeys = Object.keys(refData.customers).filter(k => /^E\d/.test(k));
-    if (Object.keys(refData.customers).length > 20 && eKeys.length === 0) {
-      console.warn('[Customers] WARNING: No E-prefix codes found after parsing. The sheet export may have stripped the E prefix from codes. Check column formatting.');
-      setSheetDot('err', 'Loaded but E-prefix customer codes appear missing — check that the SAP Code column is formatted as Plain text in Google Sheets.');
-    }
-  }
+  if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'] || results['Target'] || results['Regional Targets'])
     parseTargetSheet(results['Targets'] || results['Target'] || results['Regional Targets']);
@@ -3672,6 +3612,9 @@ async function loadSheetData() {
   const lcCount  = Object.keys(refData.locationCategoryTargets).length;
   const chCount  = Object.keys(refData.typeCategoryTargets).length;
   const tgt = refData.grandTarget;
+  console.log('[Targets] grandTarget:', tgt, '| categoryTargets:', Object.keys(refData.categoryTargets));
+  console.log('[LocCatTargets] locations with per-cat targets:', lcCount);
+  console.log('[TypeCatTargets] types with per-cat targets:', chCount);
 
   if (cc || pc) {
     const tgtNote = lcCount > 0
@@ -3711,7 +3654,6 @@ function parseCSVLine(line) {
   const r=[]; let c='',inQ=false;
   for(let i=0;i<line.length;i++){
     const ch=line[i];
-    if(ch==='\r')continue;
     if(ch==='"'){inQ=!inQ;continue;}
     if(ch===','&&!inQ){r.push(c.trim());c='';continue;}
     c+=ch;
@@ -3724,10 +3666,9 @@ function findCol(hdrs, kws) {
 }
 
 function parseCustomerSheet(csv) {
-  // Strip BOM if present
-  const csvClean = csv.replace(/^\uFEFF/, '').trim();
-  const lines = csvClean.split(/\r?\n/);
+  const lines = csv.trim().split('\n');
   const hdrs  = parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
+  console.log('[Customers] Headers detected:', hdrs); // debug — check browser console
   const codeIdx = findCol(hdrs,['sap code','sap','code','customer code','cust code','account']);
   const nameIdx = findCol(hdrs,['outlet','name','customer','client','account name','description']);
   const locIdx   = findCol(hdrs,['location','region','territory','area','zone','district','branch','loc','reg']);
@@ -3736,12 +3677,17 @@ function parseCustomerSheet(csv) {
   let routeIdx = findCol(hdrs,['route','route code','sales route','routecode','route no','routeno']);
   // Fallback: if not found by header name, use Column F (index 5) which is the ROUTE column per sheet layout
   if (routeIdx < 0 && hdrs.length > 5) routeIdx = 5;
+  console.log('[Customers] Col indices → code:'+codeIdx+' name:'+nameIdx+' region:'+locIdx+' channel:'+chanIdx+' type:'+typeIdx+' route:'+routeIdx);
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
     const raw = codeIdx>=0?cols[codeIdx]:'';
     if(!raw)continue;
-    const rawTrimmed = raw.trim().replace(/^'+/, ''); // strip leading apostrophe (Google Sheets "force text" artifact)
-    if (!rawTrimmed) continue;
+    const rawTrimmed = raw.trim();
+    // Debug: inspect first 5 E-prefix raw values for invisible chars
+    if (/^E/i.test(rawTrimmed) && Object.keys(refData.customers).length < 15) {
+      console.log(`[Sheet raw] "${rawTrimmed}" len=${rawTrimmed.length} chars=[${[...rawTrimmed].map(c=>c.charCodeAt(0)).join(',')}]`);
+    }
+    // For codes with alpha prefix (e.g. E001497), strip zeros only from the numeric part
     const alphaP = /^[A-Z]+/.test(rawTrimmed) ? rawTrimmed.match(/^[A-Z]+/)[0] : '';
     const numP   = rawTrimmed.slice(alphaP.length);
     const code   = alphaP + (numP.replace(/^0+/,'') || numP); // e.g. E001497 → E1497
@@ -3762,15 +3708,18 @@ function parseCustomerSheet(csv) {
       if(!refData.customers[numP])           refData.customers[numP]           = entry; // '003593'
       const numStripped = numP.replace(/^0+/,'') || numP;
       if(!refData.customers[numStripped])    refData.customers[numStripped]    = entry; // '3593'
+      // Debug first 3 E-prefix entries
+      if(Object.keys(refData.customers).length < 20)
+        console.log(`[Sheet] raw="${rawTrimmed}" → keys stored: "${code}", "${rawTrimmed}", "${numP}", "${numStripped}"`);
     }
     // Track all distinct named routes from the Customers sheet
     if(entry.route) {
       if(!refData.routes) refData.routes = new Set();
       refData.routes.add(entry.route);
     }
-    const isStaff = entry.type.includes('STAFF');
+    const isStaff = entry.type.includes('STAFF') || /^E/i.test(rawTrimmed);
     if(!isStaff){
-      refData.customerTotal = (refData.customerTotal || 0) + 1;
+      refData.customerTotal = (refData.customerTotal || 0) + 1; // exclude staff from total
       const reg = entry.region || 'UNKNOWN';
       refData.regionTotals[reg] = (refData.regionTotals[reg] || 0) + 1;
       const chan = entry.channel || 'UNKNOWN';
@@ -3780,7 +3729,7 @@ function parseCustomerSheet(csv) {
 }
 
 function parseProductSheet(csv) {
-  const lines=csv.trim().split(/\r?\n/);
+  const lines=csv.trim().split('\n');
   const hdrs=parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   const sapIdx=findCol(hdrs,['sap code','sap','material code']);
   const catIdx=findCol(hdrs,['category','cat']);
@@ -3864,7 +3813,7 @@ function lookupRouteCategoryTarget(routeName, cat) {
 }
 
 function parseTargetSheet(csv) {
-  const lines=csv.trim().split(/\r?\n/);
+  const lines=csv.trim().split('\n');
   const hdrs=parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   // Detect whether this sheet is keyed by region or by category
   const catIdx  = findCol(hdrs,['category','cat']);
@@ -3876,6 +3825,8 @@ function parseTargetSheet(csv) {
   const kIdx = findCol(hdrs,['in ksh','target in ksh','monthly target in ksh','ksh','rev','revenue','amount','value','sales']);
   // Volume: look for 'vol' or 'ltrs' before 'kg' to avoid false match on 'ksh'
   const lIdx = findCol(hdrs,['in vol','target in vol','monthly target in vol','ltrs kgs','vol','ltr','litre','volume','qty','quantity','kg']);
+  console.log('[Targets] Headers:', hdrs, '| catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
+  console.log('[Targets] isCat:', isCat, '| keyIdx:', keyIdx);
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
     const raw=keyIdx>=0?(cols[keyIdx]||'').trim().toUpperCase():'';
@@ -3904,12 +3855,13 @@ function parseTargetSheet(csv) {
 // Populates refData.routeTargets[ROUTE_NAME_UPPER] = { ksh, ltrs }          (aggregated totals)
 //           refData.routeCategoryTargets[ROUTE][CAT] = { ksh, ltrs }         (per-category breakdown)
 function parseRouteTargetSheet(csv) {
-  const lines = csv.trim().split(/\r?\n/);
+  const lines = csv.trim().split('\n');
   const hdrs  = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   const routeIdx = findCol(hdrs, ['route','route name','name','territory','area']);
   const catIdx   = findCol(hdrs, ['category','cat','product','sku']);
   const kIdx     = findCol(hdrs, ['in ksh','target in ksh','monthly target in ksh','ksh','rev','revenue','amount','value','sales']);
   const lIdx     = findCol(hdrs, ['in vol','target in vol','monthly target in vol','ltrs kgs','vol','ltr','litre','volume','qty','quantity','kg']);
+  console.log('[RouteTargets] Headers:', hdrs, '| routeIdx:', routeIdx, 'catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
   if (routeIdx < 0) { console.warn('[RouteTargets] No route column detected — skipping'); return; }
   if (!refData.routeCategoryTargets) refData.routeCategoryTargets = {};
   for (let i = 1; i < lines.length; i++) {
@@ -3931,15 +3883,17 @@ function parseRouteTargetSheet(csv) {
       }
     }
   }
+  console.log('[RouteTargets] Loaded:', Object.keys(refData.routeTargets).length, 'routes');
 }
 
 function parseLocationCategoryTargetSheet(csv) {
-  const lines = csv.trim().split(/\r?\n/);
+  const lines = csv.trim().split('\n');
   const hdrs  = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   const locIdx = findCol(hdrs, ['location','region','territory','area','zone','branch','loc','reg']);
   const catIdx = findCol(hdrs, ['category','cat','product','sku']);
   const kIdx   = findCol(hdrs, ['in ksh','target in ksh','ksh','rev','revenue','amount','value','sales']);
   const lIdx   = findCol(hdrs, ['in vol','target in vol','ltrs kgs','vol','ltr','litre','volume','qty','quantity','kg']);
+  console.log('[LocCatTargets] Headers:', hdrs, '| locIdx:', locIdx, 'catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
   if (locIdx < 0 || catIdx < 0) {
     console.warn('[LocCatTargets] Cannot detect location/category columns — skipping');
     return;
@@ -3954,6 +3908,7 @@ function parseLocationCategoryTargetSheet(csv) {
     if (!refData.locationCategoryTargets[loc]) refData.locationCategoryTargets[loc] = {};
     refData.locationCategoryTargets[loc][cat] = { ksh, ltrs };
   }
+  console.log('[LocCatTargets] Loaded:', Object.keys(refData.locationCategoryTargets).length, 'locations');
 }
 
 // Populates refData.typeCategoryTargets[TYPE][CATEGORY] = { ksh, ltrs }
@@ -3986,12 +3941,13 @@ function normaliseType(raw) {
 }
 
 function parseTypeCategoryTargetSheet(csv) {
-  const lines   = csv.trim().split(/\r?\n/);
+  const lines   = csv.trim().split('\n');
   const hdrs    = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
   const typeIdx = findCol(hdrs, ['type','channel','chan','trade channel','sales channel','segment']);
   const catIdx  = findCol(hdrs, ['category','cat','product','sku']);
   const kIdx    = findCol(hdrs, ['in ksh','target in ksh','ksh','rev','revenue','amount','value','sales']);
   const lIdx    = findCol(hdrs, ['in vol','target in vol','ltrs kgs','vol','ltr','litre','volume','qty','quantity','kg']);
+  console.log('[TypeCatTargets] Headers:', hdrs, '| typeIdx:', typeIdx, 'catIdx:', catIdx, 'kIdx:', kIdx, 'lIdx:', lIdx);
   if (typeIdx < 0 || catIdx < 0) {
     console.warn('[TypeCatTargets] Cannot detect type/category columns — skipping. Headers found:', hdrs);
     return;
@@ -4011,6 +3967,7 @@ function parseTypeCategoryTargetSheet(csv) {
       ltrs: (refData.typeCategoryTargets[canon][cat]?.ltrs || 0) + ltrs
     };
   }
+  console.log('[TypeCatTargets] Loaded:', Object.keys(refData.typeCategoryTargets).length, 'types:', Object.keys(refData.typeCategoryTargets));
 }
 // ═══════════════════════════════════════════════════════
 const dropZone  = document.getElementById('dropZone');
@@ -4067,59 +4024,41 @@ function parseSAP(text){
   for(let i=0;i<lines.length;i++){
     const line=lines[i];
     const cols=line.split('\t').map(c=>c.trim());
-    const lineU=line.toUpperCase();
-    if(lineU.includes('CUSTOMER')&&!lineU.includes('TOTALS')&&!lineU.includes('CODE')&&!lineU.includes('GRAND')){
-      // Regex: capture one-or-more optional leading letters (e.g. E, EA) + 6–10 digits
-      const cm=line.match(/([A-Z]*\d{6,10})\s+(.*)/);
+    if(line.includes('CUSTOMER')&&!line.includes('TOTALS')&&!line.includes('CODE')&&!line.includes('GRAND')){
+      const cm=line.match(/([A-Z]?\d{6,10})\s+(.*)/);
       if(cm){
-        // Trim to remove any invisible chars (tabs, non-breaking spaces) from the SAP export
-        const rawCode=cm[1].trim();
-        // Extract alpha prefix (0 or more letters) and numeric part — mirrors parseCustomerSheet logic
-        const alphaPrefix = (rawCode.match(/^[A-Z]+/) || [''])[0];
+        const rawCode=cm[1];
+        // Debug: inspect first 5 E-prefix SAP codes for invisible chars
+        if (/^E/i.test(rawCode) && Object.keys(result.missingCustomers).length < 5) {
+          console.log(`[SAP raw] "${rawCode}" len=${rawCode.length} chars=[${[...rawCode].map(c=>c.charCodeAt(0)).join(',')}]`);
+        }
+        // Preserve alpha prefix (e.g. E001497 → E1497), only strip numeric leading zeros
+        const alphaPrefix = /^[A-Z]/.test(rawCode) ? rawCode[0] : '';
         const numPart     = rawCode.slice(alphaPrefix.length);
         const strippedNum = numPart.replace(/^0+/,'') || numPart;
         const code        = alphaPrefix + strippedNum;  // e.g. E1497 or 1497
         const name=cm[2].trim();
         const sapChan=(name.match(/^([A-Z]\d+)-/)||[])[1]||'';
-        // Lookup order mirrors the 4 keys stored per customer in parseCustomerSheet:
-        // 1. alphaPrefix+strippedNum (e.g. E1497)  — primary canonical key
-        // 2. rawCode as-is (e.g. E001497)           — raw-with-zeros key
-        // 3. strippedNum only (e.g. 1497)           — numeric-only key (SAP omits prefix)
-        // 4. numPart with zeros (e.g. 001497)       — numeric-with-zeros key
-        const info = refData.customers[code]
-                  || refData.customers[rawCode]
-                  || refData.customers[strippedNum]
-                  || refData.customers[numPart];
-        const found=!!info;
-        const region=(found&&info.region)?info.region:inferRegion(sapChan);
-        // Channel priority: (1) sheet channel, (2) infer from SAP name prefix (Cxx-),
-        // (3) derive from sheet TYPE (e.g. SALESMAN type → SALESMAN channel),
-        // (4) UNKNOWN. Prevents E-prefix staff from landing in UNKNOWN when their
-        // channel column is blank but their type is set.
-        let channel;
-        if(found&&info.channel){
-          channel=info.channel;
-        } else {
-          const inferred=inferChannel(sapChan);
-          if(inferred!=='UNKNOWN'){
-            channel=inferred;
-          } else if(found&&info.type){
-            // Map common type values to channel names
-            const typeUpper=info.type.toUpperCase();
-            if(typeUpper.includes('SALESMAN')||typeUpper.includes('STAFF'))channel='SALESMAN';
-            else if(typeUpper.includes('DISTRIBUTOR'))channel='DISTRIBUTOR';
-            else if(typeUpper.includes('WHOLESALER'))channel='WHOLESALER';
-            else if(typeUpper.includes('INSTITUTION'))channel='INSTITUTION';
-            else if(typeUpper.includes('MT TIER')||typeUpper.includes('TIER'))channel='MT TIER (I/II)';
-            else channel='UNKNOWN';
-          } else {
-            channel='UNKNOWN';
+        // Try stripped code first, then raw code, then pure-numeric (in case SAP omits the E prefix)
+        const numOnlyCode = strippedNum; // e.g. '3593' — numeric part only, no alpha prefix
+        const info=refData.customers[code]||refData.customers[rawCode]||refData.customers[numOnlyCode]||refData.customers[numPart]; const found=!!info;
+        // Debug: log first 10 E-prefix lookup attempts to console
+        if (alphaPrefix && Object.keys(result.missingCustomers).length < 10) {
+          console.log(`[Lookup] rawCode="${rawCode}" code="${code}" numOnly="${numOnlyCode}" numPart="${numPart}" → found=${found}`);
+          if (!found) {
+            const sampleKeys = Object.keys(refData.customers).filter(k => k.includes(strippedNum) || k.includes(numPart)).slice(0,5);
+            console.log(`  ↳ Keys in refData containing "${strippedNum}":`, sampleKeys);
           }
         }
+        const region=(found&&info.region)?info.region:inferRegion(sapChan);
+        const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
         const rawRoute = (found && info && info.route) ? String(info.route).trim().toUpperCase() : '';
         const route = (rawRoute && rawRoute !== '0') ? rawRoute : '';
         curCust={code,rawCode,name,found,region,channel,type:found?info.type:'',route};
         if (!found && !result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
+        // Debug: log first 3 customers to verify route is being read
+        if (Object.keys(result.missingCustomers).length + (result.transactions?.length||0) < 3)
+          console.log(`[Route debug] code=${code} found=${found} info.route="${info?.route}" → route="${route}"`);
         if(found&&(!info.region||!info.channel)&&!result.incompleteCustomers[code])
           result.incompleteCustomers[code]={rawCode,name,regionRead:info.region||'(blank)',channelRead:info.channel||'(blank)',ltrs:0,amount:0};
       } else {
@@ -4129,7 +4068,7 @@ function parseSAP(text){
       }
       continue;
     }
-    if(lineU.includes('GRAND TOTAL')||lineU.includes('TOTALS'))continue;
+    if(line.includes('GRAND TOTAL')||line.includes('TOTALS'))continue;
     // Match standard 440/330 codes only (11-digit SAP material codes, with or without leading zeros)
     const sapColFinal=cols.find(c=>/^0*(440|330)\d{8}$/.test(c));
     if(sapColFinal&&curCust){
@@ -4186,11 +4125,7 @@ function renderReport(data){
 
   const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
   const totalLtrs = data.transactions.reduce((s,t)=>s+toDisplayLtrs(t.ltrs, t.category),0);
-  const custCount = new Set(
-    data.transactions
-      .filter(t => !(t.type || '').toUpperCase().includes('STAFF'))
-      .map(t => t.custCode)
-  ).size;
+  const custCount = new Set(data.transactions.filter(t=>!/^E/i.test(t.custCode)).map(t=>t.custCode)).size;
 
   // Customer coverage banner
   const totalInSheet = refData.customerTotal || 0;
@@ -4238,7 +4173,6 @@ function renderReport(data){
     const regionTotals = refData.regionTotals || {};
     const activeByRegion = {};
     for(const t of data.transactions){
-      if((t.type||'').toUpperCase().includes('STAFF')) continue;
       const r = t.region || 'UNKNOWN';
       if(!activeByRegion[r]) activeByRegion[r] = new Set();
       activeByRegion[r].add(t.custCode);
@@ -4250,7 +4184,6 @@ function renderReport(data){
     const channelTotals = refData.channelTotals || {};
     const activeByChannel = {};
     for(const t of data.transactions){
-      if((t.type||'').toUpperCase().includes('STAFF')) continue;
       const c = t.channel || 'UNKNOWN';
       if(!activeByChannel[c]) activeByChannel[c] = new Set();
       activeByChannel[c].add(t.custCode);
@@ -11216,6 +11149,7 @@ function buildSalesPerRouteData(transactions) {
     r.revTarget = tgt ? tgt.ksh  : null;
     r.volTarget = tgt ? tgt.ltrs : null;
   }
+  console.log('[SPR] routeMap keys:', Object.keys(routeMap));
   return routeMap;
 }
 
