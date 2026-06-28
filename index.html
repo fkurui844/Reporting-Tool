@@ -4076,10 +4076,6 @@ function parseSAP(text){
         // Try stripped code first, then raw code, then pure-numeric (in case SAP omits the E prefix)
         const numOnlyCode = strippedNum; // e.g. '3593' — numeric part only, no alpha prefix
         const info=refData.customers[code]||refData.customers[rawCode]||refData.customers[numOnlyCode]||refData.customers[numPart]; const found=!!info;
-        // Strict match: only codes that exist in the Customers sheet WITH their prefix count as
-        // "in sheet" for the missing-customers panel. Pure-numeric fallback matches are used for
-        // attribute stamping only, not for suppressing the missing flag.
-        const inSheet = !!(refData.customers[code] || refData.customers[rawCode]);
         // Debug: log first 10 E-prefix lookup attempts to console
         if (Object.keys(result.missingCustomers).length < 10) {
           if (!found) {
@@ -4095,11 +4091,11 @@ function parseSAP(text){
         const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
         const rawRoute = (found && info && info.route) ? String(info.route).trim().toUpperCase() : '';
         const route = (rawRoute && rawRoute !== '0') ? rawRoute : '';
-        curCust={code,rawCode,name,found,inSheet,region,channel,type:found?info.type:'',route};
-        if (!inSheet && !result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
+        curCust={code,rawCode,name,found,region,channel,type:found?info.type:'',route};
+        if (!found && !result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
         // Debug: log first 3 customers to verify route is being read
         if (Object.keys(result.missingCustomers).length + (result.transactions?.length||0) < 3)
-        if(inSheet&&(!info?.region||!info?.channel)&&!result.incompleteCustomers[code])
+        if(found&&(!info.region||!info.channel)&&!result.incompleteCustomers[code])
           result.incompleteCustomers[code]={rawCode,name,regionRead:info.region||'(blank)',channelRead:info.channel||'(blank)',ltrs:0,amount:0};
       } else {
         // Customer header detected but code didn't match — reset to prevent previous customer
@@ -4130,11 +4126,11 @@ function parseSAP(text){
         result.missingProducts[matCode].custCount.add(curCust.code);
       }
       result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,route:curCust.route||'',category,ltrs});
-      if(!curCust.inSheet&&result.missingCustomers[curCust.code]){
+      if(!curCust.found&&result.missingCustomers[curCust.code]){
         result.missingCustomers[curCust.code].ltrs+=ltrs;
         result.missingCustomers[curCust.code].amount+=amount;
       }
-      if(curCust.inSheet&&result.incompleteCustomers[curCust.code]){
+      if(curCust.found&&result.incompleteCustomers[curCust.code]){
         result.incompleteCustomers[curCust.code].ltrs+=ltrs;
         result.incompleteCustomers[curCust.code].amount+=amount;
       }
