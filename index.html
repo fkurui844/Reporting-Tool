@@ -3573,80 +3573,72 @@ async function loadSheetData() {
   const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Type Targets', 'Route Targets', 'RouteTargets'];
   const results = {};
 
-  // Dynamically discover the GID for the Customers sheet so the fetch always
-  // returns ALL rows regardless of active filters (export?format=csv ignores filters;
-  // gviz/tq respects them and skips hidden rows).
-  let customersGid = null;
-  try {
-    const metaUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Customers&range=A1`;
-    const metaR = await fetch(metaUrl);
-    if (metaR.ok) {
-      const metaTxt = await metaR.text();
-      // The gviz JSON response contains "gid":NNNN in its metadata
-      const gidMatch = metaTxt.match(/"gid"\s*:\s*(\d+)/);
-      if (gidMatch) customersGid = gidMatch[1];
-    }
-  } catch { /* fall through — will use gviz as normal */ }
-
   for (const s of sheets) {
     try {
       const gvizUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}`;
       let txt = null;
 
-      // For Customers: try export?format=csv first (bypasses active filters) then fall back to gviz
-      if (s === 'Customers' && customersGid) {
-        try {
-          const exportUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${customersGid}`;
-          const er = await fetch(exportUrl);
-          if (er.ok) {
+      if (s === 'Customers') {
+        // export?format=csv has no row limit and works for public sheets without auth.
+        // This is the only reliable way to get all 3000+ rows — gviz truncates at ~500.
+        // Try sheet name directly (no GID lookup needed).
+        const urls = [
+          `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&sheet=Customers`,
+          `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&id=${SHEET_ID}&sheet=Customers`,
+        ];
+        for (const url of urls) {
+          if (txt) break;
+          try {
+            const er = await fetch(url);
+            if (!er.ok) continue;
             const etxt = await er.text();
-            // Strip BOM if present
             const cleaned = etxt.replace(/^﻿/, '').trim();
-            // Validate it's real CSV: must not be HTML and first line must look like headers
             const isHtml = cleaned.startsWith('<') || cleaned.toLowerCase().includes('<!doctype');
-            const looksLikeCSV = !isHtml && cleaned.includes(',');
-            if (looksLikeCSV) txt = cleaned;
-          }
-        } catch { /* fall through to gviz */ }
-      }
+            if (!isHtml && cleaned.includes(',') && cleaned.split(/\r?\n/).length > 2) {
+              txt = cleaned;
+            }
+          } catch { /* try next */ }
+        }
 
-      // For Customers, gviz truncates at ~500 rows by default — paginate to get all rows.
-      // For other sheets, a single gviz fetch is fine.
-      if (!txt) {
-        const isCustomers = (s === 'Customers');
-        const fetchUrl = isCustomers
-          ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}&tq=${encodeURIComponent('select *')}`
-          : gvizUrl;
-        const r = await fetch(fetchUrl);
+        // Fallback: paginated gviz (catches cases where export requires login)
+        if (!txt) {
+          try {
+            const firstUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Customers&tq=${encodeURIComponent('select *')}`;
+            const r = await fetch(firstUrl);
+            if (r.ok) {
+              const gtxt = await r.text();
+              const cleaned = gtxt.replace(/^﻿/, '').trim();
+              if (cleaned && !cleaned.startsWith('google.') && cleaned.includes(',')) {
+                const batchLines = cleaned.split(/\r?\n/);
+                const headerLine = batchLines[0];
+                let allRows = batchLines.slice(1).filter(Boolean);
+                // Keep paginating while we're getting full batches of 500
+                while (allRows.length > 0 && allRows.length % 500 === 0) {
+                  const offset = allRows.length;
+                  const pageUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Customers&tq=${encodeURIComponent('select * offset ' + offset)}`;
+                  try {
+                    const pr = await fetch(pageUrl);
+                    if (!pr.ok) break;
+                    const pc = (await pr.text()).replace(/^﻿/, '').trim();
+                    if (!pc || pc.startsWith('google.') || !pc.includes(',')) break;
+                    const newRows = pc.split(/\r?\n/).filter(Boolean);
+                    if (!newRows.length) break;
+                    allRows = allRows.concat(newRows);
+                    if (newRows.length < 500) break;
+                  } catch { break; }
+                }
+                txt = [headerLine, ...allRows].join('\n');
+              }
+            }
+          } catch { /* give up */ }
+        }
+      } else {
+        // All other sheets: single gviz fetch (they are small enough)
+        const r = await fetch(gvizUrl);
         if (r.ok) {
           const gtxt = await r.text();
           const cleaned = gtxt.replace(/^﻿/, '').trim();
-          let base = (cleaned && !cleaned.startsWith('google.') && cleaned.includes(',')) ? cleaned : null;
-
-          // Paginate Customers in batches until we get a short page (< 500 rows = last page)
-          if (isCustomers && base) {
-            const batchLines = base.split(/\r?\n/);
-            const headerLine = batchLines[0];
-            let allRows = batchLines.slice(1).filter(Boolean);
-            while (allRows.length > 0 && allRows.length % 500 === 0) {
-              try {
-                const offset = allRows.length;
-                const pageUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(s)}&tq=${encodeURIComponent('select * offset ' + offset)}`;
-                const pr = await fetch(pageUrl);
-                if (!pr.ok) break;
-                const ptxt = await pr.text();
-                const pc = ptxt.replace(/^﻿/, '').trim();
-                if (!pc || pc.startsWith('google.') || !pc.includes(',')) break;
-                const newRows = pc.split(/\r?\n/).filter(Boolean);
-                if (!newRows.length) break;
-                allRows = allRows.concat(newRows);
-                if (newRows.length < 500) break;
-              } catch { break; }
-            }
-            txt = [headerLine, ...allRows].join('\n');
-          } else {
-            txt = base;
-          }
+          txt = (cleaned && !cleaned.startsWith('google.') && cleaned.includes(',')) ? cleaned : null;
         }
       }
 
@@ -4100,7 +4092,30 @@ function parseSAP(text){
                   || refData.customers[numPart];
         const found=!!info;
         const region=(found&&info.region)?info.region:inferRegion(sapChan);
-        const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
+        // Channel priority: (1) sheet channel, (2) infer from SAP name prefix (Cxx-),
+        // (3) derive from sheet TYPE (e.g. SALESMAN type → SALESMAN channel),
+        // (4) UNKNOWN. Prevents E-prefix staff from landing in UNKNOWN when their
+        // channel column is blank but their type is set.
+        let channel;
+        if(found&&info.channel){
+          channel=info.channel;
+        } else {
+          const inferred=inferChannel(sapChan);
+          if(inferred!=='UNKNOWN'){
+            channel=inferred;
+          } else if(found&&info.type){
+            // Map common type values to channel names
+            const typeUpper=info.type.toUpperCase();
+            if(typeUpper.includes('SALESMAN')||typeUpper.includes('STAFF'))channel='SALESMAN';
+            else if(typeUpper.includes('DISTRIBUTOR'))channel='DISTRIBUTOR';
+            else if(typeUpper.includes('WHOLESALER'))channel='WHOLESALER';
+            else if(typeUpper.includes('INSTITUTION'))channel='INSTITUTION';
+            else if(typeUpper.includes('MT TIER')||typeUpper.includes('TIER'))channel='MT TIER (I/II)';
+            else channel='UNKNOWN';
+          } else {
+            channel='UNKNOWN';
+          }
+        }
         const rawRoute = (found && info && info.route) ? String(info.route).trim().toUpperCase() : '';
         const route = (rawRoute && rawRoute !== '0') ? rawRoute : '';
         curCust={code,rawCode,name,found,region,channel,type:found?info.type:'',route};
