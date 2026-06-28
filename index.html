@@ -4036,7 +4036,8 @@ function parseSAP(text){
   for(let i=0;i<lines.length;i++){
     const line=lines[i];
     const cols=line.split('\t').map(c=>c.trim());
-    if(line.includes('CUSTOMER')&&!line.includes('TOTALS')&&!line.includes('CODE')&&!line.includes('GRAND')){
+    const lineU=line.toUpperCase();
+    if(lineU.includes('CUSTOMER')&&!lineU.includes('TOTALS')&&!lineU.includes('CODE')&&!lineU.includes('GRAND')){
       // Regex: capture one-or-more optional leading letters (e.g. E, EA) + 6–10 digits
       const cm=line.match(/([A-Z]*\d{6,10})\s+(.*)/);
       if(cm){
@@ -4074,7 +4075,7 @@ function parseSAP(text){
       }
       continue;
     }
-    if(line.includes('GRAND TOTAL')||line.includes('TOTALS'))continue;
+    if(lineU.includes('GRAND TOTAL')||lineU.includes('TOTALS'))continue;
     // Match standard 440/330 codes only (11-digit SAP material codes, with or without leading zeros)
     const sapColFinal=cols.find(c=>/^0*(440|330)\d{8}$/.test(c));
     if(sapColFinal&&curCust){
