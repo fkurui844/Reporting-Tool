@@ -3717,7 +3717,7 @@ function parseCustomerSheet(csv) {
     const cols=parseCSVLine(lines[i]);
     const raw = codeIdx>=0?cols[codeIdx]:'';
     if(!raw)continue;
-    const rawTrimmed = raw.trim();
+    const rawTrimmed = raw.trim().toUpperCase(); // uppercase so e001497 == E001497
     // Debug: inspect first 5 E-prefix raw values for invisible chars
     if (/^E/i.test(rawTrimmed) && Object.keys(refData.customers).length < 15) {
     }
