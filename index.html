@@ -3571,7 +3571,7 @@ const SHEET_ID = '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8';
 
 async function loadSheetData() {
   setSheetDot('loading', 'Loading reference data from Google Sheet…');
-  const sheets = ['Customers', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Type Targets', 'Route Targets', 'RouteTargets'];
+  const sheets = ['Customers', 'Staff', 'Staff Customers', 'Employees', 'Product', 'Targets', 'Target', 'Regional Targets', 'Location Targets', 'Loc Targets', 'Location Category Targets', 'Type Targets', 'Route Targets', 'RouteTargets'];
   const results = {};
 
   // Dynamically discover the GID for the Customers sheet so the fetch always
@@ -3627,6 +3627,10 @@ async function loadSheetData() {
 
   refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, routeTargets: {}, routeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {}, routes: new Set() };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
+  // Also merge Staff/Employees tabs so E-prefix staff accounts are found
+  if (results['Staff']) parseCustomerSheet(results['Staff']);
+  if (results['Staff Customers']) parseCustomerSheet(results['Staff Customers']);
+  if (results['Employees']) parseCustomerSheet(results['Employees']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'] || results['Target'] || results['Regional Targets'])
     parseTargetSheet(results['Targets'] || results['Target'] || results['Regional Targets']);
@@ -4059,7 +4063,8 @@ function parseSAP(text){
   for(let i=0;i<lines.length;i++){
     const line=lines[i];
     const cols=line.split('\t').map(c=>c.trim());
-    if(line.includes('CUSTOMER')&&!line.includes('TOTALS')&&!line.includes('CODE')&&!line.includes('GRAND')){
+    const lineUC = line.toUpperCase();
+    if(lineUC.includes('CUSTOMER')&&!lineUC.includes('TOTALS')&&!lineUC.includes('CODE')&&!lineUC.includes('GRAND')){
       const cm=line.match(/([A-Z]?\d{6,10})\s+(.*)/);
       if(cm){
         const rawCode=cm[1];
@@ -4075,7 +4080,14 @@ function parseSAP(text){
         const sapChan=(name.match(/^([A-Z]\d+)-/)||[])[1]||'';
         // Try stripped code first, then raw code, then pure-numeric (in case SAP omits the E prefix)
         const numOnlyCode = strippedNum; // e.g. '3593' — numeric part only, no alpha prefix
-        const info=refData.customers[code]||refData.customers[rawCode]||refData.customers[numOnlyCode]||refData.customers[numPart]; const found=!!info;
+        // Exhaustive lookup: try every plausible form the sheet might store the code under
+        const _lk = (k) => k ? refData.customers[k] : undefined;
+        const info = _lk(code) || _lk(rawCode) || _lk(numOnlyCode) || _lk(numPart)
+          // E-prefix + standard zero-paddings (handles "E001497", "E01497", "E1497")
+          || (alphaPrefix && (_lk(alphaPrefix + strippedNum.padStart(6,"0")) || _lk(alphaPrefix + strippedNum.padStart(7,"0"))))
+          // Numeric only with standard paddings (sheet stores without E prefix)
+          || _lk(strippedNum.padStart(6,"0")) || _lk(strippedNum.padStart(7,"0"));
+        const found=!!info;
         // Debug: log first 10 E-prefix lookup attempts to console
         if (Object.keys(result.missingCustomers).length < 10) {
           if (!found) {
