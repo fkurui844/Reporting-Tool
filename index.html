@@ -6205,7 +6205,7 @@ function exportLocSalesXLSX() {
   function titleCell(v, fg, sz) { return cell(v,'s',fg||{rgb:'0F2744'},wh,true,sz||14,'left',noBdr); }
   function metaCell(v)  { return cell(v,'s',{rgb:'FFFFFF'},muted,false,9,'left',noBdr); }
   function emptyC(fg)   { return cell('','s',fg||{rgb:'FFFFFF'},dark,false,10,'left',noBdr); }
-  function tgtNum(v, fg)  { return cell(v,'n',fg||{rgb:'F0F2F5'},muted,false,10,'right',gridBdr,'#,##0'); }
+  function tgtNum(v, fg)  { return cell(v,'n',fg||{rgb:'F0F2F5'},muted,false,10,'right',gridBdr,'#,##0',true); }
 
   // ── Pre-compute per-category totals & grand totals (mirrors the on-screen table) ──
   const catTotals = {};
@@ -6287,15 +6287,15 @@ function exportLocSalesXLSX() {
     groupHdrRow.push(cell(g, 's', fill, fCol, true, 11, 'center', gridBdr));
     for (let i=1; i<groupCols; i++) groupHdrRow.push(cell('', 's', fill, fCol, true, 11, 'center', gridBdr));
     if (hasAnyTgts) {
-      subHdrRow.push(cell('Vol (L/Kg)',  's', fill, fCol, false, 9, 'center', gridBdr));
-      subHdrRow.push(cell('Vol Target',  's', fill, fCol, false, 9, 'center', gridBdr));
-      subHdrRow.push(cell('Vol %',       's', fill, fCol, false, 9, 'center', gridBdr));
-      subHdrRow.push(cell('Rev (KSH)',   's', fill, fCol, false, 9, 'center', gridBdr));
-      subHdrRow.push(cell('Rev Target',  's', fill, fCol, false, 9, 'center', gridBdr));
-      subHdrRow.push(cell('Rev %',       's', fill, fCol, false, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Vol (L/Kg)',  's', fill, fCol, true, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Vol Target',  's', fill, fCol, true, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Vol %',       's', fill, fCol, true, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Rev (KSH)',   's', fill, fCol, true, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Rev Target',  's', fill, fCol, true, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Rev %',       's', fill, fCol, true, 9, 'center', gridBdr));
     } else {
-      subHdrRow.push(cell('Vol (L/Kg)', 's', fill, fCol, false, 9, 'center', gridBdr));
-      subHdrRow.push(cell('Rev (KSH)',  's', fill, fCol, false, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Vol (L/Kg)', 's', fill, fCol, true, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Rev (KSH)',  's', fill, fCol, true, 9, 'center', gridBdr));
     }
   }
   rows.push(groupHdrRow);
