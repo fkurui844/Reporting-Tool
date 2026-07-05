@@ -6177,12 +6177,7 @@ function exportLocSalesXLSX() {
   const green  = { rgb: '0D9E63' };
   const amber  = { rgb: 'B45309' };
   const red    = { rgb: 'C01048' };
-  const navyFill  = { patternType: 'solid', fgColor: { rgb: '0F2744' } };
-  const tealFill  = { patternType: 'solid', fgColor: { rgb: '0F5F5A' } };
-  const evenFill  = { patternType: 'solid', fgColor: { rgb: 'F8FAFC' } };
-  const oddFill   = { patternType: 'solid', fgColor: { rgb: 'FFFFFF' } };
   const totFill   = { patternType: 'solid', fgColor: { rgb: '0F2744' } };
-  const tgtFill   = { patternType: 'solid', fgColor: { rgb: 'F0F2F5' } };
   const bdrLine   = { style: 'thin', color: { rgb: 'DDE3EC' } };
   const bdrNone   = { style: 'none' };
   const gridBdr   = { top: bdrLine, bottom: bdrLine, left: bdrLine, right: bdrLine };
@@ -6192,11 +6187,10 @@ function exportLocSalesXLSX() {
   function cell(v, t, fgColor, fontColor, bold, sz, hAlign, border, numFmt, italic) {
     return { v, t: t||'s', s: { font: { name: FONT, bold: !!bold, italic: !!italic, color: fontColor||dark, sz: sz||10 }, fill: { patternType:'solid', fgColor: fgColor||{rgb:'FFFFFF'} }, alignment: { horizontal: hAlign||'left', vertical:'center', wrapText: false }, border: border||gridBdr, numFmt: numFmt||'' } };
   }
-  function hdr(v, fColor, centered) { return cell(v,'s',{rgb:'0F2744'},wh,true,10,centered?'center':'left',gridBdr); }
+  function hdr(v, fill, centered) { return cell(v,'s',fill||{rgb:'0F2744'},wh,true,10,centered?'center':'left',gridBdr); }
   function txt(v, fg, fColor, bold)  { return cell(v,'s',fg,fColor||dark,bold,10,'left',gridBdr); }
   function num(v, fg, fColor, bold)  { return cell(v,'n',fg,fColor||dark,bold,10,'right',gridBdr,'#,##0'); }
-  function pctCell(v, fg, fColor)    { return cell(v===null?'—':'','s',fg,fColor||(v===null?muted:v>=100?green:v>=70?amber:red),true,10,'center',gridBdr); }
-  function pctNum(v, fg)             {
+  function pctNum(v, fg) {
     if (v === null) return cell('—','s',fg,muted,false,10,'center',gridBdr);
     const col = v>=100?green:v>=70?amber:red;
     return cell(v/100,'n',fg,col,true,10,'center',gridBdr,'0%');
@@ -6204,156 +6198,230 @@ function exportLocSalesXLSX() {
   function totTxt(v, fg) { return cell(v,'s',fg.fgColor||{rgb:'0F2744'},wh,true,10,'left',totBdr); }
   function totNum(v, fg, fColor) { return cell(v,'n',fg.fgColor||{rgb:'0F2744'},fColor||wh,true,10,'right',totBdr,'#,##0'); }
   function totPct(v, fg) {
-    if (!v && v!==0) return cell('—','s',fg.fgColor||{rgb:'0F2744'},wh,true,10,'center',totBdr);
+    if (v===null) return cell('—','s',fg.fgColor||{rgb:'0F2744'},wh,true,10,'center',totBdr);
     const col = v>=100?{rgb:'6EE7B7'}:v>=70?{rgb:'FDE68A'}:{rgb:'FCA5A5'};
     return cell(v/100,'n',fg.fgColor||{rgb:'0F2744'},col,true,10,'center',totBdr,'0%');
   }
   function titleCell(v, fg, sz) { return cell(v,'s',fg||{rgb:'0F2744'},wh,true,sz||14,'left',noBdr); }
   function metaCell(v)  { return cell(v,'s',{rgb:'FFFFFF'},muted,false,9,'left',noBdr); }
   function emptyC(fg)   { return cell('','s',fg||{rgb:'FFFFFF'},dark,false,10,'left',noBdr); }
-  function tgtTxt(v, fg)  { return cell(v,'s',fg||{rgb:'F0F2F5'},muted,false,10,'right',gridBdr,'#,##0'); }
   function tgtNum(v, fg)  { return cell(v,'n',fg||{rgb:'F0F2F5'},muted,false,10,'right',gridBdr,'#,##0'); }
 
-  // Build workbook
-  const wb = XLSX.utils.book_new();
+  // ── Pre-compute per-category totals & grand totals (mirrors the on-screen table) ──
+  const catTotals = {};
+  for (const c of visC) catTotals[c] = { ltrs: 0, amount: 0, tgtL: 0, tgtK: 0 };
+  const grandTotals = { ltrs: 0, amount: 0, tgtL: 0, tgtK: 0 };
 
-  // ── Helper: build rows for one location's sheet ──
-  function buildLocationSheet(regionName, sheetVisC) {
-    const rows = [];
-    const isAll = regionName === '__ALL__';
-    const label = isAll ? 'All Locations Summary' : regionName;
-    const regList = isAll ? visR : [regionName];
-
-    rows.push([ titleCell(`📍 Location Sales — ${label}`, {rgb:'0F2744'}, 14), ...Array(hasAnyTgts ? 5 : 2).fill(emptyC()) ]);
-    rows.push([ metaCell(`Period: ${period}   |   Generated: ${new Date().toLocaleString()}`), ...Array(hasAnyTgts ? 5 : 2).fill(emptyC()) ]);
-    rows.push(Array(hasAnyTgts ? 6 : 3).fill(emptyC()));
-
-    // Header
-    const hdrRow = [hdr('CATEGORY')];
-    if (isAll) {
-      for (const r of regList) {
-        if (hasAnyTgts) {
-          hdrRow.push(hdr(`${r} — Vol (L/Kg)`,{rgb:'0F2744'},false));
-          hdrRow.push(hdr('Vol Target',{rgb:'0F2744'},true));
-          hdrRow.push(hdr('Vol %',{rgb:'0F2744'},true));
-          hdrRow.push(hdr(`${r} — Rev (KSH)`,{rgb:'0F2744'},false));
-          hdrRow.push(hdr('Rev Target',{rgb:'0F2744'},true));
-          hdrRow.push(hdr('Rev %',{rgb:'0F2744'},true));
-        } else {
-          hdrRow.push(hdr(`${r} — Vol (L/Kg)`,{rgb:'0F2744'},false));
-          hdrRow.push(hdr(`${r} — Rev (KSH)`,{rgb:'0F2744'},false));
-        }
-      }
-    } else {
-      if (hasAnyTgts) {
-        hdrRow.push(hdr('Vol (Ltrs/Kgs)')); hdrRow.push(hdr('Vol Target',null,true)); hdrRow.push(hdr('Vol %',null,true));
-        hdrRow.push(hdr('Revenue (KSH)')); hdrRow.push(hdr('Rev Target',null,true)); hdrRow.push(hdr('Rev %',null,true));
-      } else {
-        hdrRow.push(hdr('Vol (Ltrs/Kgs)')); hdrRow.push(hdr('Revenue (KSH)'));
-      }
-    }
-    rows.push(hdrRow);
-
-    // Category data rows
-    let grandTotL=0, grandTotA=0, grandTgtL=0, grandTgtK=0;
-    const evenBg={rgb:'F8FAFC'}, oddBg={rgb:'FFFFFF'};
-
-    for (let ci=0; ci<sheetVisC.length; ci++) {
-      const c = sheetVisC[ci];
-      const bg = ci%2===0 ? evenBg : oddBg;
-      const row = [txt(c, bg, dark, true)];
-      let rowTotL=0, rowTotA=0, rowTgtL=0, rowTgtK=0;
-
-      for (const r of regList) {
-        const ltrs   = pivot[r]?.[c]?.ltrs   || 0;
-        const amount = pivot[r]?.[c]?.amount  || 0;
-        const tgt    = hasCatTgts ? getLocCatTgt(r,c) : null;
-        const tgtL   = tgt?.ltrs || 0;
-        const tgtK   = tgt?.ksh  || 0;
-        rowTotL += ltrs; rowTotA += amount; rowTgtL += tgtL; rowTgtK += tgtK;
-        const pL = tgtL > 0 ? Math.round((ltrs/tgtL)*100) : null;
-        const pK = tgtK > 0 ? Math.round((amount/tgtK)*100) : null;
-        if (hasAnyTgts) {
-          row.push(num(Math.round(ltrs),   bg, dark));
-          row.push(tgtNum(tgtL?Math.round(tgtL):0, bg));
-          row.push(pctNum(pL, bg));
-          row.push(num(Math.round(amount), bg, teal));
-          row.push(tgtNum(tgtK?Math.round(tgtK):0, bg));
-          row.push(pctNum(pK, bg));
-        } else {
-          row.push(num(Math.round(ltrs),   bg, dark));
-          row.push(num(Math.round(amount), bg, teal));
-        }
-      }
-
-      // Totals column (only for single-region sheets)
-      if (!isAll && regList.length === 1) {
-        // already only one col group, totals === the single region
-      }
-
-      grandTotL += rowTotL; grandTotA += rowTotA; grandTgtL += rowTgtL; grandTgtK += rowTgtK;
-      rows.push(row);
-    }
-
-    // Grand total row
-    const totRow = [totTxt('GRAND TOTAL', totFill)];
-    let gtL=0, gtA=0, gtTL=0, gtTK=0;
-    for (const r of regList) {
-      const ltrs   = sheetVisC.reduce((s,c)=>s+(pivot[r]?.[c]?.ltrs||0),0);
-      const amount = sheetVisC.reduce((s,c)=>s+(pivot[r]?.[c]?.amount||0),0);
-      let rTgtL=0, rTgtK=0;
-      if (hasCatTgts) {
-        for (const c of sheetVisC) { const t=getLocCatTgt(r,c); rTgtL+=t?.ltrs||0; rTgtK+=t?.ksh||0; }
-      } else { const rt=getRegTgt(r); rTgtL=rt?.ltrs||0; rTgtK=rt?.ksh||0; }
-      gtL+=ltrs; gtA+=amount; gtTL+=rTgtL; gtTK+=rTgtK;
-      const pL = rTgtL>0 ? Math.round((ltrs/rTgtL)*100) : null;
-      const pK = rTgtK>0 ? Math.round((amount/rTgtK)*100) : null;
-      if (hasAnyTgts) {
-        totRow.push(totNum(Math.round(ltrs),totFill,wh));
-        totRow.push(totNum(rTgtL?Math.round(rTgtL):0,totFill,{rgb:'8B9BB4'}));
-        totRow.push(totPct(pL,totFill));
-        totRow.push(totNum(Math.round(amount),totFill,gold));
-        totRow.push(totNum(rTgtK?Math.round(rTgtK):0,totFill,{rgb:'8B9BB4'}));
-        totRow.push(totPct(pK,totFill));
-      } else {
-        totRow.push(totNum(Math.round(ltrs),totFill,wh));
-        totRow.push(totNum(Math.round(amount),totFill,gold));
-      }
-    }
-    rows.push(totRow);
-    return rows;
-  }
-
-  // ── Sheet: Summary (all regions side-by-side) ──
-  const summaryRows = buildLocationSheet('__ALL__', visC);
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
-  const summaryColW = [{ wch: 20 }];
-  for (let i=0; i<visR.length; i++) {
-    if (hasAnyTgts) summaryColW.push({wch:14},{wch:13},{wch:8},{wch:16},{wch:14},{wch:8});
-    else            summaryColW.push({wch:14},{wch:16});
-  }
-  wsSummary['!cols'] = summaryColW;
-  wsSummary['!rows'] = [{ hpt: 22 }, { hpt: 14 }, { hpt: 6 }, { hpt: 28 }];
-  wsSummary['!freeze'] = { xSplit: 1, ySplit: 4 };
-  XLSX.utils.book_append_sheet(wb, wsSummary, '📊 Summary');
-
-  // ── One sheet per region ──
   for (const r of visR) {
-    const sheetRows = buildLocationSheet(r, visC);
-    const ws = XLSX.utils.aoa_to_sheet(sheetRows);
-    ws['!cols'] = hasAnyTgts
-      ? [{ wch: 20 }, { wch: 16 }, { wch: 14 }, { wch: 8 }, { wch: 16 }, { wch: 14 }, { wch: 8 }]
-      : [{ wch: 20 }, { wch: 16 }, { wch: 16 }];
-    ws['!rows'] = [{ hpt: 22 }, { hpt: 14 }, { hpt: 6 }, { hpt: 28 }];
-    ws['!freeze'] = { xSplit: 1, ySplit: 4 };
-    // Sheet names: Excel max 31 chars, strip special chars
-    const sheetName = r.replace(/[:\\\/\?\*\[\]]/g, '').substring(0, 31);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    for (const c of visC) {
+      catTotals[c].ltrs   += pivot[r]?.[c]?.ltrs   || 0;
+      catTotals[c].amount += pivot[r]?.[c]?.amount || 0;
+      if (hasCatTgts) {
+        const t = getLocCatTgt(r, c);
+        catTotals[c].tgtL += t?.ltrs || 0;
+        catTotals[c].tgtK += t?.ksh  || 0;
+      }
+    }
+    if (!hasCatTgts) {
+      const rt = getRegTgt(r);
+      grandTotals.tgtL += rt?.ltrs || 0;
+      grandTotals.tgtK += rt?.ksh  || 0;
+    }
   }
+  for (const c of visC) { grandTotals.ltrs += catTotals[c].ltrs; grandTotals.amount += catTotals[c].amount; }
+  if (hasCatTgts) {
+    grandTotals.tgtL = 0; grandTotals.tgtK = 0;
+    for (const c of visC) { grandTotals.tgtL += catTotals[c].tgtL; grandTotals.tgtK += catTotals[c].tgtK; }
+  }
+  const pctAchieved = grandTotals.tgtK > 0 ? Math.round((grandTotals.amount / grandTotals.tgtK) * 100) : null;
+
+  // ── Column plan: LOCATION | Cat1..CatN | TOTAL, each group has 6 (with targets) or 2 (without) sub-columns ──
+  const groupCols  = hasAnyTgts ? 6 : 2;
+  const colGroups  = [...visC, 'TOTAL'];
+  const totalCols  = 1 + colGroups.length * groupCols;
+  const evenBg = { rgb: 'F8FAFC' }, oddBg = { rgb: 'FFFFFF' }, totColBg = { rgb: 'EAF1FB' };
+
+  const rows = [];
+
+  // Row 0: Title
+  rows.push([ titleCell('📍 Location Sales Report', {rgb:'0F2744'}, 16), ...Array(totalCols-1).fill(emptyC()) ]);
+  // Row 1: Period
+  rows.push([ metaCell(`Period: ${period}`), ...Array(totalCols-1).fill(emptyC()) ]);
+  // Row 2: blank spacer
+  rows.push(Array(totalCols).fill(emptyC()));
+
+  // Rows 3–4: KPI metric labels + values (Locations / Categories / Total Revenue / Total Volume / Target / % Achieved)
+  const lblRow = Array(totalCols).fill(emptyC());
+  const valRow = Array(totalCols).fill(emptyC());
+  function setMetric(colIdx, label, value, isPct) {
+    lblRow[colIdx] = cell(label, 's', {rgb:'F0F2F5'}, muted, true, 9, 'left', noBdr);
+    if (isPct) {
+      const pctColor = value === null ? muted : value >= 100 ? green : value >= 70 ? amber : red;
+      valRow[colIdx] = value === null
+        ? cell('—', 's', {rgb:'F0F2F5'}, muted, true, 13, 'left', noBdr)
+        : cell(value/100, 'n', {rgb:'F0F2F5'}, pctColor, true, 13, 'left', noBdr, '0%');
+    } else {
+      valRow[colIdx] = cell(Math.round(value), 'n', {rgb:'F0F2F5'}, {rgb:'0F2744'}, true, 13, 'left', noBdr, '#,##0');
+    }
+  }
+  setMetric(0, 'LOCATIONS', visR.length);
+  setMetric(2, 'CATEGORIES', visC.length);
+  setMetric(4, 'TOTAL REVENUE (KSH)', grandTotals.amount);
+  setMetric(6, 'TOTAL VOLUME (L/Kg)', grandTotals.ltrs);
+  if (hasAnyTgts) {
+    setMetric(8, 'TARGET (KSH)', grandTotals.tgtK);
+    setMetric(10, '% ACHIEVED', pctAchieved, true);
+  }
+  rows.push(lblRow);
+  rows.push(valRow);
+  // Row 5: blank spacer
+  rows.push(Array(totalCols).fill(emptyC()));
+
+  // Row 6: category group header (merged per group) | Row 7: sub-column headers
+  const groupHdrRow = [hdr('LOCATION', {rgb:'0F2744'}, false)];
+  const subHdrRow   = [emptyC({rgb:'0F2744'})];
+  for (const g of colGroups) {
+    const isTotal = g === 'TOTAL';
+    const fill = isTotal ? {rgb:'1B4F72'} : {rgb:'0F2744'};
+    const fCol = isTotal ? {rgb:'F6AD2B'} : wh;
+    groupHdrRow.push(cell(g, 's', fill, fCol, true, 11, 'center', gridBdr));
+    for (let i=1; i<groupCols; i++) groupHdrRow.push(cell('', 's', fill, fCol, true, 11, 'center', gridBdr));
+    if (hasAnyTgts) {
+      subHdrRow.push(cell('Vol (L/Kg)',  's', fill, fCol, false, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Vol Target',  's', fill, fCol, false, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Vol %',       's', fill, fCol, false, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Rev (KSH)',   's', fill, fCol, false, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Rev Target',  's', fill, fCol, false, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Rev %',       's', fill, fCol, false, 9, 'center', gridBdr));
+    } else {
+      subHdrRow.push(cell('Vol (L/Kg)', 's', fill, fCol, false, 9, 'center', gridBdr));
+      subHdrRow.push(cell('Rev (KSH)',  's', fill, fCol, false, 9, 'center', gridBdr));
+    }
+  }
+  rows.push(groupHdrRow);
+  rows.push(subHdrRow);
+
+  const GROUP_HDR_ROW = rows.length - 2; // 0-indexed
+  const DATA_START_ROW = rows.length;
+
+  // ── Data rows: one per LOCATION ──
+  for (let ri = 0; ri < visR.length; ri++) {
+    const r  = visR[ri];
+    const bg = ri % 2 === 0 ? evenBg : oddBg;
+    const row = [txt(r, bg, dark, true)];
+    let rLtrs = 0, rAmt = 0, rTgtL = 0, rTgtK = 0;
+
+    for (const c of visC) {
+      const ltrs   = pivot[r]?.[c]?.ltrs   || 0;
+      const amount = pivot[r]?.[c]?.amount || 0;
+      const tgt    = hasCatTgts ? getLocCatTgt(r, c) : null;
+      const tgtL   = tgt?.ltrs || 0;
+      const tgtK   = tgt?.ksh  || 0;
+      rLtrs += ltrs; rAmt += amount; rTgtL += tgtL; rTgtK += tgtK;
+      const pL = tgtL > 0 ? Math.round((ltrs/tgtL)*100) : null;
+      const pK = tgtK > 0 ? Math.round((amount/tgtK)*100) : null;
+      if (hasAnyTgts) {
+        row.push(num(Math.round(ltrs), bg, dark));
+        row.push(tgtNum(tgtL ? Math.round(tgtL) : 0, bg));
+        row.push(pctNum(pL, bg));
+        row.push(num(Math.round(amount), bg, teal));
+        row.push(tgtNum(tgtK ? Math.round(tgtK) : 0, bg));
+        row.push(pctNum(pK, bg));
+      } else {
+        row.push(num(Math.round(ltrs), bg, dark));
+        row.push(num(Math.round(amount), bg, teal));
+      }
+    }
+
+    // TOTAL group for this location row — falls back to region-level target when no per-category targets exist
+    if (!hasCatTgts) {
+      const rt = getRegTgt(r);
+      rTgtL = rt?.ltrs || 0;
+      rTgtK = rt?.ksh  || 0;
+    }
+    const pLt = rTgtL > 0 ? Math.round((rLtrs/rTgtL)*100) : null;
+    const pKt = rTgtK > 0 ? Math.round((rAmt/rTgtK)*100) : null;
+    if (hasAnyTgts) {
+      row.push(num(Math.round(rLtrs), totColBg, dark, true));
+      row.push(tgtNum(rTgtL ? Math.round(rTgtL) : 0, totColBg));
+      row.push(pctNum(pLt, totColBg));
+      row.push(num(Math.round(rAmt), totColBg, teal, true));
+      row.push(tgtNum(rTgtK ? Math.round(rTgtK) : 0, totColBg));
+      row.push(pctNum(pKt, totColBg));
+    } else {
+      row.push(num(Math.round(rLtrs), totColBg, dark, true));
+      row.push(num(Math.round(rAmt), totColBg, teal, true));
+    }
+    rows.push(row);
+  }
+
+  // ── Grand total row ──
+  const totRow = [totTxt('GRAND TOTAL', totFill)];
+  for (const c of visC) {
+    const { ltrs, amount, tgtL, tgtK } = catTotals[c];
+    const pL = tgtL > 0 ? Math.round((ltrs/tgtL)*100) : null;
+    const pK = tgtK > 0 ? Math.round((amount/tgtK)*100) : null;
+    if (hasAnyTgts) {
+      totRow.push(totNum(Math.round(ltrs), totFill, wh));
+      totRow.push(totNum(tgtL ? Math.round(tgtL) : 0, totFill, {rgb:'8B9BB4'}));
+      totRow.push(totPct(pL, totFill));
+      totRow.push(totNum(Math.round(amount), totFill, gold));
+      totRow.push(totNum(tgtK ? Math.round(tgtK) : 0, totFill, {rgb:'8B9BB4'}));
+      totRow.push(totPct(pK, totFill));
+    } else {
+      totRow.push(totNum(Math.round(ltrs), totFill, wh));
+      totRow.push(totNum(Math.round(amount), totFill, gold));
+    }
+  }
+  {
+    const pL = grandTotals.tgtL > 0 ? Math.round((grandTotals.ltrs/grandTotals.tgtL)*100) : null;
+    if (hasAnyTgts) {
+      totRow.push(totNum(Math.round(grandTotals.ltrs), totFill, wh));
+      totRow.push(totNum(grandTotals.tgtL ? Math.round(grandTotals.tgtL) : 0, totFill, {rgb:'8B9BB4'}));
+      totRow.push(totPct(pL, totFill));
+      totRow.push(totNum(Math.round(grandTotals.amount), totFill, gold));
+      totRow.push(totNum(grandTotals.tgtK ? Math.round(grandTotals.tgtK) : 0, totFill, {rgb:'8B9BB4'}));
+      totRow.push(totPct(pctAchieved, totFill));
+    } else {
+      totRow.push(totNum(Math.round(grandTotals.ltrs), totFill, wh));
+      totRow.push(totNum(Math.round(grandTotals.amount), totFill, gold));
+    }
+  }
+  rows.push(totRow);
+
+  // ── Build sheet ──
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  const cols = [{ wch: 22 }];
+  for (let i=0; i<colGroups.length; i++) {
+    if (hasAnyTgts) cols.push({wch:12},{wch:11},{wch:7},{wch:14},{wch:12},{wch:7});
+    else            cols.push({wch:14},{wch:16});
+  }
+  ws['!cols'] = cols;
+
+  const rowHeights = [{ hpt: 24 }, { hpt: 14 }, { hpt: 6 }, { hpt: 16 }, { hpt: 20 }, { hpt: 6 }, { hpt: 22 }, { hpt: 18 }];
+  ws['!rows'] = rowHeights;
+
+  // Merges: title/period spans, group header spans, and LOCATION header spans both header rows
+  const merges = [
+    { s: { r:0, c:0 }, e: { r:0, c: totalCols-1 } },
+    { s: { r:1, c:0 }, e: { r:1, c: totalCols-1 } },
+    { s: { r: GROUP_HDR_ROW, c:0 }, e: { r: GROUP_HDR_ROW+1, c:0 } },
+  ];
+  for (let gi=0; gi<colGroups.length; gi++) {
+    const startCol = 1 + gi*groupCols;
+    merges.push({ s: { r: GROUP_HDR_ROW, c: startCol }, e: { r: GROUP_HDR_ROW, c: startCol + groupCols - 1 } });
+  }
+  ws['!merges'] = merges;
+
+  ws['!freeze'] = { xSplit: 1, ySplit: DATA_START_ROW };
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Location Sales Report');
 
   const fname = `Location_Sales_${period.replace(/\s|–|\/|\./g, '_')}.xlsx`;
   XLSX.writeFile(wb, fname);
-  showToast(`Excel exported — ${visR.length + 1} sheets ✓`, 'ok');
+  showToast('Excel exported ✓', 'ok');
 }
 
 function exportLocSalesCSV() {
