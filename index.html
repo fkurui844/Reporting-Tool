@@ -3466,31 +3466,36 @@ let isEditMode    = false;
 let editingSapCode = '';  // holds SAP code during edit — avoids reading disabled field
 let pendingDelete = null;
 
-// ── Google Sheets API Configuration ────────────────────────
-// ✅ CONFIGURED FOR YOUR SPREADSHEET
-window.GOOGLE_CLIENT_ID = ''; // Optional: Set this if you created OAuth credentials
-window.GSHEET_ID = '1gBuS6eH8yVU7eMOjuXu_DalTmu3DQq8jvQM7Vme9ZY8'; // ✅ YOUR SPREADSHEET ID
-window.gsheetToken = null;
-window.gsheetApiReady = false;
+// ── Apps Script Web App backend ────────────────────────────
+// This page is hosted outside script.google.com, so google.script.run
+// is not available. Instead we call the deployed Web App URL over HTTP.
+window.APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwIUfU0Vnlx7JbenbvqL3C9fyDdwNvHUeEcPRa1s53f86f84fO1GK7bETZ0umbBjtIz/exec';
+
+// GET call — read-only, e.g. gsGet('getAllCustomers')
+function gsGet(action, params) {
+  const qs = new URLSearchParams(Object.assign({ action }, params || {})).toString();
+  return fetch(`${window.APPS_SCRIPT_URL}?${qs}`).then(r => {
+    if (!r.ok) throw new Error('Request failed: ' + r.status);
+    return r.json();
+  });
+}
+
+// POST call — writes, e.g. gsPost('addCustomer', {...})
+// Sent as text/plain to avoid a CORS preflight (Apps Script has no doOptions handler).
+function gsPost(action, payload) {
+  return fetch(window.APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, payload })
+  }).then(r => {
+    if (!r.ok) throw new Error('Request failed: ' + r.status);
+    return r.json();
+  });
+}
 
 // ── Session Registration Tracking ────────────────────────
 // Track which customers have been registered in this session (by SAP code)
 window._sessionRegisteredCodes = new Set();
-
-const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
-
-// Initialize Google OAuth when page loads
-window.addEventListener('load', () => {
-  // Check localStorage for saved token
-  const savedToken = localStorage.getItem('gsheet_token');
-  const savedSheetId = localStorage.getItem('gsheet_id');
-  if (savedToken && savedSheetId) {
-    window.gsheetToken = savedToken;
-    window.GSHEET_ID = savedSheetId;
-    window.gsheetApiReady = true;
-    console.log('✓ Google Sheets API ready (cached credentials)');
-  }
-});
 
 // ── Volume unit mode ────────────────────────────────────
 // 'mixed'  = default: Ltrs/Kgs as stored in the data
@@ -5544,13 +5549,12 @@ function loadCustomers(){
     }
   }, 8000);
 
-  google.script.run
-    .withSuccessHandler(data => { clearTimeout(timeoutWarn); onCustomersLoaded(data); })
-    .withFailureHandler(e => {
+  gsGet('getAllCustomers')
+    .then(data => { clearTimeout(timeoutWarn); onCustomersLoaded(data); })
+    .catch(e => {
       clearTimeout(timeoutWarn);
       document.getElementById('custTableWrap').innerHTML=`<div class="state-box"><div class="icon">⚠️</div><p>Failed to load</p><small>${e.message}</small></div>`;
-    })
-    .getAllCustomers();
+    });
 }
 function onCustomersLoaded(data){
   allCustomers=data;
@@ -5650,15 +5654,14 @@ function saveCustomer(){
   document.getElementById('saveBtn').disabled=true;
   document.getElementById('saveBtnText').textContent='Saving…';
   const fn=isEditMode?'updateCustomer':'addCustomer';
-  google.script.run
-    .withSuccessHandler(res=>{
+  gsPost(fn, payload)
+    .then(res=>{
       document.getElementById('saveBtn').disabled=false;
       document.getElementById('saveBtnText').textContent=isEditMode?'Save Changes':'Add Customer';
       if(res.success){ closeModal(); showToast(res.message,'ok'); loadCustomers(); }
       else showToast(res.message,'err');
     })
-    .withFailureHandler(e=>{ document.getElementById('saveBtn').disabled=false; showToast('Error: '+e.message,'err'); })
-    [fn](payload);
+    .catch(e=>{ document.getElementById('saveBtn').disabled=false; showToast('Error: '+e.message,'err'); });
 }
 
 function askDelete(sapCode,name){
@@ -5671,16 +5674,15 @@ function doDelete(){
   if(!pendingDelete)return;
   document.getElementById('delBtn').textContent='Deleting…';
   document.getElementById('delBtn').disabled=true;
-  google.script.run
-    .withSuccessHandler(res=>{
+  gsPost('deleteCustomer', { sapCode: pendingDelete })
+    .then(res=>{
       document.getElementById('delBtn').textContent='Yes, Delete';
       document.getElementById('delBtn').disabled=false;
       closeDelModal();
       showToast(res.message,res.success?'ok':'err');
       if(res.success) loadCustomers();
     })
-    .withFailureHandler(e=>{ showToast('Error: '+e.message,'err'); })
-    .deleteCustomer(pendingDelete);
+    .catch(e=>{ showToast('Error: '+e.message,'err'); });
 }
 
 // ── Toast & Util ─────────────────────────────────────
@@ -11803,87 +11805,28 @@ async function confirmRegSheet() {
     amtKsh:   Math.round(c.amount || 0),
   };
 
-  if (typeof google !== 'undefined' && google.script) {
-    // Use Apps Script if available
-    google.script.run
-      .withSuccessHandler(res => {
-        btn.disabled = false;
-        btn.textContent = '☁ Register + Save to Google Sheet';
-        if (res && res.success) {
-          applyRegToMemory(idx, vals);
-          closeRegModal();
-          showToast(`✓ ${c.name} saved to Customers sheet`, 'ok');
-          if (typeof loadCustomers === 'function') loadCustomers();
-          setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 700);
-        } else {
-          showToast('Sheet error: ' + (res && res.message ? res.message : 'Unknown error'), 'err');
-          if (res && res.message && res.message.includes('already exists')) {
-            showToast(`⚠ ${c.rawCode} already exists. Use Register (session only) instead.`, 'err');
-          }
-        }
-      })
-      .withFailureHandler(e => {
-        btn.disabled = false;
-        btn.textContent = '☁ Register + Save to Google Sheet';
-        showToast('Google Sheet save failed: ' + (e.message || 'Unknown error'), 'err');
-      })
-      .addCustomer(payload);
-  } else if (window.gsheetApiReady) {
-    // Use Google Sheets API directly
-    try {
-      await appendCustomerToSheet(payload);
+  try {
+    const res = await gsPost('addCustomer', payload);
+    btn.disabled = false;
+    btn.textContent = '☁ Register + Save to Google Sheet';
+    if (res && res.success) {
       applyRegToMemory(idx, vals);
       closeRegModal();
       showToast(`✓ ${c.name} saved to Customers sheet`, 'ok');
-      setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 600);
-    } catch (err) {
-      showToast('Failed to save: ' + (err.message || 'Unknown error'), 'err');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '☁ Register + Save to Google Sheet';
+      setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 700);
+    } else {
+      const msg = (res && res.message) ? res.message : 'Unknown error';
+      if (msg.includes('already exists')) {
+        showToast(`⚠ ${c.rawCode} already exists. Use Register (session only) instead.`, 'err');
+      } else {
+        showToast('Sheet error: ' + msg, 'err');
+      }
     }
-  } else {
-    // Fallback: session-only
+  } catch (e) {
     btn.disabled = false;
     btn.textContent = '☁ Register + Save to Google Sheet';
-    applyRegToMemory(idx, vals);
-    closeRegModal();
-    showToast('📝 Registered (session only). To save to Google Sheets, authorize API access in Settings.', 'ok');
-    setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 600);
+    showToast('Google Sheet save failed: ' + (e.message || 'Unknown error'), 'err');
   }
-}
-
-async function appendCustomerToSheet(payload) {
-  const sheetId = window.GSHEET_ID;
-  const accessToken = window.gsheetToken;
-  if (!sheetId || !accessToken) throw new Error('Sheet ID or auth token missing');
-
-  const range = 'Customers!A:H';
-  const values = [[
-    payload.sapCode,
-    payload.name,
-    payload.location || '',
-    payload.channel || '',
-    payload.type || '',
-    payload.route || '',
-    payload.ltrsKgs || 0,
-    payload.amtKsh || 0
-  ]];
-
-  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}:append?valueInputOption=USER_ENTERED`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ values })
-  });
-
-  if (!response.ok) {
-    const err = await response.json();
-    throw new Error(err.error?.message || 'Failed to append row');
-  }
-  return await response.json();
 }
 
 function registerAllMissing() {
