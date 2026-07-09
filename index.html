@@ -3471,27 +3471,23 @@ let pendingDelete = null;
 // is not available. Instead we call the deployed Web App URL over HTTP.
 window.APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwIUfU0Vnlx7JbenbvqL3C9fyDdwNvHUeEcPRa1s53f86f84fO1GK7bETZ0umbBjtIz/exec';
 
-// GET call — read-only, e.g. gsGet('getAllCustomers')
-function gsGet(action, params) {
-  const qs = new URLSearchParams(Object.assign({ action }, params || {})).toString();
-  return fetch(`${window.APPS_SCRIPT_URL}?${qs}`).then(r => {
+// Calls the Apps Script backend. Always uses GET — POSTing to a
+// script.google.com/.../exec URL is unreliable cross-origin because
+// Apps Script issues a redirect before serving content, and browsers
+// commonly block that redirect for POST under CORS ("Failed to fetch").
+// GET requests don't hit that problem, so writes go through GET too,
+// with the payload JSON-encoded in the query string.
+function gsCall(action, payload) {
+  const params = { action };
+  if (payload !== undefined && payload !== null) params.payload = JSON.stringify(payload);
+  const qs = new URLSearchParams(params).toString();
+  return fetch(`${window.APPS_SCRIPT_URL}?${qs}`, { method: 'GET' }).then(r => {
     if (!r.ok) throw new Error('Request failed: ' + r.status);
     return r.json();
   });
 }
-
-// POST call — writes, e.g. gsPost('addCustomer', {...})
-// Sent as text/plain to avoid a CORS preflight (Apps Script has no doOptions handler).
-function gsPost(action, payload) {
-  return fetch(window.APPS_SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, payload })
-  }).then(r => {
-    if (!r.ok) throw new Error('Request failed: ' + r.status);
-    return r.json();
-  });
-}
+function gsGet(action, params) { return gsCall(action, params); }
+function gsPost(action, payload) { return gsCall(action, payload); }
 
 // ── Session Registration Tracking ────────────────────────
 // Track which customers have been registered in this session (by SAP code)
