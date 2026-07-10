@@ -11540,22 +11540,28 @@ function filterSprTable() {
       })
       .map(r => {
         const cd = r.categories[cat];
-        // ← Calculate filtered customer count when location filter is active
-        const filteredCustCount = loc && cd.customerMap
-          ? Object.values(cd.customerMap).filter(c => {
-              const custEntry = Object.entries(cd.customerMap).find(([k,v]) => v === c);
-              if (!custEntry) return false;
-              const custData = refData.customers[custEntry[0]] || {};
-              // Use 'location' from sheet, fallback to 'region' from registration
-              const custLocation = custData.location || custData.region || r.location;
-              return custLocation === loc;
-            }).length
-          : (cd.customerMap ? Object.keys(cd.customerMap).length : 0);
+        // Derive amount, ltrs, and customer count from the SAME filtered
+        // customer set so revenue shown always matches who it came from
+        // (previously revenue used the un-filtered category total while the
+        // customer count was filtered against a different, unrelated field).
+        let catAmount = cd.amount, catLtrs = cd.ltrs, filteredCustCount =
+          cd.customerMap ? Object.keys(cd.customerMap).length : 0;
+        if (loc && cd.customerMap) {
+          catAmount = 0; catLtrs = 0; filteredCustCount = 0;
+          Object.values(cd.customerMap).forEach(custData => {
+            const custLocation = (custData.region || r.location || '').trim();
+            if (custLocation === loc.trim()) {
+              catAmount += custData.amount || 0;
+              catLtrs   += custData.ltrs   || 0;
+              filteredCustCount++;
+            }
+          });
+        }
         
         return { 
           ...r, 
-          amount: cd.amount, 
-          ltrs: cd.ltrs, 
+          amount: catAmount, 
+          ltrs: catLtrs, 
           customers: filteredCustCount, // ← Use filtered count
           _catFiltered: cat, 
           _origAmount: r.amount 
@@ -11599,6 +11605,29 @@ function filterSprTable() {
         }
       });
       
+      // Filter the category breakdown to the same location so that category
+      // revenue and category customer counts stay consistent with each other
+      // and with the route-level totals above (previously categories were
+      // left un-filtered, so a category could show full-route revenue while
+      // its customer count was filtered down to 0 for this location).
+      const locCategories = {};
+      Object.entries(r.categories || {}).forEach(([cat, cd]) => {
+        const catCustomerMap = {};
+        let catAmount = 0, catLtrs = 0;
+        Object.entries(cd.customerMap || {}).forEach(([code, custData]) => {
+          const custLocation = (custData.region || r.location || '').trim();
+          if (custLocation === loc.trim()) {
+            catCustomerMap[code] = custData;
+            catAmount += custData.amount || 0;
+            catLtrs   += custData.ltrs   || 0;
+          }
+        });
+        // Only keep categories that still have at least one customer in this location
+        if (Object.keys(catCustomerMap).length) {
+          locCategories[cat] = { ...cd, amount: catAmount, ltrs: catLtrs, customerMap: catCustomerMap };
+        }
+      });
+
       // Return route with location-specific data
       return {
         ...r,
@@ -11606,6 +11635,7 @@ function filterSprTable() {
         ltrs: locLtrs,
         customers: locCusts,
         customerMap: locCustomers,
+        categories: locCategories,
         location: loc // Show filtered location
       };
     })
