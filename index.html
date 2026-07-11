@@ -11705,10 +11705,25 @@ let _regCurrentSapCode = null; // ← Track SAP code for proper identification
 // Opens the shared "Map Customer" Google Sheet where reps record new
 // customer details (CODE, OUTLET, LOCATION, CHANNEL, TYPE, ROUTE columns).
 // Clicking the button carries the customer's SAP Code + Name (from SAP)
-// into the sheet right away (via the same Apps Script backend used
-// elsewhere), so the row is already there when the sheet opens — the
-// rep just fills in LOCATION / CHANNEL / TYPE / ROUTE manually.
+// into the sheet right away, so the row is already there when the sheet
+// opens — the rep just fills in LOCATION / CHANNEL / TYPE / ROUTE manually.
+//
+// This sheet is brand new and has its OWN standalone Apps Script Web App
+// deployment (see mapCustomer_AppsScript_standalone.gs) — separate from
+// window.APPS_SCRIPT_URL, which belongs to the main Customers database.
+// PASTE THE DEPLOYED /exec URL BELOW after following that script's setup steps.
 const MAP_CUSTOMER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1RtylFcv5Q79pJumkiSIfGEZ-NWZowr5cXFp-CgwR5yU/edit?usp=sharing';
+const MAP_CUSTOMER_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby21jlRwdAMEhtNdwOF7hqJX_WMJFl5X9gyJ66ckyGmfSgjKhhCttagOeGeK2OCi_QW/exec'; // ends in /exec
+
+function mapCustomerGsCall(action, payload) {
+  const params = { action };
+  if (payload !== undefined && payload !== null) params.payload = JSON.stringify(payload);
+  const qs = new URLSearchParams(params).toString();
+  return fetch(`${MAP_CUSTOMER_APPS_SCRIPT_URL}?${qs}`, { method: 'GET' }).then(r => {
+    if (!r.ok) throw new Error('Request failed: ' + r.status);
+    return r.json();
+  });
+}
 
 async function openMapCustomerSheet(sapCode) {
   const arr = window._missingArr || [];
@@ -11717,6 +11732,13 @@ async function openMapCustomerSheet(sapCode) {
 
   const btn = document.getElementById(`mapBtn-${sapCode}`);
   const originalLabel = btn ? btn.textContent : '';
+
+  if (!MAP_CUSTOMER_APPS_SCRIPT_URL || MAP_CUSTOMER_APPS_SCRIPT_URL.startsWith('PASTE_')) {
+    showToast('Map Customer backend not set up yet — opening the sheet so you can add the row manually for now', 'err');
+    window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
+    return;
+  }
+
   if (btn) { btn.disabled = true; btn.textContent = '☁ Adding…'; }
 
   const payload = {
@@ -11729,7 +11751,7 @@ async function openMapCustomerSheet(sapCode) {
   };
 
   try {
-    const res = await gsPost('addCustomer', payload);
+    const res = await mapCustomerGsCall('mapCustomer', payload);
     if (res && res.success) {
       showToast(`✓ ${c.name} (${c.rawCode}) added to Map Customer sheet — fill in the remaining columns there`, 'ok');
     } else {
