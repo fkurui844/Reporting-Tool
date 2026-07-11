@@ -4593,9 +4593,9 @@ function renderReport(data){
         <td style="padding:7px 12px;text-align:center;">
           ${isRegistered
             ? `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Done</span>`
-            : `<button onclick="openRegModal('${c.rawCode}')"
+            : `<button onclick="openMapCustomerSheet('${c.rawCode}','${(c.name||'').replace(/'/g,"\\'")}')"
                 style="padding:5px 12px;background:#0f2744;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;">
-                ✚ Register
+                ✚ Map Customer
                </button>`}
         </td>
       </tr>`;
@@ -11701,6 +11701,21 @@ function filterSprTable() {
 // ── Missing Customer Registration ──────────────────────────────
 let _regCurrentIdx = null;
 let _regCurrentSapCode = null; // ← Track SAP code for proper identification
+
+// Opens the shared "Map Customer" Google Sheet where reps record new
+// customer details (CODE, OUTLET, LOCATION, CHANNEL, TYPE, ROUTE columns)
+// so they can be picked up and matched into the app on the next reload.
+const MAP_CUSTOMER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1RtylFcv5Q79pJumkiSIfGEZ-NWZowr5cXFp-CgwR5yU/edit?usp=sharing';
+
+function openMapCustomerSheet(sapCode, name) {
+  window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
+  // Copy the SAP code + name to clipboard so it's easy to paste into the sheet's CODE/OUTLET columns
+  const toCopy = `${sapCode}\t${name || ''}`;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(toCopy).catch(() => {});
+  }
+  showToast(`Opening Map Customer sheet — Code ${sapCode} copied, paste into CODE/OUTLET columns`, 'ok');
+}
 
 function openRegModal(sapCode) {
   const arr = window._missingArr || [];
