@@ -4593,7 +4593,7 @@ function renderReport(data){
         <td style="padding:7px 12px;text-align:center;">
           ${isRegistered
             ? `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Done</span>`
-            : `<button onclick="openMapCustomerSheet('${c.rawCode}','${(c.name||'').replace(/'/g,"\\'")}')"
+            : `<button id="mapBtn-${c.rawCode}" onclick="openMapCustomerSheet('${c.rawCode}')"
                 style="padding:5px 12px;background:#0f2744;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;">
                 ✚ Map Customer
                </button>`}
@@ -11703,18 +11703,49 @@ let _regCurrentIdx = null;
 let _regCurrentSapCode = null; // ← Track SAP code for proper identification
 
 // Opens the shared "Map Customer" Google Sheet where reps record new
-// customer details (CODE, OUTLET, LOCATION, CHANNEL, TYPE, ROUTE columns)
-// so they can be picked up and matched into the app on the next reload.
+// customer details (CODE, OUTLET, LOCATION, CHANNEL, TYPE, ROUTE columns).
+// Clicking the button carries the customer's SAP Code + Name (from SAP)
+// into the sheet right away (via the same Apps Script backend used
+// elsewhere), so the row is already there when the sheet opens — the
+// rep just fills in LOCATION / CHANNEL / TYPE / ROUTE manually.
 const MAP_CUSTOMER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1RtylFcv5Q79pJumkiSIfGEZ-NWZowr5cXFp-CgwR5yU/edit?usp=sharing';
 
-function openMapCustomerSheet(sapCode, name) {
-  window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
-  // Copy the SAP code + name to clipboard so it's easy to paste into the sheet's CODE/OUTLET columns
-  const toCopy = `${sapCode}\t${name || ''}`;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(toCopy).catch(() => {});
+async function openMapCustomerSheet(sapCode) {
+  const arr = window._missingArr || [];
+  const c = arr.find(x => x.rawCode === sapCode || x.code === sapCode);
+  if (!c) return;
+
+  const btn = document.getElementById(`mapBtn-${sapCode}`);
+  const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '☁ Adding…'; }
+
+  const payload = {
+    sapCode:  c.rawCode,
+    name:     c.name,
+    location: '',
+    channel:  '',
+    type:     '',
+    route:    '',
+  };
+
+  try {
+    const res = await gsPost('addCustomer', payload);
+    if (res && res.success) {
+      showToast(`✓ ${c.name} (${c.rawCode}) added to Map Customer sheet — fill in the remaining columns there`, 'ok');
+    } else {
+      const msg = (res && res.message) ? res.message : 'Unknown error';
+      if (msg.includes('already exists')) {
+        showToast(`${c.rawCode} is already in the sheet — opening it now`, 'ok');
+      } else {
+        showToast('Could not add row to sheet: ' + msg, 'err');
+      }
+    }
+  } catch (e) {
+    showToast('Could not reach the sheet backend: ' + (e.message || 'Unknown error') + ' — opening the sheet so you can add it manually', 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel || '✚ Map Customer'; }
+    window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
   }
-  showToast(`Opening Map Customer sheet — Code ${sapCode} copied, paste into CODE/OUTLET columns`, 'ok');
 }
 
 function openRegModal(sapCode) {
