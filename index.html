@@ -11707,13 +11707,12 @@ let _regCurrentSapCode = null; // ← Track SAP code for proper identification
 // Clicking the button carries the customer's SAP Code + Name (from SAP)
 // into the sheet right away, so the row is already there when the sheet
 // opens — the rep just fills in LOCATION / CHANNEL / TYPE / ROUTE manually.
-//
 // This sheet is brand new and has its OWN standalone Apps Script Web App
 // deployment (see mapCustomer_AppsScript_standalone.gs) — separate from
 // window.APPS_SCRIPT_URL, which belongs to the main Customers database.
 // PASTE THE DEPLOYED /exec URL BELOW after following that script's setup steps.
 const MAP_CUSTOMER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1RtylFcv5Q79pJumkiSIfGEZ-NWZowr5cXFp-CgwR5yU/edit?usp=sharing';
-const MAP_CUSTOMER_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyDS-P1DC0jDk_g9vKV2jAWz3M5iCmzR2abCzJQxhWsIXNmQmQ-H4YQDPbVi1i4ExuS/exec'; // ends in /exec
+const MAP_CUSTOMER_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxnNJ4gEey67yt5g1su6E9MNNd_V9Ykls3yaaD2JY2MrZS6jjK5K7v39fC7qFNElIoe/exec'; // ends in /exec
 
 function mapCustomerGsCall(action, payload) {
   const params = { action };
