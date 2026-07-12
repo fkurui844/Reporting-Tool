@@ -2348,12 +2348,10 @@
         <div class="missing-head-right">
           <span class="badge-warn" id="missingBadge"></span>
           <button class="btn-copy" onclick="copyMissing()">Copy list</button>
-          <button class="btn-copy" id="registerAllBtn" onclick="registerAllMissing()"
-            style="background:#0f2744;color:#fff;border-color:#0f2744;margin-left:4px;">✚ Register all</button>
         </div>
       </div>
       <div style="padding:8px 16px;background:#fffbeb;border-bottom:1px solid #f6ad2b;font-size:12px;color:#92400e;font-weight:500;">
-        Fill in the details below and click <strong>Register</strong> to add each customer to the in-app database — no sheet editing needed. Changes apply immediately on this session. Use <strong>Register all</strong> to bulk-fill with defaults.
+        Click <strong>Map Customer</strong> next to each row below to add it to the Map Customer sheet, where you can fill in its Location/Channel/Type/Route and send it to the database.
       </div>
       <div class="missing-table-wrap" style="max-height:420px;overflow-y:auto;">
         <table id="missingTable">
@@ -11707,12 +11705,13 @@ let _regCurrentSapCode = null; // ← Track SAP code for proper identification
 // Clicking the button carries the customer's SAP Code + Name (from SAP)
 // into the sheet right away, so the row is already there when the sheet
 // opens — the rep just fills in LOCATION / CHANNEL / TYPE / ROUTE manually.
+//
 // This sheet is brand new and has its OWN standalone Apps Script Web App
 // deployment (see mapCustomer_AppsScript_standalone.gs) — separate from
 // window.APPS_SCRIPT_URL, which belongs to the main Customers database.
 // PASTE THE DEPLOYED /exec URL BELOW after following that script's setup steps.
 const MAP_CUSTOMER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1RtylFcv5Q79pJumkiSIfGEZ-NWZowr5cXFp-CgwR5yU/edit?usp=sharing';
-const MAP_CUSTOMER_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwIlYvIyNf8deiTEIOxm86s5_rJoFuMYGji9Y4sMCQ4zNbgBAxFw6WJwFVgbee116Xo/exec'; // ends in /exec
+const MAP_CUSTOMER_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwZkNNi6XSeJZQF7T5kpo7qQpCzoyciOMVgXiCMqviW09VuuIlGvEZOaYqAKdOJumis/exec'; // ends in /exec
 
 function mapCustomerGsCall(action, payload) {
   const params = { action };
@@ -11920,34 +11919,6 @@ async function confirmRegSheet() {
     btn.textContent = '☁ Register + Save to Google Sheet';
     showToast('Google Sheet save failed: ' + (e.message || 'Unknown error'), 'err');
   }
-}
-
-function registerAllMissing() {
-  const arr = window._missingArr || [];
-  let count = 0;
-  arr.forEach((c, idx) => {
-    if (refData.customers[c.code] || refData.customers[c.rawCode] || window._sessionRegisteredCodes.has(c.rawCode) || window._sessionRegisteredCodes.has(c.code)) return;
-    
-    // Track as registered
-    window._sessionRegisteredCodes.add(c.rawCode);
-    window._sessionRegisteredCodes.add(c.code);
-    
-    const entry = {
-      outlet: c.name, region: 'UNKNOWN', channel: 'UNKNOWN', type: 'UNKNOWN', route: ''
-    };
-    refData.customers[c.code] = entry;
-    if (c.rawCode !== c.code) refData.customers[c.rawCode] = entry;
-    
-    const row = document.getElementById(`miss-row-${c.rawCode}`);
-    if (row) {
-      row.style.opacity = '0.45';
-      const btn = row.querySelector('button');
-      if (btn) btn.outerHTML = `<span style="font-size:11px;color:#16a34a;font-weight:700;">✓ Done</span>`;
-    }
-    count++;
-  });
-  showToast(`✓ ${count} customer${count!==1?'s':''} registered (UNKNOWN fields). Re-processing…`, 'ok');
-  setTimeout(() => { if (window._lastRawSAP) { const d = parseSAP(window._lastRawSAP); renderReport(d); } }, 900);
 }
 
 function clearSprFilters() {
