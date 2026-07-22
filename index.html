@@ -11159,59 +11159,90 @@ let _sprFilteredRows = [];
 let _sprRowDataMap = {}; // rowId → row data for customer popup
 
 function buildSalesPerRouteData(transactions) {
-  // Mirrors buildTypeSalesData exactly — reads t.route (Column F) the same
-  // way Type Sales reads t.type (Column E).
+  // Keyed by ROUTE + LOCATION so that a route serving several locations
+  // produces one row per (route, location) pair instead of collapsing
+  // everything under a single "dominant" location.
   const routeMap = {};
   for (const t of transactions) {
     const route = (t.route && t.route.trim() && t.route.trim() !== '0')
       ? t.route.trim()
       : 'UNASSIGNED';
-    if (!routeMap[route]) {
-      routeMap[route] = { route, amount: 0, ltrs: 0, qty: 0, customers: new Set(), customerMap: {}, transactions: 0, regions: {}, categories: {} };
+    const location = (t.region && t.region.trim() && t.region !== 'UNKNOWN')
+      ? t.region.trim()
+      : '—';
+    const key = route + '||' + location;
+    if (!routeMap[key]) {
+      routeMap[key] = { route, location, amount: 0, ltrs: 0, qty: 0, customers: new Set(), customerMap: {}, transactions: 0, categories: {} };
     }
-    routeMap[route].amount       += t.amount  || 0;
-    routeMap[route].ltrs         += toDisplayLtrs(t.ltrs || 0, (t.category || '').toUpperCase());
-    routeMap[route].qty          += t.qty     || 0;
-    routeMap[route].transactions += 1;
+    routeMap[key].amount       += t.amount  || 0;
+    routeMap[key].ltrs         += toDisplayLtrs(t.ltrs || 0, (t.category || '').toUpperCase());
+    routeMap[key].qty          += t.qty     || 0;
+    routeMap[key].transactions += 1;
     if (t.custCode) {
-      routeMap[route].customers.add(t.custCode);
-      if (!routeMap[route].customerMap[t.custCode]) {
-        routeMap[route].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0, region: t.region || '' };
+      routeMap[key].customers.add(t.custCode);
+      if (!routeMap[key].customerMap[t.custCode]) {
+        routeMap[key].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0, region: t.region || '' };
       }
-      routeMap[route].customerMap[t.custCode].amount += t.amount || 0;
-      routeMap[route].customerMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs || 0, (t.category || '').toUpperCase());
-    }
-    // Track region frequency to derive dominant location per route
-    if (t.region && t.region !== 'UNKNOWN') {
-      routeMap[route].regions[t.region] = (routeMap[route].regions[t.region] || 0) + 1;
+      routeMap[key].customerMap[t.custCode].amount += t.amount || 0;
+      routeMap[key].customerMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs || 0, (t.category || '').toUpperCase());
     }
     // Track per-category breakdown
     const cat = (t.category && t.category.trim()) ? t.category.trim().toUpperCase() : 'UNCLASSIFIED';
-    if (!routeMap[route].categories[cat]) {
-      routeMap[route].categories[cat] = { amount: 0, ltrs: 0, qty: 0, transactions: 0, customerMap: {} };
+    if (!routeMap[key].categories[cat]) {
+      routeMap[key].categories[cat] = { amount: 0, ltrs: 0, qty: 0, transactions: 0, customerMap: {} };
     }
-    routeMap[route].categories[cat].amount       += t.amount || 0;
-    routeMap[route].categories[cat].ltrs         += toDisplayLtrs(t.ltrs || 0, cat);
-    routeMap[route].categories[cat].qty          += t.qty    || 0;
-    routeMap[route].categories[cat].transactions += 1;
+    routeMap[key].categories[cat].amount       += t.amount || 0;
+    routeMap[key].categories[cat].ltrs         += toDisplayLtrs(t.ltrs || 0, cat);
+    routeMap[key].categories[cat].qty          += t.qty    || 0;
+    routeMap[key].categories[cat].transactions += 1;
     if (t.custCode) {
-      if (!routeMap[route].categories[cat].customerMap[t.custCode]) {
-        routeMap[route].categories[cat].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0, region: t.region || '' };
+      if (!routeMap[key].categories[cat].customerMap[t.custCode]) {
+        routeMap[key].categories[cat].customerMap[t.custCode] = { name: t.custName || t.custCode, amount: 0, ltrs: 0, region: t.region || '' };
       }
-      routeMap[route].categories[cat].customerMap[t.custCode].amount += t.amount || 0;
-      routeMap[route].categories[cat].customerMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs || 0, cat);
+      routeMap[key].categories[cat].customerMap[t.custCode].amount += t.amount || 0;
+      routeMap[key].categories[cat].customerMap[t.custCode].ltrs   += toDisplayLtrs(t.ltrs || 0, cat);
     }
   }
-  // Resolve dominant location and attach route targets for each route
+
+  // Route-level (and route+category) targets in the target sheets are keyed
+  // by route name only, not by location. When a route is split across
+  // several location rows, allocate its target proportionally to each row
+  // based on that row's share of the route's total revenue/volume — this
+  // keeps grand totals correct while still showing a sensible target per
+  // location row. A route with only one location gets 100% of its target,
+  // exactly matching prior behavior.
+  const routeTotals = {};    // route -> { amount, ltrs }
+  const routeCatTotals = {}; // route -> cat -> { amount, ltrs }
   for (const r of Object.values(routeMap)) {
-    const entries = Object.entries(r.regions);
-    r.location = entries.length
-      ? entries.sort((a, b) => b[1] - a[1])[0][0]
-      : '—';
-    // Attach route-level targets if available
-    const tgt = lookupRouteTarget(r.route);
-    r.revTarget = tgt ? tgt.ksh  : null;
-    r.volTarget = tgt ? tgt.ltrs : null;
+    if (!routeTotals[r.route]) routeTotals[r.route] = { amount: 0, ltrs: 0 };
+    routeTotals[r.route].amount += r.amount;
+    routeTotals[r.route].ltrs   += r.ltrs;
+    if (!routeCatTotals[r.route]) routeCatTotals[r.route] = {};
+    for (const [cat, cd] of Object.entries(r.categories)) {
+      if (!routeCatTotals[r.route][cat]) routeCatTotals[r.route][cat] = { amount: 0, ltrs: 0 };
+      routeCatTotals[r.route][cat].amount += cd.amount;
+      routeCatTotals[r.route][cat].ltrs   += cd.ltrs;
+    }
+  }
+  const routeTargetCache = {};
+  for (const r of Object.values(routeMap)) {
+    if (!(r.route in routeTargetCache)) routeTargetCache[r.route] = lookupRouteTarget(r.route);
+    const tgt = routeTargetCache[r.route];
+    const totals = routeTotals[r.route];
+    const revShare = tgt && totals.amount > 0 ? (r.amount / totals.amount) : (tgt ? 1 : 0);
+    const volShare = tgt && totals.ltrs   > 0 ? (r.ltrs   / totals.ltrs)   : (tgt ? 1 : 0);
+    r.revTarget = tgt ? tgt.ksh  * revShare : null;
+    r.volTarget = tgt ? tgt.ltrs * volShare : null;
+
+    // Same proportional allocation for per-category targets
+    for (const [cat, cd] of Object.entries(r.categories)) {
+      const catTgt = lookupRouteCategoryTarget(r.route, cat);
+      const catTotals = routeCatTotals[r.route][cat];
+      const catRevShare = catTgt && catTotals.amount > 0 ? (cd.amount / catTotals.amount) : (catTgt ? 1 : 0);
+      const catVolShare = catTgt && catTotals.ltrs   > 0 ? (cd.ltrs   / catTotals.ltrs)   : (catTgt ? 1 : 0);
+      cd.revTgt = catTgt ? catTgt.ksh  * catRevShare : null;
+      cd.volTgt = catTgt ? catTgt.ltrs * catVolShare : null;
+    }
   }
   console.log('[SPR] routeMap keys:', Object.keys(routeMap));
   return routeMap;
@@ -11242,7 +11273,7 @@ function populateSalesPerRoutePage(data) {
   // Summary stats — exclude UNASSIGNED from named route count
   const grandAmt  = _sprAllRows.reduce((s, r) => s + r.amount, 0);
   const grandLtrs = _sprAllRows.reduce((s, r) => s + r.ltrs,   0);
-  const routeCount = _sprAllRows.filter(r => r.route !== 'UNASSIGNED').length;
+  const routeCount = new Set(_sprAllRows.filter(r => r.route !== 'UNASSIGNED').map(r => r.route)).size;
   const statCards = [
     { label: 'Routes',        value: routeCount,                               color: '#0f2744' },
     { label: 'Total Revenue', value: 'KSH ' + Math.round(grandAmt).toLocaleString(), color: '#E1245A' },
@@ -11351,15 +11382,10 @@ function renderSprTable(rows, grandAmt) {
       const catBg = isActiveCat ? '#fffbeb' : 'var(--inc-bg)';
       const catBorder = isActiveCat ? '#f6ad2b' : catColor;
       const hideRow = activeCat && !isActiveCat ? 'display:none;' : (activeCat ? '' : 'display:none;');
-      // Count category customers, filtered by active location if set
-      const activeLoc = (document.getElementById('sprLocFilter') && document.getElementById('sprLocFilter').value) || '';
+      // Rows (and their category breakdowns) are already scoped to a single
+      // location, so the customer count here is simply this category's count.
       const catCustEntries = cd.customerMap ? Object.entries(cd.customerMap) : [];
-      const catCustCount = activeLoc
-        ? catCustEntries.filter(([k, v]) => {
-            const reg = (v.region || r.location || '').trim();
-            return reg === activeLoc.trim();
-          }).length
-        : catCustEntries.length;
+      const catCustCount = catCustEntries.length;
       const catCustKey = `${rowId}-cat-${ci}`;
       // Store cat customer data for popup
       _sprRowDataMap[catCustKey] = { route: r.route + ' › ' + cat, location: r.location, amount: cd.amount, customerMap: cd.customerMap || {} };
@@ -11368,12 +11394,10 @@ function renderSprTable(rows, grandAmt) {
              style="color:#0891b2;font-weight:600;border-bottom:1px dashed #0891b2;cursor:pointer;">${catCustCount}</span>`
         : `<span style="color:var(--text-muted);">—</span>`;
 
-      // Category-level targets from routeCategoryTargets
-      const catTgt = hasRouteTgts
-        ? lookupRouteCategoryTarget(r.route, cat)
-        : null;
-      const catRevTgt = catTgt ? catTgt.ksh  : null;
-      const catVolTgt = catTgt ? catTgt.ltrs : null;
+      // Category-level targets, pre-allocated proportionally across this
+      // route's location rows in buildSalesPerRouteData
+      const catRevTgt = hasRouteTgts ? (cd.revTgt || null) : null;
+      const catVolTgt = hasRouteTgts ? (cd.volTgt || null) : null;
       const catRevPct = catRevTgt > 0 ? (cd.amount / catRevTgt * 100) : null;
       const catVolPct = catVolTgt > 0 ? (cd.ltrs   / catVolTgt * 100) : null;
       const attColor  = pct => pct === null ? '' : pct >= 100 ? '#1db87a' : pct >= 70 ? '#f6ad2b' : '#E1245A';
@@ -11478,7 +11502,7 @@ function renderSprTable(rows, grandAmt) {
       <td ${tdTL}></td>
       <td ${tdTL}>
         <span style="text-transform:uppercase;letter-spacing:.06em;font-size:11px;">
-          Grand Total &nbsp;·&nbsp; ${rows.filter(r => r.route !== 'UNASSIGNED').length} routes
+          Grand Total &nbsp;·&nbsp; ${new Set(rows.filter(r => r.route !== 'UNASSIGNED').map(r => r.route)).size} routes
         </span>
       </td>
       <td ${tdTL}></td>
@@ -11523,46 +11547,20 @@ function filterSprTable() {
       .filter(r => {
         if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
         if (custRoutes && !custRoutes.has(r.route)) return false;
-        
-        // Check if route has customers in selected location
-        if (loc) {
-          const hasCustInLoc = r.customerMap && Object.values(r.customerMap).some(custData => {
-            const custLocation = custData.region || r.location;
-            return (custLocation || '').trim() === loc.trim();
-          });
-          if (!hasCustInLoc) return false;
-        }
-        
+        // Rows are already scoped to a single location, so just compare directly
+        if (loc && (r.location || '').trim() !== loc.trim()) return false;
         if (!Object.keys(r.categories || {}).includes(cat)) return false;
         return true;
       })
       .map(r => {
         const cd = r.categories[cat];
-        // Derive amount, ltrs, and customer count from the SAME filtered
-        // customer set so revenue shown always matches who it came from
-        // (previously revenue used the un-filtered category total while the
-        // customer count was filtered against a different, unrelated field).
-        let catAmount = cd.amount, catLtrs = cd.ltrs, filteredCustCount =
-          cd.customerMap ? Object.keys(cd.customerMap).length : 0;
-        if (loc && cd.customerMap) {
-          catAmount = 0; catLtrs = 0; filteredCustCount = 0;
-          Object.values(cd.customerMap).forEach(custData => {
-            const custLocation = (custData.region || r.location || '').trim();
-            if (custLocation === loc.trim()) {
-              catAmount += custData.amount || 0;
-              catLtrs   += custData.ltrs   || 0;
-              filteredCustCount++;
-            }
-          });
-        }
-        
-        return { 
-          ...r, 
-          amount: catAmount, 
-          ltrs: catLtrs, 
-          customers: filteredCustCount, // ← Use filtered count
-          _catFiltered: cat, 
-          _origAmount: r.amount 
+        return {
+          ...r,
+          amount: cd.amount,
+          ltrs: cd.ltrs,
+          customers: cd.customerMap ? Object.keys(cd.customerMap).length : 0,
+          _catFiltered: cat,
+          _origAmount: r.amount
         };
       })
       .filter(r => !minRev || r.amount >= minRev);
@@ -11570,83 +11568,11 @@ function filterSprTable() {
     displayRows = _sprAllRows.filter(r => {
       if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
       if (custRoutes && !custRoutes.has(r.route)) return false;
-      
-      // Check if route has customers in selected location
-      if (loc) {
-        const hasCustInLoc = r.customerMap && Object.values(r.customerMap).some(custData => {
-          const custLocation = custData.region || r.location;
-          return (custLocation || '').trim() === loc.trim();
-        });
-        if (!hasCustInLoc) return false;
-      }
-      
+      // Rows are already scoped to a single location, so just compare directly
+      if (loc && (r.location || '').trim() !== loc.trim()) return false;
       if (minRev && r.amount < minRev) return false;
       return true;
-    })
-    // ← When location filter is active, transform routes to show location-specific data
-    .map(r => {
-      if (!loc || !r.customerMap) return r;
-      
-      // Calculate location-specific totals
-      let locAmount = 0, locLtrs = 0, locCusts = 0;
-      const locCustomers = {};
-      
-      Object.entries(r.customerMap).forEach(([code, custData]) => {
-        // Use region stored at parse time from the transaction itself (not refData lookup)
-        const custLocation = (custData.region || r.location || '').trim();
-        
-        if (custLocation === loc.trim()) {
-          locCustomers[code] = custData;
-          locAmount += custData.amount || 0;
-          locLtrs += custData.ltrs || 0;
-          locCusts++;
-        }
-      });
-      
-      // Filter the category breakdown to the same location so that category
-      // revenue and category customer counts stay consistent with each other
-      // and with the route-level totals above (previously categories were
-      // left un-filtered, so a category could show full-route revenue while
-      // its customer count was filtered down to 0 for this location).
-      const locCategories = {};
-      Object.entries(r.categories || {}).forEach(([cat, cd]) => {
-        const catCustomerMap = {};
-        let catAmount = 0, catLtrs = 0;
-        Object.entries(cd.customerMap || {}).forEach(([code, custData]) => {
-          const custLocation = (custData.region || r.location || '').trim();
-          if (custLocation === loc.trim()) {
-            catCustomerMap[code] = custData;
-            catAmount += custData.amount || 0;
-            catLtrs   += custData.ltrs   || 0;
-          }
-        });
-        // Only keep categories that still have at least one customer in this location
-        if (Object.keys(catCustomerMap).length) {
-          locCategories[cat] = { ...cd, amount: catAmount, ltrs: catLtrs, customerMap: catCustomerMap };
-        }
-      });
-
-      // Return route with location-specific data
-      return {
-        ...r,
-        amount: locAmount,
-        ltrs: locLtrs,
-        customers: locCusts,
-        customerMap: locCustomers,
-        categories: locCategories,
-        location: loc // Show filtered location
-      };
-    })
-    // ← Calculate filtered customer count when location filter is active
-    .map(r => ({
-      ...r,
-      customers: loc && r.customerMap 
-        ? Object.values(r.customerMap).filter(custData => {
-            const custLocation = custData.region || r.location;
-            return custLocation === loc;
-          }).length
-        : r.customers
-    }));
+    });
   }
 
   let filtered = displayRows;
@@ -12114,9 +12040,8 @@ function exportSprExcel() {
     const routeName = r.route === 'UNASSIGNED' ? 'Not Yet Classified' : r.route;
     const entries = Object.entries(r.categories || {}).sort((a,b)=>b[1].amount-a[1].amount);
     entries.forEach(([cat, cd]) => {
-      const catTgt   = hasRouteTgtsXls ? lookupRouteCategoryTarget(r.route, cat) : null;
-      const catRevTgt = catTgt ? catTgt.ksh  : null;
-      const catVolTgt = catTgt ? catTgt.ltrs : null;
+      const catRevTgt = hasRouteTgtsXls ? (cd.revTgt || null) : null;
+      const catVolTgt = hasRouteTgtsXls ? (cd.volTgt || null) : null;
       const catRevAtt = catRevTgt > 0 ? parseFloat((cd.amount / catRevTgt * 100).toFixed(1)) : null;
       const catVolAtt = catVolTgt > 0 ? parseFloat((cd.ltrs   / catVolTgt * 100).toFixed(1)) : null;
       catData.push([
@@ -12159,11 +12084,8 @@ function exportSprHTML() {
       const catShare = r.amount > 0 ? (cd.amount / r.amount * 100).toFixed(1) : '0.0';
       const catBarW  = r.amount > 0 ? Math.max(2, Math.round(cd.amount / r.amount * 100)) : 0;
       const cc = catColors[ci % catColors.length];
-      const catTgt = hasRouteTgtsExp
-        ? lookupRouteCategoryTarget(r.route, cat)
-        : null;
-      const catRevTgt = catTgt ? catTgt.ksh  : null;
-      const catVolTgt = catTgt ? catTgt.ltrs : null;
+      const catRevTgt = hasRouteTgtsExp ? (cd.revTgt || null) : null;
+      const catVolTgt = hasRouteTgtsExp ? (cd.volTgt || null) : null;
       const catRevPct = catRevTgt > 0 ? (cd.amount / catRevTgt * 100) : null;
       const catVolPct = catVolTgt > 0 ? (cd.ltrs   / catVolTgt * 100) : null;
       const attColor  = pct => pct === null ? '#718096' : pct >= 100 ? '#1db87a' : pct >= 70 ? '#f6ad2b' : '#E1245A';
@@ -12267,7 +12189,7 @@ th.r{text-align:right;}
     <div style="display:flex;gap:8px;align-items:center;"><span class="gen">Generated: ${new Date().toLocaleString()}</span><button class="btn-print" onclick="window.print()">🖨 Print / PDF</button></div>
   </div>
   <div class="stats">
-    <div class="stat"><div class="stat-label">Routes</div><div class="stat-val" style="color:#0f2744;">${_sprFilteredRows.filter(r=>r.route!=='UNASSIGNED').length}</div></div>
+    <div class="stat"><div class="stat-label">Routes</div><div class="stat-val" style="color:#0f2744;">${new Set(_sprFilteredRows.filter(r=>r.route!=='UNASSIGNED').map(r=>r.route)).size}</div></div>
     <div class="stat"><div class="stat-label">Total Revenue</div><div class="stat-val" style="color:#E1245A;">KSH ${fmtN(totalAmt)}</div></div>
     <div class="stat"><div class="stat-label">Total Volume</div><div class="stat-val" style="color:#0f5f5a;">${fmtN(totalLtrs)} L</div></div>
   </div>
@@ -12283,7 +12205,7 @@ th.r{text-align:right;}
         ${rows}
         <tr style="background:#0f2744;">
           <td style="padding:11px 12px;color:#fff;font-weight:700;font-size:12px;"></td>
-          <td style="padding:11px 12px;color:#fff;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Grand Total &nbsp;·&nbsp; ${_sprFilteredRows.filter(r=>r.route!=='UNASSIGNED').length} routes</td>
+          <td style="padding:11px 12px;color:#fff;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Grand Total &nbsp;·&nbsp; ${new Set(_sprFilteredRows.filter(r=>r.route!=='UNASSIGNED').map(r=>r.route)).size} routes</td>
           <td style="padding:11px 12px;"></td>
           <td style="padding:11px 12px;text-align:right;color:#fff;font-weight:700;font-family:monospace;font-size:13px;">${fmtN(totalAmt)}</td>
           ${hasRouteTgtsExp ? `<td style="padding:11px 12px;text-align:right;color:rgba(255,255,255,0.7);font-family:monospace;font-size:13px;">${totalRevTarget > 0 ? fmtN(totalRevTarget) : '—'}</td>` : ''}
