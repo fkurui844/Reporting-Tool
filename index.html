@@ -11526,18 +11526,33 @@ function filterSprTable() {
   const sortBy  = document.getElementById('sprSort').value || 'revenue_desc';
   const grandAmt = _sprAllRows.reduce((s, r) => s + r.amount, 0);
 
-  // If customer search is active, find matching customers and their routes
-  let custRoutes = null;
-  if (custQ) {
-    const customers = Object.values(refData.customers);
-    // ← Filter customers by location if location filter is active
-    const custList = loc ? customers.filter(c => (c.region || '') === loc) : customers;
-    const matchingCusts = custList.filter(c =>
-      (c.sapCode && c.sapCode.toLowerCase().includes(custQ)) ||
-      (c.outlet && c.outlet.toLowerCase().includes(custQ)) ||
-      (c.name && c.name.toLowerCase().includes(custQ))
-    );
-    custRoutes = new Set(matchingCusts.map(c => c.route).filter(Boolean));
+  // Narrow a route/location row down to only the customer(s) matching the
+  // customer search — by code or name — recomputing amount, volume, and the
+  // category breakdown from just those customers. Returns null if the row
+  // has no matching customer at all (so it can be filtered out).
+  function scopeRowToCustomerSearch(r) {
+    if (!r.customerMap) return null;
+    const matched = {};
+    for (const [code, cd] of Object.entries(r.customerMap)) {
+      if ((code && code.toLowerCase().includes(custQ)) || (cd.name && cd.name.toLowerCase().includes(custQ))) {
+        matched[code] = cd;
+      }
+    }
+    if (!Object.keys(matched).length) return null;
+    let amt = 0, ltrs = 0;
+    Object.values(matched).forEach(cd => { amt += cd.amount || 0; ltrs += cd.ltrs || 0; });
+    const scopedCats = {};
+    for (const [cat, cd] of Object.entries(r.categories || {})) {
+      const cm = {};
+      let catAmt = 0, catLtrs = 0;
+      for (const [code, cdata] of Object.entries(cd.customerMap || {})) {
+        if (matched[code]) { cm[code] = cdata; catAmt += cdata.amount || 0; catLtrs += cdata.ltrs || 0; }
+      }
+      if (Object.keys(cm).length) {
+        scopedCats[cat] = { ...cd, amount: catAmt, ltrs: catLtrs, customerMap: cm };
+      }
+    }
+    return { ...r, amount: amt, ltrs: ltrs, customers: Object.keys(matched).length, customerMap: matched, categories: scopedCats };
   }
 
   // When a category is selected, project each route's numbers down to that category only
@@ -11546,12 +11561,13 @@ function filterSprTable() {
     displayRows = _sprAllRows
       .filter(r => {
         if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
-        if (custRoutes && !custRoutes.has(r.route)) return false;
         // Rows are already scoped to a single location, so just compare directly
         if (loc && (r.location || '').trim() !== loc.trim()) return false;
-        if (!Object.keys(r.categories || {}).includes(cat)) return false;
         return true;
       })
+      .map(r => custQ ? scopeRowToCustomerSearch(r) : r)
+      .filter(r => r !== null)
+      .filter(r => Object.keys(r.categories || {}).includes(cat))
       .map(r => {
         const cd = r.categories[cat];
         return {
@@ -11565,15 +11581,18 @@ function filterSprTable() {
       })
       .filter(r => !minRev || r.amount >= minRev);
   } else {
-    displayRows = _sprAllRows.filter(r => {
-      if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
-      if (custRoutes && !custRoutes.has(r.route)) return false;
-      // Rows are already scoped to a single location, so just compare directly
-      if (loc && (r.location || '').trim() !== loc.trim()) return false;
-      if (minRev && r.amount < minRev) return false;
-      return true;
-    });
+    displayRows = _sprAllRows
+      .filter(r => {
+        if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
+        // Rows are already scoped to a single location, so just compare directly
+        if (loc && (r.location || '').trim() !== loc.trim()) return false;
+        return true;
+      })
+      .map(r => custQ ? scopeRowToCustomerSearch(r) : r)
+      .filter(r => r !== null)
+      .filter(r => !minRev || r.amount >= minRev);
   }
+
 
   let filtered = displayRows;
 
