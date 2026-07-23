@@ -4023,7 +4023,13 @@ function parseSAP(text){
   for(let i=0;i<lines.length;i++){
     const line=lines[i];
     const cols=line.split('\t').map(c=>c.trim());
-    if(line.includes('CUSTOMER')&&!line.includes('TOTALS')&&!line.includes('CODE')&&!line.includes('GRAND')){
+    // Detect a customer-header row structurally (by column position) rather than by
+    // searching the whole line for substrings like 'GRAND'/'CODE'/'TOTALS'. The old
+    // substring check broke whenever a customer's own name happened to contain one of
+    // those words — e.g. "25-THE GRAND ENPIRE HOTEL" (contains "GRAND") or
+    // "C21-NICODEMUS OTIENO" (contains "CODE") — silently skipping that customer's
+    // header and misattributing their line items to the previous customer in the file.
+    if(cols[1]==='CUSTOMER'&&!cols.includes('TOTALS')){
       const cm=line.match(/([A-Z]?\d{6,10})\s+(.*)/);
       if(cm){
         const rawCode=cm[1];
