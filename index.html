@@ -4067,9 +4067,22 @@ function parseSAP(text){
       }
       continue;
     }
-    if(line.includes('GRAND TOTAL')||line.includes('TOTALS'))continue;
-    // Match standard 440/330 codes only (11-digit SAP material codes, with or without leading zeros)
-    const sapColFinal=cols.find(c=>/^0*(440|330)\d{8}$/.test(c));
+    if(line.includes('GRAND TOTAL')){
+      // Capture SAP's own stated grand total (last numeric value on the line) so we can
+      // reconcile it against what we actually parsed, and surface a warning instead of
+      // silently under-reporting if a future SKU/code format slips through unmatched.
+      const gtNums=cols.filter(c=>/^-?[\d,]+\.?\d*$/.test(c.replace(/\s/,'')));
+      if(gtNums.length>=1) result.sapGrandTotal=parseFloat(gtNums[gtNums.length-1].replace(/,/g,''))||0;
+      continue;
+    }
+    if(line.includes('TOTALS'))continue;
+    // Match any 11-digit SAP material code (with or without leading zeros).
+    // NOTE: previously this only matched codes starting with 440/330, which silently
+    // dropped product lines using other prefixes (e.g. 000-prefixed codes like
+    // "00000000341" — SKIMMED MILK POWDER PACKAGING). Customer codes are 10 digits and
+    // employee codes carry an alpha prefix, so a straight 11-digit check is a safe,
+    // prefix-agnostic match that won't accidentally pick up those rows.
+    const sapColFinal=cols.find(c=>/^\d{11}$/.test(c));
     if(sapColFinal&&curCust){
       const matCode=sapColFinal.replace(/^0+/,'')||sapColFinal;
       const nums=cols.filter(c=>/^-?[\d,]+\.?\d*$/.test(c.replace(/\s/,'')));
@@ -4099,6 +4112,20 @@ function parseSAP(text){
       }
     }
   }
+  // Reconciliation check: compare what we parsed against SAP's own GRAND TOTAL line.
+  // A mismatch here means some line in the file wasn't captured by the parsing rules
+  // above (unrecognized code format, unexpected column layout, etc.) — surface it loudly
+  // rather than letting totals quietly disagree with SAP, as happened with the
+  // 000-prefixed "SKIMMED MILK POWDER PACKAGING" code.
+  const parsedTotal = result.transactions.reduce((s,t)=>s+(t.amount||0),0);
+  result.parsedTotal = parsedTotal;
+  if(result.sapGrandTotal){
+    const diff = result.sapGrandTotal - parsedTotal;
+    result.reconciliationDiff = diff;
+    if(Math.abs(diff) > 1){ // allow for trivial rounding, flag anything real
+      console.warn(`[Reconcile] Parsed total (KES ${parsedTotal.toLocaleString()}) does not match SAP GRAND TOTAL (KES ${result.sapGrandTotal.toLocaleString()}). Difference: KES ${diff.toLocaleString()}. Some rows may be using an unrecognized code format.`);
+    }
+  }
   return result;
 }
 
@@ -4125,6 +4152,22 @@ function renderReport(data){
   const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
   const totalLtrs = data.transactions.reduce((s,t)=>s+toDisplayLtrs(t.ltrs, t.category),0);
   const custCount = new Set(data.transactions.filter(t=>!/^E/i.test(t.custCode)).map(t=>t.custCode)).size;
+
+  // Reconciliation banner: if the amount we parsed doesn't match SAP's own GRAND TOTAL
+  // line, show it prominently instead of letting the dashboard quietly disagree with SAP.
+  let reconBanner = document.getElementById('reconBanner');
+  if(!reconBanner){
+    reconBanner = document.createElement('div');
+    reconBanner.id = 'reconBanner';
+    document.getElementById('report').prepend(reconBanner);
+  }
+  if(data.sapGrandTotal && Math.abs((data.sapGrandTotal - totalAmt)) > 1){
+    const diff = data.sapGrandTotal - totalAmt;
+    reconBanner.style.cssText = 'display:flex;align-items:center;gap:10px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;padding:12px 16px;border-radius:8px;margin:0 0 16px;font-size:13px;font-weight:600;';
+    reconBanner.innerHTML = `⚠️ Parsed total (KES ${totalAmt.toLocaleString(undefined,{maximumFractionDigits:0})}) does not match the SAP file's GRAND TOTAL (KES ${data.sapGrandTotal.toLocaleString(undefined,{maximumFractionDigits:0})}). Difference: KES ${diff.toLocaleString(undefined,{maximumFractionDigits:0})}. Some rows likely used a code format the parser doesn't recognize yet — check the console log for details.`;
+  } else {
+    reconBanner.style.display = 'none';
+  }
 
   // Customer coverage banner
   const totalInSheet = refData.customerTotal || 0;
