@@ -4018,6 +4018,11 @@ function parseSAP(text){
     const dateFrom=new Date(y1,m1-1,d1);
     const dateTo  =new Date(y2,m2-1,d2);
     result.days = Math.round((dateTo - dateFrom) / 86400000) + 1; // inclusive
+    // Days in the calendar month the period falls in (e.g. 31 for July, 28/29 for Feb).
+    // new Date(y2, m2, 0) gives the last day of month m2 (m2 is 1-indexed here, and the
+    // Date constructor's month param is 0-indexed, so passing m2 lands on the following
+    // month and day 0 rolls back to the last day of month m2).
+    result.daysInMonth = new Date(y2, m2, 0).getDate();
   }
   let curCust=null;
   for(let i=0;i<lines.length;i++){
@@ -4247,10 +4252,13 @@ function renderReport(data){
   // Use grandTarget (from Targets sheet GRAND TOTALS row) as the primary overall target
   const overallTgtAmt = refData.grandTarget !== null ? refData.grandTarget.ksh  : regionTgtAmt;
   const overallTgtLtr = refData.grandTarget !== null ? refData.grandTarget.ltrs : regionTgtLtr;
-  // Pro-rated target: monthly target / 30 * elapsed days from the file period
+  // Pro-rated target: monthly target / days in the reporting month * elapsed days from the file period
   const elapsedDays = data.days || null;
-  const mtdProAmt   = (overallTgtAmt > 0 && elapsedDays) ? Math.round((overallTgtAmt / 30) * elapsedDays) : null;
-  const mtdProLtr   = (overallTgtLtr > 0 && elapsedDays) ? Math.round((overallTgtLtr / 30) * elapsedDays) : null;
+  // Actual number of days in the reporting month (31 for July, 28/29 for Feb, etc.)
+  // rather than a hardcoded 30 — falls back to 30 only if the period couldn't be parsed.
+  const daysInMonth = data.daysInMonth || 30;
+  const mtdProAmt   = (overallTgtAmt > 0 && elapsedDays) ? Math.round((overallTgtAmt / daysInMonth) * elapsedDays) : null;
+  const mtdProLtr   = (overallTgtLtr > 0 && elapsedDays) ? Math.round((overallTgtLtr / daysInMonth) * elapsedDays) : null;
 
   const missingArr = Object.values(data.missingCustomers)
     .sort((a,b)=>b.amount-a.amount);
@@ -4303,9 +4311,10 @@ function renderReport(data){
   // Daily averages
   const dailyAvgAmt  = elapsedDays ? Math.round(totalAmt  / elapsedDays) : null;
   const dailyAvgLtrs = elapsedDays ? Math.round(totalLtrs / elapsedDays) : null;
-  // Required daily pace based on full monthly target spread evenly over 30 days
-  const targetDailyAmt  = overallTgtAmt  ? Math.round(overallTgtAmt  / 30) : null;
-  const targetDailyLtrs = overallTgtLtr  ? Math.round(overallTgtLtr  / 30) : null;
+  // Required daily pace based on full monthly target spread evenly over the actual
+  // number of days in the reporting month (not a hardcoded 30 — July has 31, Feb has 28/29).
+  const targetDailyAmt  = overallTgtAmt  ? Math.round(overallTgtAmt  / daysInMonth) : null;
+  const targetDailyLtrs = overallTgtLtr  ? Math.round(overallTgtLtr  / daysInMonth) : null;
 
   function dailyRow(label, avg, targetDaily) {
     let subHtml = '';
@@ -4339,7 +4348,7 @@ function renderReport(data){
     </div>
     <div class="metric-card ${mtdCls}" style="border-left-color:${mtdColor}" data-target-only="1">
       <div class="m-label">MTD Sales vs Target</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-top:3px;">Day ${elapsedDays || '—'} of 30</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:3px;">Day ${elapsedDays || '—'} of ${daysInMonth}</div>
       ${mtdHtml}
     </div>
     <div class="metric-card" style="border-left:3px solid #0f2744;" data-target-only="1">
