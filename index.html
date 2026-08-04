@@ -9149,6 +9149,9 @@ function scRenderRouteTable() {
     : d1.transactions.filter(t => (t.region || 'UNKNOWN').toUpperCase() === regFilter);
   const tx2 = regFilter === 'ALL' ? d2.transactions
     : d2.transactions.filter(t => (t.region || 'UNKNOWN').toUpperCase() === regFilter);
+  // Stash the (region-filtered) transactions so row clicks can drill into a route's category mix.
+  window._scRouteTx1 = tx1;
+  window._scRouteTx2 = tx2;
 
   const m1 = scSumByDim(tx1, 'route');
   const m2 = scSumByDim(tx2, 'route');
@@ -9163,14 +9166,21 @@ function scRenderRouteTable() {
   const rows = keys.map(k => {
     const a1 = m1[k]?.amount || 0, a2 = m2[k]?.amount || 0;
     const l1 = m1[k]?.ltrs   || 0, l2 = m2[k]?.ltrs   || 0;
-    return `<tr>
-      <td><strong>${k}</strong></td>
+    const rid = 'rt_' + k.replace(/[^A-Za-z0-9]/g, '_');
+    const kEsc = k.replace(/'/g, "\\'");
+    return `<tr class="sc-route-row" onclick="scToggleRouteDetail('${kEsc}','${rid}')" style="cursor:pointer;">
+      <td><span class="sc-route-chevron" id="chev_${rid}" style="display:inline-block;width:10px;margin-right:6px;font-size:10px;color:var(--text-muted);transition:transform .15s;">▶</span><strong>${k}</strong></td>
       <td class="num">${fmt(a1)}</td>
       <td class="num">${fmt(a2)}</td>
       <td class="num">${scDeltaPillGlobal(a1, a2)}</td>
       <td class="num">${fmt(l1)}</td>
       <td class="num">${fmt(l2)}</td>
       <td class="num">${scDeltaPillGlobal(l1, l2)}</td>
+    </tr>
+    <tr class="sc-route-detail" id="det_${rid}" style="display:none;">
+      <td colspan="7" style="padding:0;background:var(--th-bg);">
+        <div id="detBody_${rid}" style="padding:10px 14px 14px 32px;"></div>
+      </td>
     </tr>`;
   }).join('');
 
@@ -9220,6 +9230,70 @@ function scRenderRouteTable() {
 function scApplyRouteRegionFilter(value) {
   _scRouteRegionFilter = value || 'ALL';
   scRenderRouteTable();
+}
+
+// Expands/collapses a route's category breakdown detail row (built lazily on first open).
+function scToggleRouteDetail(routeKey, rid) {
+  const detRow = document.getElementById('det_' + rid);
+  const chev   = document.getElementById('chev_' + rid);
+  if (!detRow) return;
+  const isOpen = detRow.style.display !== 'none';
+  if (isOpen) {
+    detRow.style.display = 'none';
+    if (chev) chev.style.transform = 'rotate(0deg)';
+    return;
+  }
+  detRow.style.display = 'table-row';
+  if (chev) chev.style.transform = 'rotate(90deg)';
+  const body = document.getElementById('detBody_' + rid);
+  if (body && !body.dataset.built) {
+    body.innerHTML = scBuildRouteCategoryHTML(routeKey);
+    body.dataset.built = '1';
+  }
+}
+
+// Builds the mini "sales by category" table for a single route, from the currently
+// region-filtered transactions cached by scRenderRouteTable.
+function scBuildRouteCategoryHTML(routeKey) {
+  const tx1 = (window._scRouteTx1 || []).filter(t => (t.route || 'UNKNOWN').toUpperCase() === routeKey);
+  const tx2 = (window._scRouteTx2 || []).filter(t => (t.route || 'UNKNOWN').toUpperCase() === routeKey);
+  const c1 = scSumByDim(tx1, 'category');
+  const c2 = scSumByDim(tx2, 'category');
+  const cats = [...new Set([...Object.keys(c1), ...Object.keys(c2)])]
+    .sort((a, b) => (c1[b]?.amount || 0) - (c1[a]?.amount || 0));
+
+  if (!cats.length) return '<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">No category data for this route.</div>';
+
+  const cellNum = 'padding:5px 10px;text-align:right;font-family:\'DM Mono\',monospace;font-size:12px;';
+  const cellHead = 'padding:5px 10px;text-align:right;font-size:10px;letter-spacing:.05em;color:var(--text-muted);font-weight:700;';
+
+  const rows = cats.map(c => {
+    const a1 = c1[c]?.amount || 0, a2 = c2[c]?.amount || 0;
+    const l1 = c1[c]?.ltrs   || 0, l2 = c2[c]?.ltrs   || 0;
+    return `<tr>
+      <td style="padding:5px 10px;font-weight:600;color:var(--text);font-size:12px;">${c}</td>
+      <td style="${cellNum}">${fmt(a1)}</td>
+      <td style="${cellNum}">${fmt(a2)}</td>
+      <td style="${cellNum}">${scDeltaPillGlobal(a1, a2)}</td>
+      <td style="${cellNum}">${fmt(l1)}</td>
+      <td style="${cellNum}">${fmt(l2)}</td>
+      <td style="${cellNum}">${scDeltaPillGlobal(l1, l2)}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:4px;">📦 Category breakdown — ${routeKey}</div>
+    <table style="width:100%;border-collapse:collapse;background:var(--card-bg,var(--bg));border-radius:6px;overflow:hidden;">
+      <thead><tr style="border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:5px 10px;font-size:10px;letter-spacing:.05em;color:var(--text-muted);font-weight:700;">CATEGORY</th>
+        <th style="${cellHead}">CUR REV</th>
+        <th style="${cellHead}">PREV REV</th>
+        <th style="${cellHead}">Δ</th>
+        <th style="${cellHead}">CUR VOL</th>
+        <th style="${cellHead}">PREV VOL</th>
+        <th style="${cellHead}">Δ</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 // ── Core comparison logic ───────────────────────────────
