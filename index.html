@@ -4295,11 +4295,32 @@ function renderReport(data){
   const regionTgtLtr  = Object.values(refData.targets).reduce((s,t)=>s+(t.ltrs||0),0);
   // Use grandTarget (from Targets sheet GRAND TOTALS row) as the primary overall target
   const isLocationScoped = _locationFilter && _locationFilter !== 'ALL';
+  // Fuzzy-match a location name against a lookup object's keys (handles naming variants
+  // between the customer sheet, the region target sheet, and the location×category target sheet).
+  function resolveLocKey(loc, obj) {
+    const lU = (loc || '').toUpperCase();
+    if (obj[lU]) return lU;
+    for (const k of Object.keys(obj)) if (lU.includes(k) || k.includes(lU)) return k;
+    return null;
+  }
+  // Prefer the Location×Category Targets sheet (summed across categories) since it's the
+  // most granular source; fall back to the flat per-region Targets sheet if unavailable.
+  const locCatTgtKey = isLocationScoped ? resolveLocKey(_locationFilter, refData.locationCategoryTargets || {}) : null;
+  const locScopedCatTargets = locCatTgtKey ? refData.locationCategoryTargets[locCatTgtKey] : null;
+  function locScopedTarget(field) {
+    if (!isLocationScoped) return 0;
+    if (locScopedCatTargets) {
+      const sum = Object.values(locScopedCatTargets).reduce((s, v) => s + (v[field] || 0), 0);
+      if (sum > 0) return sum;
+    }
+    const regKey = resolveLocKey(_locationFilter, refData.targets || {});
+    return regKey ? (refData.targets[regKey][field] || 0) : 0;
+  }
   const overallTgtAmt = isLocationScoped
-    ? (refData.targets[_locationFilter]?.ksh  || 0)
+    ? locScopedTarget('ksh')
     : (refData.grandTarget !== null ? refData.grandTarget.ksh  : regionTgtAmt);
   const overallTgtLtr = isLocationScoped
-    ? (refData.targets[_locationFilter]?.ltrs || 0)
+    ? locScopedTarget('ltrs')
     : (refData.grandTarget !== null ? refData.grandTarget.ltrs : regionTgtLtr);
   // Pro-rated target: monthly target / days in the reporting month * elapsed days from the file period
   const elapsedDays = data.days || null;
@@ -4422,18 +4443,20 @@ function renderReport(data){
     const totL=rows.reduce((s,[,d])=>s+d.ltrs,0), totA=rows.reduce((s,[,d])=>s+d.amount,0);
     const isByRegion   = title==='By Region';
     const isByCategory = title==='By Category';
-    // Per-category targets if available, otherwise fall back to grand target
-    const hasCatTargets = Object.keys(refData.categoryTargets).length > 0;
+    // Per-category targets if available: use this location's own category targets when a
+    // location filter is active, otherwise fall back to the company-wide category targets.
+    const catTgtsSource = (isByCategory && locScopedCatTargets) ? locScopedCatTargets : refData.categoryTargets;
+    const hasCatTargets = Object.keys(catTgtsSource).length > 0;
     const regionTgts = isByRegion ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ksh||0),0) : 0;
     const regionLtrs = isByRegion ? rows.reduce((s,[n])=>s+(refData.targets[n]?.ltrs||0),0) : 0;
     const tA = isByRegion   ? (regionTgts || overallTgtAmt)
              : isByCategory ? (hasCatTargets
-                               ? rows.reduce((s,[n])=>s+((refData.categoryTargets[normalizeCat(n)]||refData.categoryTargets[n])?.ksh||0),0)
+                               ? rows.reduce((s,[n])=>s+((catTgtsSource[normalizeCat(n)]||catTgtsSource[n])?.ksh||0),0)
                                : overallTgtAmt)
              : overallTgtAmt;
     const tL = isByRegion   ? (regionLtrs || overallTgtLtr)
              : isByCategory ? (hasCatTargets
-                               ? rows.reduce((s,[n])=>s+((refData.categoryTargets[normalizeCat(n)]||refData.categoryTargets[n])?.ltrs||0),0)
+                               ? rows.reduce((s,[n])=>s+((catTgtsSource[normalizeCat(n)]||catTgtsSource[n])?.ltrs||0),0)
                                : overallTgtLtr)
              : overallTgtLtr;
     const pctColor = (p) => p===null?'inherit':p>=100?'#1db87a':p>=70?'#f6ad2b':'#E1245A';
@@ -4442,7 +4465,7 @@ function renderReport(data){
     if (isByCategory) {
       const tRows = rows.map(([n,d]) => {
         const normN = normalizeCat(n);
-        const ct    = refData.categoryTargets[normN] || refData.categoryTargets[n];
+        const ct    = catTgtsSource[normN] || catTgtsSource[n];
         const pVol  = ct && ct.ltrs > 0 ? Math.round((d.ltrs   / ct.ltrs) * 100) : null;
         const pRev  = ct && ct.ksh  > 0 ? Math.round((d.amount / ct.ksh)  * 100) : null;
         const volPct = pVol !== null ? `<span style="font-weight:700;color:${pctColor(pVol)}">${pVol}%</span>` : `<span style="color:var(--text-muted)">—</span>`;
