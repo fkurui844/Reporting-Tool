@@ -2877,13 +2877,21 @@
               oninput="filterSprTable()"
               style="padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);width:190px;">
           </div>
-          <!-- Location filter -->
-          <div style="display:flex;flex-direction:column;gap:4px;">
+          <!-- Location filter (multi-select) -->
+          <div style="display:flex;flex-direction:column;gap:4px;position:relative;">
             <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Location</label>
-            <select id="sprLocFilter" onchange="filterSprTable()"
-              style="padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);min-width:160px;cursor:pointer;">
-              <option value="">All locations</option>
-            </select>
+            <button type="button" id="sprLocFilterBtn" onclick="toggleSprLocDropdown(event)"
+              style="padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--input-bg);color:var(--text);min-width:160px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;">
+              <span id="sprLocFilterLabel" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">All locations</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6;"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="sprLocDropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.18);min-width:220px;max-height:260px;overflow-y:auto;padding:6px;">
+              <div style="display:flex;gap:14px;padding:4px 6px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+                <button type="button" onclick="selectAllSprLoc()" style="background:none;border:none;color:#0f2744;font-size:11px;font-weight:700;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;">Select all</button>
+                <button type="button" onclick="clearSprLocOptions()" style="background:none;border:none;color:#E1245A;font-size:11px;font-weight:700;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;">Clear</button>
+              </div>
+              <div id="sprLocOptionsList"></div>
+            </div>
           </div>
           <!-- Category filter -->
           <div style="display:flex;flex-direction:column;gap:4px;">
@@ -11998,13 +12006,9 @@ function populateSalesPerRoutePage(data) {
   const exportCount = document.getElementById('sprExportCount');
   if (exportCount) exportCount.textContent = _sprAllRows.length + ' route' + (_sprAllRows.length !== 1 ? 's' : '') + ' shown';
 
-  // Populate Location dropdown
+  // Populate Location filter (multi-select)
   const locations = [...new Set(_sprAllRows.map(r => r.location).filter(l => l && l !== '—'))].sort();
-  const locSel = document.getElementById('sprLocFilter');
-  if (locSel) {
-    locSel.innerHTML = '<option value="">All locations</option>' +
-      locations.map(l => `<option value="${l}">${l}</option>`).join('');
-  }
+  populateSprLocOptions(locations);
 
   // Populate Category dropdown (all categories across all routes)
   const allCats = new Set();
@@ -12225,10 +12229,78 @@ function renderSprTable(rows, grandAmt) {
       <td ${tdT}>${fmtN(totalCusts)}</td>
     </tr>`;
 }
+// ── Sales Per Route: multi-select Location filter ──────────────
+let _sprSelectedLocations = new Set(); // empty set = "All locations"
+
+function populateSprLocOptions(locations) {
+  // Drop any previously-selected locations that no longer exist in the data
+  [..._sprSelectedLocations].forEach(l => { if (!locations.includes(l)) _sprSelectedLocations.delete(l); });
+
+  const list = document.getElementById('sprLocOptionsList');
+  if (!list) return;
+  list.innerHTML = locations.map(l => {
+    const checked = _sprSelectedLocations.has(l) ? 'checked' : '';
+    const safeId  = 'sprloc-' + l.replace(/[^a-zA-Z0-9]/g, '_');
+    const safeVal = l.replace(/'/g, "\\'");
+    return `<label for="${safeId}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:13px;color:var(--text);cursor:pointer;" onmouseover="this.style.background='var(--th-bg)'" onmouseout="this.style.background='transparent'">
+      <input type="checkbox" id="${safeId}" value="${l}" ${checked} onchange="toggleSprLocOption('${safeVal}')" style="cursor:pointer;">
+      <span style="overflow:hidden;text-overflow:ellipsis;">${l}</span>
+    </label>`;
+  }).join('') || '<div style="padding:8px;font-size:12px;color:var(--text-muted);">No locations</div>';
+
+  updateSprLocLabel();
+}
+
+function toggleSprLocOption(loc) {
+  if (_sprSelectedLocations.has(loc)) _sprSelectedLocations.delete(loc);
+  else _sprSelectedLocations.add(loc);
+  updateSprLocLabel();
+  filterSprTable();
+}
+
+function selectAllSprLoc() {
+  document.querySelectorAll('#sprLocOptionsList input[type=checkbox]').forEach(cb => {
+    _sprSelectedLocations.add(cb.value);
+    cb.checked = true;
+  });
+  updateSprLocLabel();
+  filterSprTable();
+}
+
+function clearSprLocOptions() {
+  _sprSelectedLocations.clear();
+  document.querySelectorAll('#sprLocOptionsList input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateSprLocLabel();
+  filterSprTable();
+}
+
+function updateSprLocLabel() {
+  const label = document.getElementById('sprLocFilterLabel');
+  if (!label) return;
+  if (_sprSelectedLocations.size === 0)      label.textContent = 'All locations';
+  else if (_sprSelectedLocations.size === 1) label.textContent = [..._sprSelectedLocations][0];
+  else                                        label.textContent = _sprSelectedLocations.size + ' locations selected';
+}
+
+function toggleSprLocDropdown(e) {
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('sprLocDropdown');
+  if (!dd) return;
+  dd.style.display = (dd.style.display === 'none' || !dd.style.display) ? 'block' : 'none';
+}
+
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('sprLocDropdown');
+  const btn = document.getElementById('sprLocFilterBtn');
+  if (!dd || dd.style.display === 'none') return;
+  if (dd.contains(e.target) || (btn && btn.contains(e.target))) return;
+  dd.style.display = 'none';
+});
+
 function filterSprTable() {
   const q       = (document.getElementById('sprSearch').value || '').toLowerCase().trim();
   const custQ   = (document.getElementById('sprCustomerSearch').value || '').toLowerCase().trim(); // ← Customer search
-  const loc     = (document.getElementById('sprLocFilter').value || '').trim();
+  const selLocs = _sprSelectedLocations; // Set of selected locations (empty = all locations)
   const cat     = (document.getElementById('sprCatFilter').value || '').trim();
   const minRev  = parseFloat(document.getElementById('sprMinRev').value) || 0;
   const sortBy  = document.getElementById('sprSort').value || 'revenue_desc';
@@ -12270,7 +12342,7 @@ function filterSprTable() {
       .filter(r => {
         if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
         // Rows are already scoped to a single location, so just compare directly
-        if (loc && (r.location || '').trim() !== loc.trim()) return false;
+        if (selLocs.size && !selLocs.has((r.location || '').trim())) return false;
         return true;
       })
       .map(r => custQ ? scopeRowToCustomerSearch(r) : r)
@@ -12293,7 +12365,7 @@ function filterSprTable() {
       .filter(r => {
         if (q   && !r.route.toLowerCase().includes(q) && !(r.location||'').toLowerCase().includes(q)) return false;
         // Rows are already scoped to a single location, so just compare directly
-        if (loc && (r.location || '').trim() !== loc.trim()) return false;
+        if (selLocs.size && !selLocs.has((r.location || '').trim())) return false;
         return true;
       })
       .map(r => custQ ? scopeRowToCustomerSearch(r) : r)
@@ -12320,7 +12392,7 @@ function filterSprTable() {
   });
 
   // Active filter count badge
-  const activeCount = [q, custQ, loc, cat, minRev > 0, sortBy !== 'revenue_desc'].filter(Boolean).length;
+  const activeCount = [q, custQ, selLocs.size > 0, cat, minRev > 0, sortBy !== 'revenue_desc'].filter(Boolean).length;
   const badge = document.getElementById('sprActiveFiltersCount');
   const clearBtn = document.getElementById('sprClearBtn');
   if (badge)    { badge.textContent = activeCount; badge.style.display = activeCount ? 'inline-block' : 'none'; }
@@ -12577,7 +12649,11 @@ async function confirmRegSheet() {
 function clearSprFilters() {
   document.getElementById('sprSearch').value      = '';
   document.getElementById('sprCustomerSearch').value = ''; // ← Clear customer search
-  document.getElementById('sprLocFilter').value  = '';
+  _sprSelectedLocations.clear();
+  document.querySelectorAll('#sprLocOptionsList input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateSprLocLabel();
+  const dd = document.getElementById('sprLocDropdown');
+  if (dd) dd.style.display = 'none';
   document.getElementById('sprCatFilter').value  = '';
   document.getElementById('sprMinRev').value     = '';
   document.getElementById('sprSort').value       = 'revenue_desc';
@@ -12589,8 +12665,8 @@ function openSprCustPopup(rowId) {
   if (!r || !r.customerMap) return;
   const fmtN = v => Math.round(v).toLocaleString();
 
-  // Get active location filter
-  const locFilter = (document.getElementById('sprLocFilter').value || '').trim();
+  // Get active location filter (multi-select set; empty = no filter)
+  const selLocs = _sprSelectedLocations;
 
   // Sort customers by revenue descending
   // ← Filter by location if a location filter is active
@@ -12608,11 +12684,12 @@ function openSprCustPopup(rowId) {
         location: custLocation
       };
     })
-    .filter(c => !locFilter || (c.location || '') === locFilter) // ← Only show customers from selected location
+    .filter(c => !selLocs.size || selLocs.has(c.location || '')) // ← Only show customers from selected location(s)
     .sort((a, b) => b.amount - a.amount);
 
+  const locFilterLabel = selLocs.size === 1 ? [...selLocs][0] : (selLocs.size > 1 ? `${selLocs.size} locations` : '');
   document.getElementById('sprCustPopupTitle').textContent = r.route === 'UNASSIGNED' ? 'Not Yet Classified' : r.route;
-  document.getElementById('sprCustPopupSub').textContent   = `${window._sprCustAll.length} customer${window._sprCustAll.length !== 1 ? 's' : ''} · ${r.location || ''}${locFilter ? ` (filtered: ${locFilter})` : ''}`;
+  document.getElementById('sprCustPopupSub').textContent   = `${window._sprCustAll.length} customer${window._sprCustAll.length !== 1 ? 's' : ''} · ${r.location || ''}${locFilterLabel ? ` (filtered: ${locFilterLabel})` : ''}`;
   document.getElementById('sprCustSearch').value = '';
   
   // Calculate total only for filtered customers
