@@ -9107,9 +9107,10 @@ function scSumByDim(txns, key) {
   const m = {};
   for (const t of txns) {
     const k = (t[key] || 'UNKNOWN').toUpperCase();
-    if (!m[k]) m[k] = { amount: 0, ltrs: 0 };
+    if (!m[k]) m[k] = { amount: 0, ltrs: 0, custs: new Set() };
     m[k].amount += t.amount;
     m[k].ltrs   += toDisplayLtrs(t.ltrs, (t.category||'').toUpperCase());
+    m[k].custs.add(t.custCode);
   }
   return m;
 }
@@ -9162,10 +9163,14 @@ function scRenderRouteTable() {
   const tot2a = keys.reduce((s, k) => s + (m2[k]?.amount || 0), 0);
   const tot1l = keys.reduce((s, k) => s + (m1[k]?.ltrs   || 0), 0);
   const tot2l = keys.reduce((s, k) => s + (m2[k]?.ltrs   || 0), 0);
+  // Total unique customers trading — deduped across routes, not summed per-row.
+  const totCust1 = new Set(tx1.map(t => t.custCode)).size;
+  const totCust2 = new Set(tx2.map(t => t.custCode)).size;
 
   const rows = keys.map(k => {
     const a1 = m1[k]?.amount || 0, a2 = m2[k]?.amount || 0;
     const l1 = m1[k]?.ltrs   || 0, l2 = m2[k]?.ltrs   || 0;
+    const cust1 = m1[k]?.custs?.size || 0, cust2 = m2[k]?.custs?.size || 0;
     const rid = 'rt_' + k.replace(/[^A-Za-z0-9]/g, '_');
     const kEsc = k.replace(/'/g, "\\'");
     return `<tr class="sc-route-row" onclick="scToggleRouteDetail('${kEsc}','${rid}')" style="cursor:pointer;">
@@ -9173,12 +9178,14 @@ function scRenderRouteTable() {
       <td class="num">${fmt(a1)}</td>
       <td class="num">${fmt(a2)}</td>
       <td class="num">${scDeltaPillGlobal(a1, a2)}</td>
+      <td class="num">${fmt(cust1)}</td>
+      <td class="num">${fmt(cust2)}</td>
       <td class="num">${fmt(l1)}</td>
       <td class="num">${fmt(l2)}</td>
       <td class="num">${scDeltaPillGlobal(l1, l2)}</td>
     </tr>
     <tr class="sc-route-detail" id="det_${rid}" style="display:none;">
-      <td colspan="7" style="padding:0;background:var(--th-bg);">
+      <td colspan="9" style="padding:0;background:var(--th-bg);">
         <div id="detBody_${rid}" style="padding:10px 14px 14px 32px;"></div>
       </td>
     </tr>`;
@@ -9190,9 +9197,10 @@ function scRenderRouteTable() {
     rows: keys.map(k => ({
       name: k,
       a1: m1[k]?.amount || 0, a2: m2[k]?.amount || 0,
-      l1: m1[k]?.ltrs   || 0, l2: m2[k]?.ltrs   || 0
+      l1: m1[k]?.ltrs   || 0, l2: m2[k]?.ltrs   || 0,
+      cust1: m1[k]?.custs?.size || 0, cust2: m2[k]?.custs?.size || 0
     })),
-    tot1a, tot2a, tot1l, tot2l
+    tot1a, tot2a, tot1l, tot2l, totCust1, totCust2
   };
 
   const p1Lbl = window._scP1Lbl || 'Current Period';
@@ -9203,12 +9211,15 @@ function scRenderRouteTable() {
       <tr>
         <th rowspan="2" style="vertical-align:bottom;background:#0f2744;color:rgba(255,255,255,0.9);font-size:11px;font-weight:700;letter-spacing:0.07em;padding:9px 14px;text-align:left;">Route</th>
         <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(225,36,90,0.5);color:#f9a8d4;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">SALES IN REVENUE</th>
+        <th colspan="2" style="text-align:center;border-bottom:2px solid rgba(29,184,122,0.5);color:#86efac;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">CUSTOMERS TRADING</th>
         <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(59,130,246,0.5);color:#93c5fd;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">SALES IN VOLUME</th>
       </tr>
       <tr>
         <th class="num p2h">Current<br>${p1Lbl}<br>(KSH)</th>
         <th class="num p1h">Previous<br>${p2Lbl}<br>(KSH)</th>
         <th class="num" style="color:#f59e0b;letter-spacing:0.04em;">% Growth / Decline</th>
+        <th class="num p2h">Current<br>${p1Lbl}</th>
+        <th class="num p1h">Previous<br>${p2Lbl}</th>
         <th class="num p2h">Current<br>${p1Lbl}<br>(Ltrs/Kgs)</th>
         <th class="num p1h">Previous<br>${p2Lbl}<br>(Ltrs/Kgs)</th>
         <th class="num" style="color:#f59e0b;letter-spacing:0.04em;">% Growth / Decline</th>
@@ -9220,6 +9231,8 @@ function scRenderRouteTable() {
       <td class="num">${fmt(tot1a)}</td>
       <td class="num">${fmt(tot2a)}</td>
       <td class="num">${scDeltaPillGlobal(tot1a, tot2a)}</td>
+      <td class="num">${fmt(totCust1)}</td>
+      <td class="num">${fmt(totCust2)}</td>
       <td class="num">${fmt(tot1l)}</td>
       <td class="num">${fmt(tot2l)}</td>
       <td class="num">${scDeltaPillGlobal(tot1l, tot2l)}</td>
@@ -9270,11 +9283,14 @@ function scBuildRouteCategoryHTML(routeKey) {
   const rows = cats.map(c => {
     const a1 = c1[c]?.amount || 0, a2 = c2[c]?.amount || 0;
     const l1 = c1[c]?.ltrs   || 0, l2 = c2[c]?.ltrs   || 0;
+    const cust1 = c1[c]?.custs?.size || 0, cust2 = c2[c]?.custs?.size || 0;
     return `<tr>
       <td style="padding:5px 10px;font-weight:600;color:var(--text);font-size:12px;">${c}</td>
       <td style="${cellNum}">${fmt(a1)}</td>
       <td style="${cellNum}">${fmt(a2)}</td>
       <td style="${cellNum}">${scDeltaPillGlobal(a1, a2)}</td>
+      <td style="${cellNum}">${fmt(cust1)}</td>
+      <td style="${cellNum}">${fmt(cust2)}</td>
       <td style="${cellNum}">${fmt(l1)}</td>
       <td style="${cellNum}">${fmt(l2)}</td>
       <td style="${cellNum}">${scDeltaPillGlobal(l1, l2)}</td>
@@ -9288,6 +9304,8 @@ function scBuildRouteCategoryHTML(routeKey) {
         <th style="${cellHead}">CUR REV</th>
         <th style="${cellHead}">PREV REV</th>
         <th style="${cellHead}">Δ</th>
+        <th style="${cellHead}">CUR CUST</th>
+        <th style="${cellHead}">PREV CUST</th>
         <th style="${cellHead}">CUR VOL</th>
         <th style="${cellHead}">PREV VOL</th>
         <th style="${cellHead}">Δ</th>
