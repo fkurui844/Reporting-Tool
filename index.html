@@ -9286,7 +9286,6 @@ function scCloseCustModal() {
 // period: '1' = current period, '2' = previous period.
 function scShowRouteCustomers(routeKey, period, ev) {
   if (ev) ev.stopPropagation(); // don't also trigger the row's expand/collapse click
-  scEnsureCustModal();
 
   const p1Lbl = window._scP1Lbl || 'Current Period';
   const p2Lbl = window._scP2Lbl || 'Previous Period';
@@ -9308,13 +9307,36 @@ function scShowRouteCustomers(routeKey, period, ev) {
     custMap = (m && m[routeKey] && m[routeKey].custs) || new Map();
   }
 
+  const titleRoute = routeKey === '__ALL__' ? 'All Routes' : routeKey;
+  scRenderCustListModal(custMap, `👥 ${titleRoute} — `, periodLbl);
+}
+
+// Shows the customers behind a single category's CUR/PREV CUST count within an
+// expanded route's category breakdown table.
+function scShowCategoryCustomers(routeKey, category, period, ev) {
+  if (ev) ev.stopPropagation();
+
+  const p1Lbl = window._scP1Lbl || 'Current Period';
+  const p2Lbl = window._scP2Lbl || 'Previous Period';
+  const periodLbl = period === '1' ? p1Lbl : p2Lbl;
+
+  const maps = (window._scCatCustMaps || {})[routeKey] || {};
+  const m = period === '1' ? maps.c1 : maps.c2;
+  const custMap = (m && m[category] && m[category].custs) || new Map();
+
+  scRenderCustListModal(custMap, `👥 ${routeKey} · ${category} — `, periodLbl);
+}
+
+// Shared renderer: builds/opens the customer-list modal from a Map<custCode, {name, amount, ltrs}>.
+function scRenderCustListModal(custMap, titlePrefix, periodLbl) {
+  scEnsureCustModal();
+
   const list = [...custMap.entries()]
     .map(([code, v]) => ({ code, name: v.name || 'UNKNOWN', amount: v.amount, ltrs: v.ltrs }))
     .sort((a, b) => b.amount - a.amount);
 
-  const titleRoute = routeKey === '__ALL__' ? 'All Routes' : routeKey;
   document.getElementById('scCustModalTitle').textContent =
-    `👥 ${titleRoute} — ${list.length} customer${list.length === 1 ? '' : 's'} (${periodLbl})`;
+    `${titlePrefix}${list.length} customer${list.length === 1 ? '' : 's'} (${periodLbl})`;
 
   const rowsHtml = list.map((c, i) => `
     <tr>
@@ -9375,6 +9397,9 @@ function scBuildRouteCategoryHTML(routeKey) {
   const tx2 = (window._scRouteTx2 || []).filter(t => (t.route || 'UNKNOWN').toUpperCase() === routeKey);
   const c1 = scSumByDim(tx1, 'category');
   const c2 = scSumByDim(tx2, 'category');
+  // Stash so the CUR CUST / PREV CUST cells below can look up customer names on click.
+  window._scCatCustMaps = window._scCatCustMaps || {};
+  window._scCatCustMaps[routeKey] = { c1, c2 };
   const cats = [...new Set([...Object.keys(c1), ...Object.keys(c2)])]
     .sort((a, b) => (c1[b]?.amount || 0) - (c1[a]?.amount || 0));
 
@@ -9382,18 +9407,20 @@ function scBuildRouteCategoryHTML(routeKey) {
 
   const cellNum = 'padding:5px 10px;text-align:right;font-family:\'DM Mono\',monospace;font-size:12px;';
   const cellHead = 'padding:5px 10px;text-align:right;font-size:10px;letter-spacing:.05em;color:var(--text-muted);font-weight:700;';
+  const routeKeyEsc = routeKey.replace(/'/g, "\\'");
 
   const rows = cats.map(c => {
     const a1 = c1[c]?.amount || 0, a2 = c2[c]?.amount || 0;
     const l1 = c1[c]?.ltrs   || 0, l2 = c2[c]?.ltrs   || 0;
     const cust1 = c1[c]?.custs?.size || 0, cust2 = c2[c]?.custs?.size || 0;
+    const catEsc = c.replace(/'/g, "\\'");
     return `<tr>
       <td style="padding:5px 10px;font-weight:600;color:var(--text);font-size:12px;">${c}</td>
       <td style="${cellNum}">${fmt(a1)}</td>
       <td style="${cellNum}">${fmt(a2)}</td>
       <td style="${cellNum}">${scDeltaPillGlobal(a1, a2)}</td>
-      <td style="${cellNum}">${fmt(cust1)}</td>
-      <td style="${cellNum}">${fmt(cust2)}</td>
+      <td style="${cellNum}"><span class="sc-cust-link" onclick="scShowCategoryCustomers('${routeKeyEsc}','${catEsc}','1',event)" title="View customers trading in this category">${fmt(cust1)}</span></td>
+      <td style="${cellNum}"><span class="sc-cust-link" onclick="scShowCategoryCustomers('${routeKeyEsc}','${catEsc}','2',event)" title="View customers trading in this category">${fmt(cust2)}</span></td>
       <td style="${cellNum}">${fmt(l1)}</td>
       <td style="${cellNum}">${fmt(l2)}</td>
       <td style="${cellNum}">${scDeltaPillGlobal(l1, l2)}</td>
