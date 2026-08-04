@@ -1794,6 +1794,17 @@
     body.dark .sc-delta-pill.up   { background: #0d2618; color: #6ee7b7; }
     body.dark .sc-delta-pill.down { background: #2d0a0a; color: #fca5a5; }
 
+    /* Clickable "Customers Trading" count → opens the customer-name drill-down modal */
+    .sc-cust-link {
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-style: dotted;
+      text-decoration-color: currentColor;
+      text-underline-offset: 3px;
+      transition: color .12s;
+    }
+    .sc-cust-link:hover { color: #3b82f6; font-weight: 700; }
+
     /* Mini sparkline-style bar */
     .sc-mini-bar-wrap { height: 4px; background: var(--border2); border-radius: 99px; margin-top: 4px; min-width: 60px; }
     .sc-mini-bar { height: 4px; border-radius: 99px; background: #3b82f6; }
@@ -9107,10 +9118,15 @@ function scSumByDim(txns, key) {
   const m = {};
   for (const t of txns) {
     const k = (t[key] || 'UNKNOWN').toUpperCase();
-    if (!m[k]) m[k] = { amount: 0, ltrs: 0, custs: new Set() };
+    if (!m[k]) m[k] = { amount: 0, ltrs: 0, custs: new Map() };
     m[k].amount += t.amount;
     m[k].ltrs   += toDisplayLtrs(t.ltrs, (t.category||'').toUpperCase());
-    m[k].custs.add(t.custCode);
+    // custs: Map of custCode -> { name, amount, ltrs } so customer names/values
+    // are available later for the clickable "Customers Trading" drill-down.
+    if (!m[k].custs.has(t.custCode)) m[k].custs.set(t.custCode, { name: t.custName || 'UNKNOWN', amount: 0, ltrs: 0 });
+    const ce = m[k].custs.get(t.custCode);
+    ce.amount += t.amount;
+    ce.ltrs   += toDisplayLtrs(t.ltrs, (t.category||'').toUpperCase());
   }
   return m;
 }
@@ -9156,6 +9172,8 @@ function scRenderRouteTable() {
 
   const m1 = scSumByDim(tx1, 'route');
   const m2 = scSumByDim(tx2, 'route');
+  // Stash so the "Customers Trading" click handler can look up names per route/period.
+  window._scRouteCustMaps = { m1, m2 };
   const keys = [...new Set([...Object.keys(m1), ...Object.keys(m2)])];
   keys.sort((a, b) => (m1[b]?.amount || 0) - (m1[a]?.amount || 0));
 
@@ -9178,8 +9196,8 @@ function scRenderRouteTable() {
       <td class="num">${fmt(a1)}</td>
       <td class="num">${fmt(a2)}</td>
       <td class="num">${scDeltaPillGlobal(a1, a2)}</td>
-      <td class="num">${fmt(cust1)}</td>
-      <td class="num">${fmt(cust2)}</td>
+      <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('${kEsc}','1',event)" title="View customers trading on this route">${fmt(cust1)}</span></td>
+      <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('${kEsc}','2',event)" title="View customers trading on this route">${fmt(cust2)}</span></td>
       <td class="num">${fmt(l1)}</td>
       <td class="num">${fmt(l2)}</td>
       <td class="num">${scDeltaPillGlobal(l1, l2)}</td>
@@ -9231,12 +9249,97 @@ function scRenderRouteTable() {
       <td class="num">${fmt(tot1a)}</td>
       <td class="num">${fmt(tot2a)}</td>
       <td class="num">${scDeltaPillGlobal(tot1a, tot2a)}</td>
-      <td class="num">${fmt(totCust1)}</td>
-      <td class="num">${fmt(totCust2)}</td>
+      <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('__ALL__','1',event)" title="View all customers trading">${fmt(totCust1)}</span></td>
+      <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('__ALL__','2',event)" title="View all customers trading">${fmt(totCust2)}</span></td>
       <td class="num">${fmt(tot1l)}</td>
       <td class="num">${fmt(tot2l)}</td>
       <td class="num">${scDeltaPillGlobal(tot1l, tot2l)}</td>
     </tr></tfoot>`;
+}
+
+// ── Customers Trading drill-down modal (By Route table) ──
+// Builds (once) a reusable overlay/modal for listing customer names behind a
+// "Customers Trading" count in the By Route table.
+function scEnsureCustModal() {
+  if (document.getElementById('scCustOverlay')) return;
+  const div = document.createElement('div');
+  div.id = 'scCustOverlay';
+  div.className = 'overlay';
+  div.innerHTML = `
+    <div class="modal" style="max-width:600px;">
+      <div class="modal-head">
+        <h3 id="scCustModalTitle">Customers</h3>
+        <button class="modal-x" onclick="scCloseCustModal()">✕</button>
+      </div>
+      <div class="modal-body" id="scCustModalBody" style="padding:0;max-height:65vh;overflow-y:auto;"></div>
+    </div>`;
+  document.body.appendChild(div);
+  div.addEventListener('click', function (e) { if (e.target === this) scCloseCustModal(); });
+}
+
+function scCloseCustModal() {
+  const ov = document.getElementById('scCustOverlay');
+  if (ov) ov.classList.remove('open');
+}
+
+// routeKey: a route name, or '__ALL__' for the TOTAL row (deduped across all routes).
+// period: '1' = current period, '2' = previous period.
+function scShowRouteCustomers(routeKey, period, ev) {
+  if (ev) ev.stopPropagation(); // don't also trigger the row's expand/collapse click
+  scEnsureCustModal();
+
+  const p1Lbl = window._scP1Lbl || 'Current Period';
+  const p2Lbl = window._scP2Lbl || 'Previous Period';
+  const periodLbl = period === '1' ? p1Lbl : p2Lbl;
+
+  let custMap;
+  if (routeKey === '__ALL__') {
+    const tx = period === '1' ? (window._scRouteTx1 || []) : (window._scRouteTx2 || []);
+    custMap = new Map();
+    tx.forEach(t => {
+      if (!custMap.has(t.custCode)) custMap.set(t.custCode, { name: t.custName || 'UNKNOWN', amount: 0, ltrs: 0 });
+      const ce = custMap.get(t.custCode);
+      ce.amount += t.amount;
+      ce.ltrs   += toDisplayLtrs(t.ltrs, (t.category || '').toUpperCase());
+    });
+  } else {
+    const maps = window._scRouteCustMaps || {};
+    const m = period === '1' ? maps.m1 : maps.m2;
+    custMap = (m && m[routeKey] && m[routeKey].custs) || new Map();
+  }
+
+  const list = [...custMap.entries()]
+    .map(([code, v]) => ({ code, name: v.name || 'UNKNOWN', amount: v.amount, ltrs: v.ltrs }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const titleRoute = routeKey === '__ALL__' ? 'All Routes' : routeKey;
+  document.getElementById('scCustModalTitle').textContent =
+    `👥 ${titleRoute} — ${list.length} customer${list.length === 1 ? '' : 's'} (${periodLbl})`;
+
+  const rowsHtml = list.map((c, i) => `
+    <tr>
+      <td style="padding:7px 14px;font-size:11px;color:var(--text-muted);">${i + 1}</td>
+      <td style="padding:7px 14px;font-size:12px;font-weight:700;color:var(--text-head);white-space:nowrap;">${c.code}</td>
+      <td style="padding:7px 14px;font-size:12px;color:var(--text);">${c.name}</td>
+      <td style="padding:7px 14px;font-size:12px;text-align:right;font-family:'DM Mono',monospace;color:var(--text);white-space:nowrap;">${fmt(c.amount)}</td>
+      <td style="padding:7px 14px;font-size:12px;text-align:right;font-family:'DM Mono',monospace;color:var(--text-muted);white-space:nowrap;">${fmt(c.ltrs)}</td>
+    </tr>`).join('');
+
+  document.getElementById('scCustModalBody').innerHTML = list.length ? `
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border2);position:sticky;top:0;background:var(--surface);">
+          <th style="padding:8px 14px;text-align:left;font-size:10px;letter-spacing:.05em;color:var(--text-muted);">#</th>
+          <th style="padding:8px 14px;text-align:left;font-size:10px;letter-spacing:.05em;color:var(--text-muted);">CODE</th>
+          <th style="padding:8px 14px;text-align:left;font-size:10px;letter-spacing:.05em;color:var(--text-muted);">CUSTOMER</th>
+          <th style="padding:8px 14px;text-align:right;font-size:10px;letter-spacing:.05em;color:var(--text-muted);">REVENUE (KSH)</th>
+          <th style="padding:8px 14px;text-align:right;font-size:10px;letter-spacing:.05em;color:var(--text-muted);">VOLUME</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>` : `<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">No customers found.</div>`;
+
+  document.getElementById('scCustOverlay').classList.add('open');
 }
 
 // Called when the user picks a region from the By Route filter dropdown.
