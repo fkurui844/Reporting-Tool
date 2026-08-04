@@ -2199,6 +2199,14 @@
         <div class="tgt-track"></div>
         <div class="tgt-knob"></div>
       </label>
+      <!-- Divider -->
+      <span style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></span>
+      <!-- Location filter -->
+      <span style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;">📍 Location:</span>
+      <select id="locationFilterSelect" onchange="applyLocationFilter(this.value)" title="Filter the whole dashboard down to a single location"
+        style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;max-width:190px;">
+        <option value="ALL">All Locations</option>
+      </select>
     </div>
     <!-- Period bar — left side only, safe to screenshot -->
     <div class="report-period-bar">
@@ -3496,6 +3504,7 @@ window._sessionRegisteredCodes = new Set();
 // 'litres' = convert Kg-based categories to Litres
 let _volUnit = 'mixed';
 let _lastSapData = null; // cached parsed SAP data for re-render on unit change
+let _locationFilter = 'ALL'; // currently selected "By Region" location filter ('ALL' or a region name)
 
 // Kg→Ltr conversion factors (multiply the stored Kg volume by this)
 const KG_TO_LTR = { 'BUTTER': 25, 'POWDER': 10, 'GHEE': 10, 'CHEESE': 10 };
@@ -3535,6 +3544,30 @@ function setVolUnit(mode) {
     btnLitres.style.color       = mode === 'litres' ? '#fff'    : 'rgba(255,255,255,0.5)';
   }
   // Re-render the report with the same data
+  if (_lastSapData) renderReport(_lastSapData);
+}
+
+/**
+ * Rebuilds the Location filter dropdown from the reference sheet's regions
+ * plus whatever regions actually appear in this period's transactions,
+ * preserving the current selection if it's still valid.
+ */
+function populateLocationFilter(rawData) {
+  const sel = document.getElementById('locationFilterSelect');
+  if (!sel) return;
+  const regions = new Set(Object.keys(refData.regionTotals || {}));
+  (rawData.transactions || []).forEach(t => { if (t.region) regions.add(t.region); });
+  const sorted = [...regions].sort();
+  const prevSelection = _locationFilter;
+  sel.innerHTML = '<option value="ALL">All Locations</option>'
+    + sorted.map(r => `<option value="${r}">${r}</option>`).join('');
+  sel.value = sorted.includes(prevSelection) ? prevSelection : 'ALL';
+  _locationFilter = sel.value;
+}
+
+/** Called when the user picks a location from the dropdown — re-renders the whole dashboard scoped to it. */
+function applyLocationFilter(value) {
+  _locationFilter = value || 'ALL';
   if (_lastSapData) renderReport(_lastSapData);
 }
 
@@ -4152,12 +4185,21 @@ function fmt(n){return Math.round(n).toLocaleString();}
 function pct(a,b){return b?Math.round((a/b)*100)+'%':'—';}
 
 function renderReport(data){
-  _lastSapData = data; // cache for unit-toggle re-render
+  _lastSapData = data; // cache raw/unfiltered data for re-render (unit toggle, location filter changes)
   document.querySelector('.upload-page').style.display='none';
   document.getElementById('report').style.display='block';
   // Show controls in the sub-header bar
   document.getElementById('headerControls').style.display = 'flex';
-  document.getElementById('reportPeriod').textContent='Sales Dashboard Period: '+(data.period||'—');
+
+  // Sync the location dropdown, then scope the working dataset to the selected location (if any)
+  populateLocationFilter(data);
+  if (_locationFilter && _locationFilter !== 'ALL') {
+    const filteredTx = data.transactions.filter(t => (t.region || 'UNKNOWN') === _locationFilter);
+    data = Object.assign({}, data, { transactions: filteredTx });
+  }
+
+  document.getElementById('reportPeriod').textContent='Sales Dashboard Period: '+(data.period||'—')
+    + (_locationFilter && _locationFilter !== 'ALL' ? '  —  📍 ' + _locationFilter : '');
   document.getElementById('reportGenerated').textContent='As At: '+new Date().toLocaleString();
 
   const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
@@ -4172,7 +4214,7 @@ function renderReport(data){
     reconBanner.id = 'reconBanner';
     document.getElementById('report').prepend(reconBanner);
   }
-  if(data.sapGrandTotal && Math.abs((data.sapGrandTotal - totalAmt)) > 1){
+  if(data.sapGrandTotal && (_locationFilter === 'ALL') && Math.abs((data.sapGrandTotal - totalAmt)) > 1){
     const diff = data.sapGrandTotal - totalAmt;
     reconBanner.style.cssText = 'display:flex;align-items:center;gap:10px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;padding:12px 16px;border-radius:8px;margin:0 0 16px;font-size:13px;font-weight:600;';
     reconBanner.innerHTML = `⚠️ Parsed total (KES ${totalAmt.toLocaleString(undefined,{maximumFractionDigits:0})}) does not match the SAP file's GRAND TOTAL (KES ${data.sapGrandTotal.toLocaleString(undefined,{maximumFractionDigits:0})}). Difference: KES ${diff.toLocaleString(undefined,{maximumFractionDigits:0})}. Some rows likely used a code format the parser doesn't recognize yet — check the console log for details.`;
@@ -4181,7 +4223,9 @@ function renderReport(data){
   }
 
   // Customer coverage banner
-  const totalInSheet = refData.customerTotal || 0;
+  const totalInSheet = (_locationFilter && _locationFilter !== 'ALL')
+    ? (refData.regionTotals?.[_locationFilter] || 0)
+    : (refData.customerTotal || 0);
   const covBanner = document.getElementById('coverageBanner');
   if(totalInSheet > 0){
     covBanner.style.display = 'flex';
@@ -4250,8 +4294,13 @@ function renderReport(data){
   const regionTgtAmt  = Object.values(refData.targets).reduce((s,t)=>s+(t.ksh||0),0);
   const regionTgtLtr  = Object.values(refData.targets).reduce((s,t)=>s+(t.ltrs||0),0);
   // Use grandTarget (from Targets sheet GRAND TOTALS row) as the primary overall target
-  const overallTgtAmt = refData.grandTarget !== null ? refData.grandTarget.ksh  : regionTgtAmt;
-  const overallTgtLtr = refData.grandTarget !== null ? refData.grandTarget.ltrs : regionTgtLtr;
+  const isLocationScoped = _locationFilter && _locationFilter !== 'ALL';
+  const overallTgtAmt = isLocationScoped
+    ? (refData.targets[_locationFilter]?.ksh  || 0)
+    : (refData.grandTarget !== null ? refData.grandTarget.ksh  : regionTgtAmt);
+  const overallTgtLtr = isLocationScoped
+    ? (refData.targets[_locationFilter]?.ltrs || 0)
+    : (refData.grandTarget !== null ? refData.grandTarget.ltrs : regionTgtLtr);
   // Pro-rated target: monthly target / days in the reporting month * elapsed days from the file period
   const elapsedDays = data.days || null;
   // Actual number of days in the reporting month (31 for July, 28/29 for Feb, etc.)
