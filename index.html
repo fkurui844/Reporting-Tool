@@ -3098,6 +3098,22 @@
         <div class="sc-table-wrap"><table class="sc-table" id="scTableRegion"></table></div>
       </div>
 
+      <!-- By Route table -->
+      <div class="sc-section" id="scSecRoute">
+        <div class="sc-section-head">
+          <span class="sc-section-title">🚚 By Route</span>
+          <span class="sc-section-sub">Revenue &amp; volume comparison per delivery route</span>
+          <div class="sc-export-wrap" onclick="event.stopPropagation()">
+            <button class="btn-sc-export" onclick="scToggleExportMenu('scTableRoute_menu')">⬇ Export ▾</button>
+            <div class="sc-export-menu" id="scTableRoute_menu">
+              <button onclick="scExportExcel('scTableRoute','By Route');scToggleExportMenu('scTableRoute_menu')">📗 Download Excel (.xlsx)</button>
+              <button onclick="scExportHTML('scTableRoute','By Route');scToggleExportMenu('scTableRoute_menu')">🌐 Download HTML</button>
+            </div>
+          </div>
+        </div>
+        <div class="sc-table-wrap"><table class="sc-table" id="scTableRoute"></table></div>
+      </div>
+
       <!-- By Region x Category breakdown -->
       <div class="sc-section" id="scSecRegionCat">
         <div class="sc-section-head" style="cursor:pointer;" onclick="scToggleRegionCat()">
@@ -9238,6 +9254,7 @@ function scRunComparison() {
 
     buildDimTable('scTableCategory', 'category', 'Category');
     buildDimTable('scTableRegion',   'region',   'Region');
+    buildDimTable('scTableRoute',    'route',    'Route');
     buildDimTable('scTableChannel',  'channel',  'Channel');
 
     // ── By Region × Category ──
@@ -10488,7 +10505,7 @@ async function scExportExcel(tableId, label) {
   }
 
   // ─── DIM TABLES (Category / Region / Channel) ──────────────────
-  const DIM_IDS = ['scTableCategory','scTableRegion','scTableChannel'];
+  const DIM_IDS = ['scTableCategory','scTableRegion','scTableRoute','scTableChannel'];
   if (DIM_IDS.includes(tableId)) {
     const p1  = window._scP1Lbl || 'Current Period';
     const p2  = window._scP2Lbl || 'Previous Period';
