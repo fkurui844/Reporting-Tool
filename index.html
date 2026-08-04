@@ -9269,7 +9269,10 @@ function scEnsureCustModal() {
     <div class="modal" style="max-width:600px;">
       <div class="modal-head">
         <h3 id="scCustModalTitle">Customers</h3>
-        <button class="modal-x" onclick="scCloseCustModal()">✕</button>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="btn-edit-sm" onclick="scExportCustList()" title="Download this customer list" style="display:flex;align-items:center;gap:5px;">⬇ Export</button>
+          <button class="modal-x" onclick="scCloseCustModal()">✕</button>
+        </div>
       </div>
       <div class="modal-body" id="scCustModalBody" style="padding:0;max-height:65vh;overflow-y:auto;"></div>
     </div>`;
@@ -9335,8 +9338,12 @@ function scRenderCustListModal(custMap, titlePrefix, periodLbl) {
     .map(([code, v]) => ({ code, name: v.name || 'UNKNOWN', amount: v.amount, ltrs: v.ltrs }))
     .sort((a, b) => b.amount - a.amount);
 
-  document.getElementById('scCustModalTitle').textContent =
-    `${titlePrefix}${list.length} customer${list.length === 1 ? '' : 's'} (${periodLbl})`;
+  const titleText = `${titlePrefix}${list.length} customer${list.length === 1 ? '' : 's'} (${periodLbl})`;
+  document.getElementById('scCustModalTitle').textContent = titleText;
+
+  // Stash for the Export button.
+  window._scCustModalList  = list;
+  window._scCustModalTitle = titleText;
 
   const rowsHtml = list.map((c, i) => `
     <tr>
@@ -9362,6 +9369,29 @@ function scRenderCustListModal(custMap, titlePrefix, periodLbl) {
     </table>` : `<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">No customers found.</div>`;
 
   document.getElementById('scCustOverlay').classList.add('open');
+}
+
+// Downloads the customer list currently shown in the modal as a CSV file.
+function scExportCustList() {
+  const list = window._scCustModalList || [];
+  if (!list.length) { showToast('No customers to export', 'err'); return; }
+
+  const esc = v => {
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const header = ['#', 'Code', 'Customer', 'Revenue (KSH)', 'Volume (Ltrs/Kgs)'];
+  const rows = list.map((c, i) => [i + 1, c.code, c.name, Math.round(c.amount), Math.round(c.ltrs)]);
+  const csv = [header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+
+  const titleText = (window._scCustModalTitle || 'Customers').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = titleText + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  if (typeof showToast === 'function') showToast('✓ Customer list exported', 'ok');
 }
 
 // Called when the user picks a region from the By Route filter dropdown.
