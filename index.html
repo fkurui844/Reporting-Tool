@@ -8152,22 +8152,23 @@ function exportSpcExcel() {
 
   /* ══════════════════════════════════════════════
      SHEET 4 — Raw Data Per Customer
-     Columns: SAP CODE | CUSTOMER NAME | LOCATION | CHANNEL | TYPE | MATERIAL CODE | PRODUCT | CATEGORY | UNIT OF MEASUREMENT | QTY (UNITS) | VOLUME (LTRS/KGS) | REVENUE (KSH) | % CONTRI TO TOTAL SALES
+     Columns: SAP CODE | CUSTOMER NAME | LOCATION | ROUTE | CHANNEL | TYPE | MATERIAL CODE | PRODUCT | CATEGORY | UNIT OF MEASUREMENT | QTY (UNITS) | VOLUME (LTRS/KGS) | REVENUE (KSH) | % CONTRI TO TOTAL SALES
   ══════════════════════════════════════════════ */
   const s4rows = [];
   const KG_CATS = new Set(['BUTTER','POWDER','GHEE','CHEESE']);
   const getUoM = (cat) => KG_CATS.has((cat||'').toUpperCase().trim()) ? 'KGS' : 'LTRS';
 
-  // Title (13 cols now)
-  s4rows.push([ titleCell(`Raw Data Per Customer — ${period}`, navy, 14), ...Array(12).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
-  s4rows.push([ metaCell(`Generated: ${new Date().toLocaleString()}`), ...Array(12).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
-  s4rows.push(Array(13).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone}))); // spacer
+  // Title (14 cols now)
+  s4rows.push([ titleCell(`Raw Data Per Customer — ${period}`, navy, 14), ...Array(13).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s4rows.push([ metaCell(`Generated: ${new Date().toLocaleString()}`), ...Array(13).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})) ]);
+  s4rows.push(Array(14).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone}))); // spacer
 
   // Header row
   s4rows.push([
     hdrCell('SAP CODE',                wh, navyFill, false),
     hdrCell('CUSTOMER NAME',           wh, navyFill, false),
     hdrCell('LOCATION',                wh, navyFill, true),
+    hdrCell('ROUTE',                   wh, navyFill, true),
     hdrCell('CHANNEL',                 wh, navyFill, true),
     hdrCell('TYPE',                    wh, navyFill, true),
     hdrCell('MATERIAL CODE',           wh, navyFill, false),
@@ -8194,6 +8195,7 @@ function exportSpcExcel() {
         txtCell(c.code,                          muted, bg, false, 10),  // SAP CODE
         txtCell(c.name,                          navy,  bg, pi === 0, 10), // CUSTOMER NAME
         centerCell(c.region),                                               // LOCATION
+        centerCell(c.route),                                                // ROUTE
         centerCell(c.channel),                                              // CHANNEL
         centerCell(c.type),                                                 // TYPE
         txtCell(p.matCode,                       muted, bg, false, 10),  // MATERIAL CODE
@@ -8207,7 +8209,7 @@ function exportSpcExcel() {
       ]);
     });
     // Spacer row between customers (no border)
-    s4rows.push(Array(13).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})));
+    s4rows.push(Array(14).fill(emptyCell({rgb:'FFFFFF'},{top:bdrNone,right:bdrNone,bottom:bdrNone,left:bdrNone})));
   }
 
   // Grand total row
@@ -8215,6 +8217,7 @@ function exportSpcExcel() {
     totTxtCell('GRAND TOTAL',              wh, tealFill.fgColor),
     totTxtCell(`${sorted.length} Customers`, wh, tealFill.fgColor),
     emptyCell(tealFill.fgColor, totBdr),   // LOCATION
+    emptyCell(tealFill.fgColor, totBdr),   // ROUTE
     emptyCell(tealFill.fgColor, totBdr),   // CHANNEL
     emptyCell(tealFill.fgColor, totBdr),   // TYPE
     emptyCell(tealFill.fgColor, totBdr),   // MATERIAL CODE
@@ -8232,6 +8235,7 @@ function exportSpcExcel() {
     { wch: 14 },  // SAP CODE
     { wch: 36 },  // CUSTOMER NAME
     { wch: 18 },  // LOCATION
+    { wch: 16 },  // ROUTE
     { wch: 16 },  // CHANNEL
     { wch: 14 },  // TYPE
     { wch: 16 },  // MATERIAL CODE
@@ -8553,7 +8557,7 @@ function populateSalesPerCustomerPage(data) {
   for (const tx of data.transactions) {
     const code = tx.custCode || '';
     if (!custMap[code]) {
-      custMap[code] = { code, name: tx.custName || code, region: tx.region || '—', channel: tx.channel || '—', type: tx.type || '—', totalLtrs: 0, totalAmt: 0, products: {} };
+      custMap[code] = { code, name: tx.custName || code, region: tx.region || '—', channel: tx.channel || '—', type: tx.type || '—', route: tx.route || '—', totalLtrs: 0, totalAmt: 0, products: {} };
     }
     const cust = custMap[code];
     cust.totalLtrs += toDisplayLtrs(tx.ltrs || 0, (tx.category||'').toUpperCase());
