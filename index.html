@@ -2212,12 +2212,22 @@
       </label>
       <!-- Divider -->
       <span style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></span>
-      <!-- Location filter -->
+      <!-- Location filter (multi-select) -->
       <span style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;">📍 Location:</span>
-      <select id="locationFilterSelect" onchange="applyLocationFilter(this.value)" title="Filter the whole dashboard down to a single location"
-        style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;max-width:190px;">
-        <option value="ALL">All Locations</option>
-      </select>
+      <div style="position:relative;">
+        <button type="button" id="locationFilterBtn" onclick="toggleLocationFilterDropdown(event)" title="Filter the whole dashboard down to one or more locations"
+          style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;max-width:190px;display:flex;align-items:center;gap:6px;">
+          <span id="locationFilterLabel" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px;">All Locations</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6;"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="locationFilterDropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.18);min-width:200px;max-height:260px;overflow-y:auto;padding:6px;">
+          <div style="display:flex;gap:14px;padding:4px 6px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+            <button type="button" onclick="selectAllLocationFilter()" style="background:none;border:none;color:#0f2744;font-size:11px;font-weight:700;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;">Select all</button>
+            <button type="button" onclick="clearLocationFilterOptions()" style="background:none;border:none;color:#E1245A;font-size:11px;font-weight:700;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;">Clear</button>
+          </div>
+          <div id="locationFilterOptionsList"></div>
+        </div>
+      </div>
     </div>
     <!-- Period bar — left side only, safe to screenshot -->
     <div class="report-period-bar">
@@ -2321,7 +2331,7 @@
       </div>
       <div class="nontrading-table-wrap" id="nontradingTableWrap">
         <table>
-          <colgroup><col style="width:4%"><col style="width:16%"><col style="width:34%"><col style="width:22%"><col style="width:18%"><col style="width:6%"></colgroup>
+          <colgroup><col style="width:4%"><col style="width:14%"><col style="width:29%"><col style="width:18%"><col style="width:15%"><col style="width:10%"><col style="width:10%"></colgroup>
           <thead>
             <tr>
               <th>#</th>
@@ -2330,13 +2340,14 @@
               <th>Region</th>
               <th>Channel</th>
               <th>Type</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="nontradingTbody"></tbody>
         </table>
       </div>
       <div class="nontrading-hint">
-        💡 These customers exist in the database but had <strong>zero transactions</strong> in the uploaded period. Follow up to re-activate them.
+        💡 These customers exist in the database but had <strong>zero transactions</strong> in the uploaded period. Follow up to re-activate them, or click <strong>Remap</strong> next to a row to correct its Location/Channel/Type/Route.
       </div>
     </div>
 
@@ -3544,7 +3555,7 @@ window._sessionRegisteredCodes = new Set();
 // 'litres' = convert Kg-based categories to Litres
 let _volUnit = 'mixed';
 let _lastSapData = null; // cached parsed SAP data for re-render on unit change
-let _locationFilter = 'ALL'; // currently selected "By Region" location filter ('ALL' or a region name)
+let _locationFilterSet = new Set(); // currently selected "By Region" location filter (empty = ALL)
 
 // Kg→Ltr conversion factors (multiply the stored Kg volume by this)
 const KG_TO_LTR = { 'BUTTER': 25, 'POWDER': 10, 'GHEE': 10, 'CHEESE': 10 };
@@ -3593,23 +3604,77 @@ function setVolUnit(mode) {
  * preserving the current selection if it's still valid.
  */
 function populateLocationFilter(rawData) {
-  const sel = document.getElementById('locationFilterSelect');
-  if (!sel) return;
   const regions = new Set(Object.keys(refData.regionTotals || {}));
   (rawData.transactions || []).forEach(t => { if (t.region) regions.add(t.region); });
   const sorted = [...regions].sort();
-  const prevSelection = _locationFilter;
-  sel.innerHTML = '<option value="ALL">All Locations</option>'
-    + sorted.map(r => `<option value="${r}">${r}</option>`).join('');
-  sel.value = sorted.includes(prevSelection) ? prevSelection : 'ALL';
-  _locationFilter = sel.value;
+
+  // Drop any previously-selected locations that no longer exist in this data
+  [..._locationFilterSet].forEach(l => { if (!sorted.includes(l)) _locationFilterSet.delete(l); });
+
+  const list = document.getElementById('locationFilterOptionsList');
+  if (list) {
+    list.innerHTML = sorted.map(l => {
+      const checked = _locationFilterSet.has(l) ? 'checked' : '';
+      const safeId  = 'locflt-' + l.replace(/[^a-zA-Z0-9]/g, '_');
+      const safeVal = l.replace(/'/g, "\\'");
+      return `<label for="${safeId}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12px;color:var(--text);cursor:pointer;" onmouseover="this.style.background='var(--th-bg)'" onmouseout="this.style.background='transparent'">
+        <input type="checkbox" id="${safeId}" value="${l}" ${checked} onchange="toggleLocationFilterOption('${safeVal}')" style="cursor:pointer;">
+        <span style="overflow:hidden;text-overflow:ellipsis;">${l}</span>
+      </label>`;
+    }).join('') || '<div style="padding:8px;font-size:12px;color:var(--text-muted);">No locations</div>';
+  }
+  updateLocationFilterLabel();
 }
 
-/** Called when the user picks a location from the dropdown — re-renders the whole dashboard scoped to it. */
-function applyLocationFilter(value) {
-  _locationFilter = value || 'ALL';
+/** Returns a short display label for the current selection, e.g. "All Locations" / "Eldoret" / "3 locations". */
+function locationFilterLabel() {
+  if (_locationFilterSet.size === 0) return 'All Locations';
+  if (_locationFilterSet.size === 1) return [..._locationFilterSet][0];
+  return _locationFilterSet.size + ' locations';
+}
+
+function updateLocationFilterLabel() {
+  const label = document.getElementById('locationFilterLabel');
+  if (label) label.textContent = locationFilterLabel();
+}
+
+function toggleLocationFilterOption(loc) {
+  if (_locationFilterSet.has(loc)) _locationFilterSet.delete(loc);
+  else _locationFilterSet.add(loc);
+  updateLocationFilterLabel();
   if (_lastSapData) renderReport(_lastSapData);
 }
+
+function selectAllLocationFilter() {
+  document.querySelectorAll('#locationFilterOptionsList input[type=checkbox]').forEach(cb => {
+    _locationFilterSet.add(cb.value);
+    cb.checked = true;
+  });
+  updateLocationFilterLabel();
+  if (_lastSapData) renderReport(_lastSapData);
+}
+
+function clearLocationFilterOptions() {
+  _locationFilterSet.clear();
+  document.querySelectorAll('#locationFilterOptionsList input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateLocationFilterLabel();
+  if (_lastSapData) renderReport(_lastSapData);
+}
+
+function toggleLocationFilterDropdown(e) {
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('locationFilterDropdown');
+  if (!dd) return;
+  dd.style.display = (dd.style.display === 'none' || !dd.style.display) ? 'block' : 'none';
+}
+
+document.addEventListener('click', function(e) {
+  const dd  = document.getElementById('locationFilterDropdown');
+  const btn = document.getElementById('locationFilterBtn');
+  if (!dd || dd.style.display === 'none') return;
+  if (dd.contains(e.target) || (btn && btn.contains(e.target))) return;
+  dd.style.display = 'none';
+});
 
 // ═══════════════════════════════════════════════════════
 // NAV
@@ -4233,13 +4298,13 @@ function renderReport(data){
 
   // Sync the location dropdown, then scope the working dataset to the selected location (if any)
   populateLocationFilter(data);
-  if (_locationFilter && _locationFilter !== 'ALL') {
-    const filteredTx = data.transactions.filter(t => (t.region || 'UNKNOWN') === _locationFilter);
+  if (_locationFilterSet.size > 0) {
+    const filteredTx = data.transactions.filter(t => _locationFilterSet.has(t.region || 'UNKNOWN'));
     data = Object.assign({}, data, { transactions: filteredTx });
   }
 
   document.getElementById('reportPeriod').textContent='Sales Dashboard Period: '+(data.period||'—')
-    + (_locationFilter && _locationFilter !== 'ALL' ? '  —  📍 ' + _locationFilter : '');
+    + (_locationFilterSet.size > 0 ? '  —  📍 ' + locationFilterLabel() : '');
   document.getElementById('reportGenerated').textContent='As At: '+new Date().toLocaleString();
 
   const totalAmt  = data.transactions.reduce((s,t)=>s+t.amount,0);
@@ -4254,7 +4319,7 @@ function renderReport(data){
     reconBanner.id = 'reconBanner';
     document.getElementById('report').prepend(reconBanner);
   }
-  if(data.sapGrandTotal && (_locationFilter === 'ALL') && Math.abs((data.sapGrandTotal - totalAmt)) > 1){
+  if(data.sapGrandTotal && (_locationFilterSet.size === 0) && Math.abs((data.sapGrandTotal - totalAmt)) > 1){
     const diff = data.sapGrandTotal - totalAmt;
     reconBanner.style.cssText = 'display:flex;align-items:center;gap:10px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;padding:12px 16px;border-radius:8px;margin:0 0 16px;font-size:13px;font-weight:600;';
     reconBanner.innerHTML = `⚠️ Parsed total (KES ${totalAmt.toLocaleString(undefined,{maximumFractionDigits:0})}) does not match the SAP file's GRAND TOTAL (KES ${data.sapGrandTotal.toLocaleString(undefined,{maximumFractionDigits:0})}). Difference: KES ${diff.toLocaleString(undefined,{maximumFractionDigits:0})}. Some rows likely used a code format the parser doesn't recognize yet — check the console log for details.`;
@@ -4263,8 +4328,8 @@ function renderReport(data){
   }
 
   // Customer coverage banner
-  const totalInSheet = (_locationFilter && _locationFilter !== 'ALL')
-    ? (refData.regionTotals?.[_locationFilter] || 0)
+  const totalInSheet = (_locationFilterSet.size > 0)
+    ? [..._locationFilterSet].reduce((s, l) => s + (refData.regionTotals?.[l] || 0), 0)
     : (refData.customerTotal || 0);
   const covBanner = document.getElementById('coverageBanner');
   if(totalInSheet > 0){
@@ -4334,7 +4399,7 @@ function renderReport(data){
   const regionTgtAmt  = Object.values(refData.targets).reduce((s,t)=>s+(t.ksh||0),0);
   const regionTgtLtr  = Object.values(refData.targets).reduce((s,t)=>s+(t.ltrs||0),0);
   // Use grandTarget (from Targets sheet GRAND TOTALS row) as the primary overall target
-  const isLocationScoped = _locationFilter && _locationFilter !== 'ALL';
+  const isLocationScoped = _locationFilterSet.size > 0;
   // Fuzzy-match a location name against a lookup object's keys (handles naming variants
   // between the customer sheet, the region target sheet, and the location×category target sheet).
   function resolveLocKey(loc, obj) {
@@ -4345,16 +4410,21 @@ function renderReport(data){
   }
   // Prefer the Location×Category Targets sheet (summed across categories) since it's the
   // most granular source; fall back to the flat per-region Targets sheet if unavailable.
-  const locCatTgtKey = isLocationScoped ? resolveLocKey(_locationFilter, refData.locationCategoryTargets || {}) : null;
-  const locScopedCatTargets = locCatTgtKey ? refData.locationCategoryTargets[locCatTgtKey] : null;
+  // When multiple locations are selected, sum the resolved target for each one.
   function locScopedTarget(field) {
     if (!isLocationScoped) return 0;
-    if (locScopedCatTargets) {
-      const sum = Object.values(locScopedCatTargets).reduce((s, v) => s + (v[field] || 0), 0);
-      if (sum > 0) return sum;
+    let sum = 0;
+    for (const loc of _locationFilterSet) {
+      const locCatTgtKey = resolveLocKey(loc, refData.locationCategoryTargets || {});
+      const locScopedCatTargets = locCatTgtKey ? refData.locationCategoryTargets[locCatTgtKey] : null;
+      if (locScopedCatTargets) {
+        const catSum = Object.values(locScopedCatTargets).reduce((s, v) => s + (v[field] || 0), 0);
+        if (catSum > 0) { sum += catSum; continue; }
+      }
+      const regKey = resolveLocKey(loc, refData.targets || {});
+      if (regKey) sum += (refData.targets[regKey][field] || 0);
     }
-    const regKey = resolveLocKey(_locationFilter, refData.targets || {});
-    return regKey ? (refData.targets[regKey][field] || 0) : 0;
+    return sum;
   }
   const overallTgtAmt = isLocationScoped
     ? locScopedTarget('ksh')
@@ -4695,7 +4765,7 @@ function renderReport(data){
       return stripped === code; // only process the canonical (stripped) key
     })
     .filter(([code]) => !activeCodes.has(code))
-    .map(([code, c]) => ({ code, outlet: c.outlet, region: c.region||'', channel: c.channel||'', type: c.type||'' }))
+    .map(([code, c]) => ({ code, outlet: c.outlet, region: c.region||'', channel: c.channel||'', type: c.type||'', route: c.route||'' }))
     .sort((a, b) => (a.region||'').localeCompare(b.region||'') || (a.outlet||'').localeCompare(b.outlet||''));
 
   // Store globally for filtering/copy
@@ -4799,7 +4869,7 @@ function renderNonTrading(list) {
   const tbody = document.getElementById('nontradingTbody');
   document.getElementById('nontradingCountNote').textContent = `Showing ${list.length} customer${list.length !== 1 ? 's' : ''}`;
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="nontrading-empty"><div class="nontrading-empty-icon">✅</div>No customers match this filter.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="nontrading-empty"><div class="nontrading-empty-icon">✅</div>No customers match this filter.</div></td></tr>`;
     return;
   }
   tbody.innerHTML = list.map((c, i) => `
@@ -4810,6 +4880,12 @@ function renderNonTrading(list) {
       <td>${c.region ? `<span class="nt-region-pill">${esc(c.region)}</span>` : '<span style="color:var(--text-muted);font-size:12px;">—</span>'}</td>
       <td>${c.channel ? `<span class="nt-channel-pill">${esc(c.channel)}</span>` : '<span style="color:var(--text-muted);font-size:12px;">—</span>'}</td>
       <td style="font-size:12px;color:var(--text-muted);">${esc(c.type||'—')}</td>
+      <td style="text-align:center;">
+        <button id="remapBtn-${esc(c.code)}" onclick="openRemapCustomerSheet('${esc(c.code)}')" title="Edit this customer's Location/Channel/Type/Route"
+          style="padding:4px 10px;background:#7c3aed;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;">
+          ✎ Remap
+        </button>
+      </td>
     </tr>`).join('');
 }
 
@@ -12489,6 +12565,59 @@ async function openMapCustomerSheet(sapCode) {
     showToast('Could not reach the sheet backend: ' + (e.message || 'Unknown error') + ' — opening the sheet so you can add it manually', 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = originalLabel || '✚ Map Customer'; }
+    window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
+  }
+}
+
+// ── Remap Customer (already-registered customers) ──────────────
+// Unlike "Map Customer" (for brand-new SAP codes not in the Customers sheet),
+// "Remap" is for customers that already exist in the database — e.g. someone
+// shown in "Customers Not Trading This Period" — whose Location/Channel/Type/
+// Route needs correcting. It sends a row to the same Map Customer sheet, but
+// pre-filled with the customer's CURRENT mapping so the rep only has to edit
+// what's wrong instead of typing everything from scratch.
+async function openRemapCustomerSheet(sapCode) {
+  const all = window._nontradingAll || [];
+  const c = all.find(x => x.code === sapCode) || refData.customers[sapCode];
+  if (!c) { showToast('Could not find that customer', 'err'); return; }
+
+  const btn = document.getElementById(`remapBtn-${sapCode}`);
+  const originalLabel = btn ? btn.textContent : '';
+
+  if (!MAP_CUSTOMER_APPS_SCRIPT_URL || MAP_CUSTOMER_APPS_SCRIPT_URL.startsWith('PASTE_')) {
+    showToast('Map Customer backend not set up yet — opening the sheet so you can edit the row manually', 'err');
+    window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '☁ Opening…'; }
+
+  const payload = {
+    sapCode:  sapCode,
+    name:     c.outlet || '',
+    location: c.region  || '',
+    channel:  c.channel || '',
+    type:     c.type    || '',
+    route:    c.route   || '',
+    remap:    true, // ← flags this as a correction to an existing mapping, not a brand-new customer
+  };
+
+  try {
+    const res = await mapCustomerGsCall('mapCustomer', payload);
+    if (res && res.success) {
+      showToast(`✓ ${payload.name} (${sapCode}) sent to Map Customer sheet with its current mapping — edit and it'll update the database`, 'ok');
+    } else {
+      const msg = (res && res.message) ? res.message : 'Unknown error';
+      if (msg.includes('already exists')) {
+        showToast(`${sapCode} is already in the Map Customer sheet — opening it now`, 'ok');
+      } else {
+        showToast('Could not add row to sheet: ' + msg, 'err');
+      }
+    }
+  } catch (e) {
+    showToast('Could not reach the sheet backend: ' + (e.message || 'Unknown error') + ' — opening the sheet so you can edit it manually', 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel || '✎ Remap'; }
     window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
   }
 }
