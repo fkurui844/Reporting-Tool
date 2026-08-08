@@ -12091,6 +12091,9 @@ function renderSprTable(rows, grandAmt) {
   const fmtN = v => Math.round(v).toLocaleString();
   const thL = `style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;color:#ffffff;background:#0f2744;border-bottom:2px solid #0a1e38;"`;
   const thR = `style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;color:#ffffff;background:#0f2744;border-bottom:2px solid #0a1e38;"`;
+  // Narrower % columns wrap their (longer) label onto two lines instead of forcing
+  // extra table width — keeps the whole row, including Customers, on screen.
+  const thRWrap = `style="padding:10px 8px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;white-space:normal;line-height:1.3;max-width:70px;color:#ffffff;background:#0f2744;border-bottom:2px solid #0a1e38;"`;
 
   // Detect if category filter is active
   const activeCat = (document.getElementById('sprCatFilter') && document.getElementById('sprCatFilter').value) || '';
@@ -12107,9 +12110,9 @@ function renderSprTable(rows, grandAmt) {
       <th ${thL}>Route</th>
       <th ${thL}>Location</th>
       <th ${thR}>${revHeader}</th>
-      ${hasRouteTgts ? `<th ${thR}>Rev Target</th><th ${thR}>% Revenue Achieved</th>` : ''}
+      ${hasRouteTgts ? `<th ${thR}>Rev Target</th><th ${thRWrap}>% Revenue<br>Achieved</th>` : ''}
       <th ${thR}>${volHeader}</th>
-      ${hasRouteTgts ? `<th ${thR}>Vol Target</th><th ${thR}>% Volume Achieved</th>` : ''}
+      ${hasRouteTgts ? `<th ${thR}>Vol Target</th><th ${thRWrap}>% Volume<br>Achieved</th>` : ''}
       <th ${thR}>Customers</th>
     </tr>`;
 
