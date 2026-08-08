@@ -12107,15 +12107,15 @@ function renderSprTable(rows, grandAmt) {
       <th ${thL}>Route</th>
       <th ${thL}>Location</th>
       <th ${thR}>${revHeader}</th>
-      ${hasRouteTgts ? `<th ${thR}>Rev Target</th>` : ''}
+      ${hasRouteTgts ? `<th ${thR}>Rev Target</th><th ${thR}>% Revenue Achieved</th>` : ''}
       <th ${thR}>${volHeader}</th>
-      ${hasRouteTgts ? `<th ${thR}>Vol Target</th>` : ''}
+      ${hasRouteTgts ? `<th ${thR}>Vol Target</th><th ${thR}>% Volume Achieved</th>` : ''}
       <th ${thR}>Customers</th>
     </tr>`;
 
   if (!rows.length) {
     document.getElementById('sprTbody').innerHTML =
-      `<tr><td colspan="${hasRouteTgts ? 8 : 6}" style="padding:32px;text-align:center;color:var(--text-muted);">No routes match your search.</td></tr>`;
+      `<tr><td colspan="${hasRouteTgts ? 10 : 6}" style="padding:32px;text-align:center;color:var(--text-muted);">No routes match your search.</td></tr>`;
     return;
   }
 
@@ -12182,17 +12182,17 @@ function renderSprTable(rows, grandAmt) {
         ? (catRevTgt
             ? `<td style="padding:7px 12px;text-align:right;font-size:11px;">
                 <div style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text-muted);">${fmtN(catRevTgt)}</div>
-                <div style="font-size:10px;font-weight:700;color:${attColor(catRevPct)};margin-top:1px;">${catRevPct !== null ? catRevPct.toFixed(1)+'%' : '—'}</div>
-               </td>`
-            : `<td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>`)
+               </td>
+               <td style="padding:7px 12px;text-align:right;font-size:11px;font-weight:700;color:${attColor(catRevPct)};">${catRevPct !== null ? catRevPct.toFixed(1)+'%' : '—'}</td>`
+            : `<td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td><td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>`)
         : '';
       const catVolTgtCell = hasRouteTgts
         ? (catVolTgt
             ? `<td style="padding:7px 12px;text-align:right;font-size:11px;">
                 <div style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text-muted);">${fmtN(catVolTgt)}</div>
-                <div style="font-size:10px;font-weight:700;color:${attColor(catVolPct)};margin-top:1px;">${catVolPct !== null ? catVolPct.toFixed(1)+'%' : '—'}</div>
-               </td>`
-            : `<td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>`)
+               </td>
+               <td style="padding:7px 12px;text-align:right;font-size:11px;font-weight:700;color:${attColor(catVolPct)};">${catVolPct !== null ? catVolPct.toFixed(1)+'%' : '—'}</td>`
+            : `<td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td><td style="padding:7px 12px;text-align:right;color:var(--text-muted);font-size:11px;">—</td>`)
         : '';
 
       return `<tr class="spr-cat-row" data-parent="${rowId}" style="${hideRow}background:${catBg};border-left:3px solid ${catBorder};${isActiveCat?'font-weight:700;':''}">
@@ -12230,23 +12230,23 @@ function renderSprTable(rows, grandAmt) {
       <td style="padding:9px 12px;">${locationCell}</td>
       <td style="padding:9px 12px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;font-size:13px;${isUnassigned?'color:var(--text-muted);':''}">${fmtN(r.amount)}</td>
       ${hasRouteTgts ? (() => {
-          if (!r.revTarget) return `<td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">—</td>`;
+          if (!r.revTarget) return `<td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">—</td><td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">—</td>`;
           const pct = r.revTarget > 0 ? (r.amount / r.revTarget * 100) : 0;
           const tColor = pct >= 100 ? '#1db87a' : pct >= 70 ? '#f6ad2b' : '#E1245A';
           return `<td style="padding:9px 12px;text-align:right;font-size:12px;">
             <div style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text-muted);">${fmtN(r.revTarget)}</div>
-            <div style="font-size:10px;font-weight:700;color:${tColor};margin-top:2px;">${pct.toFixed(1)}%</div>
-          </td>`;
+          </td>
+          <td style="padding:9px 12px;text-align:right;font-size:12px;font-weight:700;color:${tColor};">${pct.toFixed(1)}%</td>`;
         })() : ''}
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:12px;">${fmtN(r.ltrs)}</td>
       ${hasRouteTgts ? (() => {
-          if (!r.volTarget) return `<td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">—</td>`;
+          if (!r.volTarget) return `<td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">—</td><td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;">—</td>`;
           const pct = r.volTarget > 0 ? (r.ltrs / r.volTarget * 100) : 0;
           const tColor = pct >= 100 ? '#1db87a' : pct >= 70 ? '#f6ad2b' : '#E1245A';
           return `<td style="padding:9px 12px;text-align:right;font-size:12px;">
             <div style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text-muted);">${fmtN(r.volTarget)}</div>
-            <div style="font-size:10px;font-weight:700;color:${tColor};margin-top:2px;">${pct.toFixed(1)}%</div>
-          </td>`;
+          </td>
+          <td style="padding:9px 12px;text-align:right;font-size:12px;font-weight:700;color:${tColor};">${pct.toFixed(1)}%</td>`;
         })() : ''}
       <td style="padding:9px 12px;text-align:right;color:var(--text-muted);font-size:12px;${r.customers > 0 ? 'cursor:pointer;' : ''}" 
           ${r.customers > 0 ? `onclick="event.stopPropagation();openSprCustPopup('${rowId}')" title="Click to view customer names"` : ''}>
@@ -12284,11 +12284,17 @@ function renderSprTable(rows, grandAmt) {
       <td ${tdTL}></td>
       <td ${tdT}>${fmtN(totalAmt)}</td>
       ${hasRouteTgts ? `<td style="padding:11px 12px;text-align:right;background:#0f2744;border-top:2px solid #0a1e38;">
-        ${totalRevTarget > 0 ? `<div style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:rgba(255,255,255,0.8);">${fmtN(totalRevTarget)}</div><div style="font-size:10px;font-weight:700;color:${tRevTgtColor};margin-top:2px;">${grandRevPct !== null ? grandRevPct.toFixed(1)+'%' : '—'}</div>` : '<span style="color:rgba(255,255,255,0.4);">—</span>'}
+        ${totalRevTarget > 0 ? `<div style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:rgba(255,255,255,0.8);">${fmtN(totalRevTarget)}</div>` : '<span style="color:rgba(255,255,255,0.4);">—</span>'}
+      </td>
+      <td style="padding:11px 12px;text-align:right;background:#0f2744;border-top:2px solid #0a1e38;font-weight:700;font-size:13px;color:${tRevTgtColor || 'rgba(255,255,255,0.4)'};">
+        ${grandRevPct !== null ? grandRevPct.toFixed(1)+'%' : '—'}
       </td>` : ''}
       <td ${tdT}>${fmtN(totalLtrs)}</td>
       ${hasRouteTgts ? `<td style="padding:11px 12px;text-align:right;background:#0f2744;border-top:2px solid #0a1e38;">
-        ${totalVolTarget > 0 ? `<div style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:rgba(255,255,255,0.8);">${fmtN(totalVolTarget)}</div><div style="font-size:10px;font-weight:700;color:${tVolTgtColor};margin-top:2px;">${grandVolPct !== null ? grandVolPct.toFixed(1)+'%' : '—'}</div>` : '<span style="color:rgba(255,255,255,0.4);">—</span>'}
+        ${totalVolTarget > 0 ? `<div style="font-family:'DM Mono',monospace;font-weight:700;font-size:13px;color:rgba(255,255,255,0.8);">${fmtN(totalVolTarget)}</div>` : '<span style="color:rgba(255,255,255,0.4);">—</span>'}
+      </td>
+      <td style="padding:11px 12px;text-align:right;background:#0f2744;border-top:2px solid #0a1e38;font-weight:700;font-size:13px;color:${tVolTgtColor || 'rgba(255,255,255,0.4)'};">
+        ${grandVolPct !== null ? grandVolPct.toFixed(1)+'%' : '—'}
       </td>` : ''}
       <td ${tdT}>${fmtN(totalCusts)}</td>
     </tr>`;
