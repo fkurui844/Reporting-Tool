@@ -3667,7 +3667,7 @@ async function loadSheetData() {
     } catch { results[s] = null; }
   }
 
-  refData = { customers: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, routeTargets: {}, routeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {}, routes: new Set() };
+  refData = { customers: {}, customerGroups: {}, products: {}, targets: {}, categoryTargets: {}, locationCategoryTargets: {}, typeCategoryTargets: {}, routeTargets: {}, routeCategoryTargets: {}, grandTarget: null, customerTotal: 0, regionTotals: {}, channelTotals: {}, routes: new Set() };
   if (results['Customers']) parseCustomerSheet(results['Customers']);
   if (results['Product'])   parseProductSheet(results['Product']);
   if (results['Targets'] || results['Target'] || results['Regional Targets'])
@@ -3749,7 +3749,20 @@ function parseCustomerSheet(csv) {
   let routeIdx = findCol(hdrs,['route','route code','sales route','routecode','route no','routeno']);
   // Fallback: if not found by header name, use Column F (index 5) which is the ROUTE column per sheet layout
   if (routeIdx < 0 && hdrs.length > 5) routeIdx = 5;
-  console.log('[Customers] Col indices → code:'+codeIdx+' name:'+nameIdx+' region:'+locIdx+' channel:'+chanIdx+' type:'+typeIdx+' route:'+routeIdx);
+  // RATIO column — lets one SAP account CODE be split across two (or more) rows, each
+  // representing a different LOCATION/ROUTE branch served by that shared account.
+  const ratioIdx = findCol(hdrs,['ratio','split','split ratio','allocation','%']);
+  console.log('[Customers] Col indices → code:'+codeIdx+' name:'+nameIdx+' region:'+locIdx+' channel:'+chanIdx+' type:'+typeIdx+' route:'+routeIdx+' ratio:'+ratioIdx);
+  // refData.customerGroups[key] = [{entry, ratio}, ...] — every row that shares a CODE
+  // (after normalization) lands in the same group. A code with one row → group of 1,
+  // ratio 1 (100%), behaves exactly as before. A code with two rows (two branches) →
+  // group of 2, each carrying its own LOCATION/ROUTE/CHANNEL/TYPE and its RATIO share.
+  if (!refData.customerGroups) refData.customerGroups = {};
+  function pushGroup(key, entry, ratio){
+    if(!key) return;
+    if(!refData.customerGroups[key]) refData.customerGroups[key]=[];
+    refData.customerGroups[key].push({entry, ratio});
+  }
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
     const raw = codeIdx>=0?cols[codeIdx]:'';
@@ -3763,13 +3776,28 @@ function parseCustomerSheet(csv) {
     const alphaP = /^[A-Z]+/.test(rawTrimmed) ? rawTrimmed.match(/^[A-Z]+/)[0] : '';
     const numP   = rawTrimmed.slice(alphaP.length);
     const code   = alphaP + (numP.replace(/^0+/,'') || numP); // e.g. E001497 → E1497
+    // Parse RATIO — accepts "100%", "100", "0.6", "60%" etc. Blank/unparsable → 1 (100%),
+    // so existing sheets with no RATIO column keep behaving exactly as before.
+    let ratio = 1;
+    if (ratioIdx >= 0) {
+      const rawRatio = (cols[ratioIdx]||'').trim();
+      if (rawRatio) {
+        const n = parseFloat(rawRatio.replace('%','').trim());
+        if (!isNaN(n)) ratio = n > 1 ? n/100 : n; // "60%"/"60" → 0.6, "0.6" → 0.6
+      }
+    }
     const entry={
       outlet:  nameIdx>=0?(cols[nameIdx]||'').trim():'',
       region:  locIdx>=0?(cols[locIdx]||'').trim().toUpperCase():'',
       channel: chanIdx>=0?(cols[chanIdx]||'').trim().toUpperCase():'',
       type:    typeIdx>=0?(cols[typeIdx]||'').trim().toUpperCase():'',
       route:   routeIdx>=0?(r=>(r==='0'||r===''?'':r))((cols[routeIdx]||'').trim().toUpperCase()):'',
+      ratio:   ratio,
     };
+    // refData.customers[code] keeps pointing at ONE entry (last row wins, as before) —
+    // used everywhere that only ever needed a single representative record (customer
+    // directory, "is this code registered" checks, etc). It is NOT used for splitting
+    // sales — that happens via refData.customerGroups below, which keeps every row.
     refData.customers[code] = entry;
     // Also index by the raw code (with leading zeros) so lookup works
     // regardless of how the sheet stores the code
@@ -3783,6 +3811,15 @@ function parseCustomerSheet(csv) {
       // Debug first 3 E-prefix entries
       if(Object.keys(refData.customers).length < 20)
         console.log(`[Sheet] raw="${rawTrimmed}" → keys stored: "${code}", "${rawTrimmed}", "${numP}", "${numStripped}"`);
+    }
+    // Register this row against every key variant of the code so a shared-code lookup
+    // finds ALL branches regardless of which code format the SAP export happens to use.
+    pushGroup(code, entry, ratio);
+    if(rawTrimmed !== code) pushGroup(rawTrimmed, entry, ratio);
+    if(alphaP) {
+      pushGroup(numP, entry, ratio);
+      const numStripped2 = numP.replace(/^0+/,'') || numP;
+      pushGroup(numStripped2, entry, ratio);
     }
     // Track all distinct named routes from the Customers sheet
     if(entry.route) {
@@ -4125,6 +4162,23 @@ function parseSAP(text){
         // Try stripped code first, then raw code, then pure-numeric (in case SAP omits the E prefix)
         const numOnlyCode = strippedNum; // e.g. '3593' — numeric part only, no alpha prefix
         const info=refData.customers[code]||refData.customers[rawCode]||refData.customers[numOnlyCode]||refData.customers[numPart]; const found=!!info;
+        // Shared-code support: if this CODE has more than one row in the Customers sheet
+        // (e.g. one account serving two branches on different LOCATION/ROUTE), the group
+        // holds every row with its RATIO. We normalize ratios to sum to 1 so a mis-entered
+        // sheet (e.g. two rows both left at 100%) still splits sensibly rather than double-
+        // counting or under-counting revenue.
+        const group=refData.customerGroups[code]||refData.customerGroups[rawCode]||refData.customerGroups[numOnlyCode]||refData.customerGroups[numPart]||null;
+        let splits=null;
+        if(group&&group.length>1){
+          const sum=group.reduce((s,g)=>s+(g.ratio>0?g.ratio:0),0)||1;
+          splits=group.map(g=>({
+            region:  g.entry.region  || inferRegion(sapChan),
+            channel: g.entry.channel || inferChannel(sapChan),
+            type:    g.entry.type    || '',
+            route:   (g.entry.route && String(g.entry.route).trim().toUpperCase()!=='0') ? String(g.entry.route).trim().toUpperCase() : '',
+            share:   (g.ratio>0?g.ratio:0)/sum,
+          }));
+        }
         // Debug: log first 10 E-prefix lookup attempts to console
         if (alphaPrefix && Object.keys(result.missingCustomers).length < 10) {
           console.log(`[Lookup] rawCode="${rawCode}" code="${code}" numOnly="${numOnlyCode}" numPart="${numPart}" → found=${found}`);
@@ -4137,7 +4191,7 @@ function parseSAP(text){
         const channel=(found&&info.channel)?info.channel:inferChannel(sapChan);
         const rawRoute = (found && info && info.route) ? String(info.route).trim().toUpperCase() : '';
         const route = (rawRoute && rawRoute !== '0') ? rawRoute : '';
-        curCust={code,rawCode,name,found,region,channel,type:found?info.type:'',route};
+        curCust={code,rawCode,name,found,region,channel,type:found?info.type:'',route,splits};
         if (!found && !result.missingCustomers[code]) result.missingCustomers[code]={rawCode,name,ltrs:0,amount:0};
         // Debug: log first 3 customers to verify route is being read
         if (Object.keys(result.missingCustomers).length + (result.transactions?.length||0) < 3)
@@ -4185,7 +4239,17 @@ function parseSAP(text){
         result.missingProducts[matCode].amount+=amount;
         result.missingProducts[matCode].custCount.add(curCust.code);
       }
-      result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,route:curCust.route||'',category,ltrs});
+      if(curCust.splits){
+        // Shared account: fan this one SAP line out across every branch it's split
+        // between, scaling qty/amount/ltrs by each branch's normalized ratio share.
+        for(const s of curCust.splits){
+          result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,
+            qty:qty*s.share,amount:amount*s.share,region:s.region,channel:s.channel,
+            type:s.type,route:s.route||'',category,ltrs:ltrs*s.share});
+        }
+      } else {
+        result.transactions.push({custCode:curCust.code,custName:curCust.name,matCode,qty,amount,region:curCust.region,channel:curCust.channel,type:curCust.type,route:curCust.route||'',category,ltrs});
+      }
       if(!curCust.found&&result.missingCustomers[curCust.code]){
         result.missingCustomers[curCust.code].ltrs+=ltrs;
         result.missingCustomers[curCust.code].amount+=amount;
