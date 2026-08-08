@@ -12456,9 +12456,14 @@ async function openMapCustomerSheet(sapCode) {
   const btn = document.getElementById(`mapBtn-${sapCode}`);
   const originalLabel = btn ? btn.textContent : '';
 
+  // Open the tab synchronously, right on the click, so mobile browsers
+  // (iOS Safari, Chrome Android, etc.) don't treat it as a blocked popup.
+  // We navigate this handle to the sheet URL once the async work is done.
+  const sheetTab = window.open('', '_blank');
+
   if (!MAP_CUSTOMER_APPS_SCRIPT_URL || MAP_CUSTOMER_APPS_SCRIPT_URL.startsWith('PASTE_')) {
     showToast('Map Customer backend not set up yet — opening the sheet so you can add the row manually for now', 'err');
-    window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
+    if (sheetTab) sheetTab.location = MAP_CUSTOMER_SHEET_URL; else window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
     return;
   }
 
@@ -12489,7 +12494,7 @@ async function openMapCustomerSheet(sapCode) {
     showToast('Could not reach the sheet backend: ' + (e.message || 'Unknown error') + ' — opening the sheet so you can add it manually', 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = originalLabel || '✚ Map Customer'; }
-    window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
+    if (sheetTab) sheetTab.location = MAP_CUSTOMER_SHEET_URL; else window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
   }
 }
 
