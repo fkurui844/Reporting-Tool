@@ -3763,6 +3763,10 @@ function parseCustomerSheet(csv) {
     if(!refData.customerGroups[key]) refData.customerGroups[key]=[];
     refData.customerGroups[key].push({entry, ratio});
   }
+  // Tracks CODEs already counted toward customerTotal/regionTotals/channelTotals so a
+  // shared account with several branch rows (same CODE) is counted once overall, not
+  // once per branch row.
+  const countedCodes = new Set();
   for(let i=1;i<lines.length;i++){
     const cols=parseCSVLine(lines[i]);
     const raw = codeIdx>=0?cols[codeIdx]:'';
@@ -3828,11 +3832,26 @@ function parseCustomerSheet(csv) {
     }
     const isStaff = entry.type.includes('STAFF') || /^E/i.test(rawTrimmed);
     if(!isStaff){
-      refData.customerTotal = (refData.customerTotal || 0) + 1; // exclude staff from total
+      // Grand total: count each CODE once, no matter how many branch rows it has.
+      if(!countedCodes.has(code)){
+        countedCodes.add(code);
+        refData.customerTotal = (refData.customerTotal || 0) + 1;
+      }
+      // Region/channel totals: dedupe per code+region and code+channel, so a code with
+      // two rows in the SAME region/channel isn't double-counted there either, while a
+      // code split across two different regions still counts once in each of them.
       const reg = entry.region || 'UNKNOWN';
-      refData.regionTotals[reg] = (refData.regionTotals[reg] || 0) + 1;
+      const regKey = code + '|' + reg;
+      if(!countedCodes.has(regKey)){
+        countedCodes.add(regKey);
+        refData.regionTotals[reg] = (refData.regionTotals[reg] || 0) + 1;
+      }
       const chan = entry.channel || 'UNKNOWN';
-      refData.channelTotals[chan] = (refData.channelTotals[chan] || 0) + 1;
+      const chanKey = code + '|' + chan;
+      if(!countedCodes.has(chanKey)){
+        countedCodes.add(chanKey);
+        refData.channelTotals[chan] = (refData.channelTotals[chan] || 0) + 1;
+      }
     }
   }
 }
