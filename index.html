@@ -2136,7 +2136,7 @@
     <button class="nav-btn" id="navSalesPerRoute" onclick="switchPage('salesPerRoute')">🗺 Sales Per Route</button>
     <button class="nav-btn" id="navSalesComparison" onclick="switchPage('salesComparison')">📈 Sales Comparison</button>
     <button class="nav-btn" id="navCustomers" onclick="switchPage('customers')">📊 Charts</button>
-    <button class="nav-btn" id="navRemapCustomer" onclick="window.open('https://docs.google.com/spreadsheets/d/1gLfxxUp-4DnWAX_TRa_W88h1jsQetH8fMINfpgNXGMM/edit?usp=sharing', '_blank')">🔁 Remap Customer</button>
+    <button class="nav-btn" id="navRemapCustomer" onclick="openSheetLink('https://docs.google.com/spreadsheets/d/1gLfxxUp-4DnWAX_TRa_W88h1jsQetH8fMINfpgNXGMM/edit?usp=sharing')">🔁 Remap Customer</button>
   </div>
 
   <!-- Right controls — always pinned, never scrolls -->
@@ -12438,6 +12438,25 @@ let _regCurrentSapCode = null; // ← Track SAP code for proper identification
 const MAP_CUSTOMER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1RtylFcv5Q79pJumkiSIfGEZ-NWZowr5cXFp-CgwR5yU/edit?usp=sharing';
 const MAP_CUSTOMER_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwZkNNi6XSeJZQF7T5kpo7qQpCzoyciOMVgXiCMqviW09VuuIlGvEZOaYqAKdOJumis/exec'; // ends in /exec
 
+// On phones, opening a Google Sheet in a NEW TAB often lands on a stripped-down
+// mobile view where data-validation dropdowns don't render/tap properly.
+// Navigating the CURRENT tab (or a pre-opened tab's location) gets the full
+// mobile experience — including handoff to the Sheets app when installed,
+// where dropdowns work correctly. Desktop keeps opening in a new tab.
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+function openSheetLink(url, preOpenedTab) {
+  if (isMobileDevice()) {
+    if (preOpenedTab) { try { preOpenedTab.close(); } catch (e) {} }
+    window.location.href = url;
+  } else if (preOpenedTab) {
+    preOpenedTab.location = url;
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
 function mapCustomerGsCall(action, payload) {
   const params = { action };
   if (payload !== undefined && payload !== null) params.payload = JSON.stringify(payload);
@@ -12456,14 +12475,16 @@ async function openMapCustomerSheet(sapCode) {
   const btn = document.getElementById(`mapBtn-${sapCode}`);
   const originalLabel = btn ? btn.textContent : '';
 
-  // Open the tab synchronously, right on the click, so mobile browsers
-  // (iOS Safari, Chrome Android, etc.) don't treat it as a blocked popup.
-  // We navigate this handle to the sheet URL once the async work is done.
-  const sheetTab = window.open('', '_blank');
+  // On desktop, open the tab synchronously right on the click so the browser
+  // doesn't treat it as a blocked popup once we navigate it after the await.
+  // On mobile we skip this — we'll navigate the current tab instead, which
+  // gets the full editable view (dropdowns render correctly there).
+  const mobile = isMobileDevice();
+  const sheetTab = mobile ? null : window.open('', '_blank');
 
   if (!MAP_CUSTOMER_APPS_SCRIPT_URL || MAP_CUSTOMER_APPS_SCRIPT_URL.startsWith('PASTE_')) {
     showToast('Map Customer backend not set up yet — opening the sheet so you can add the row manually for now', 'err');
-    if (sheetTab) sheetTab.location = MAP_CUSTOMER_SHEET_URL; else window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
+    openSheetLink(MAP_CUSTOMER_SHEET_URL, sheetTab);
     return;
   }
 
@@ -12494,7 +12515,7 @@ async function openMapCustomerSheet(sapCode) {
     showToast('Could not reach the sheet backend: ' + (e.message || 'Unknown error') + ' — opening the sheet so you can add it manually', 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = originalLabel || '✚ Map Customer'; }
-    if (sheetTab) sheetTab.location = MAP_CUSTOMER_SHEET_URL; else window.open(MAP_CUSTOMER_SHEET_URL, '_blank');
+    openSheetLink(MAP_CUSTOMER_SHEET_URL, sheetTab);
   }
 }
 
