@@ -12497,6 +12497,25 @@ function filterSprTable() {
   // grandAmt for Rev Share must match what's shown — category-scoped when cat filter active
   const displayGrandAmt = filtered.reduce((s, r) => s + r.amount, 0);
 
+  // Update the summary stat cards (Routes / Total Revenue / Total Volume) to
+  // reflect the currently filtered view rather than always showing the
+  // unfiltered grand totals.
+  const sprStatsEl = document.getElementById('sprStats');
+  if (sprStatsEl) {
+    const filteredRouteCount = new Set(filtered.filter(r => r.route !== 'UNASSIGNED').map(r => r.route)).size;
+    const filteredLtrs = filtered.reduce((s, r) => s + r.ltrs, 0);
+    const statCards = [
+      { label: 'Routes',        value: filteredRouteCount,                                   color: '#0f2744' },
+      { label: 'Total Revenue', value: 'KSH ' + Math.round(displayGrandAmt).toLocaleString(), color: '#E1245A' },
+      { label: 'Total Volume',  value: Math.round(filteredLtrs).toLocaleString() + ' L',      color: '#0f5f5a' },
+    ];
+    sprStatsEl.innerHTML = statCards.map(c => `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;min-width:160px;">
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${c.label}</div>
+        <div style="font-size:20px;font-weight:700;color:${c.color};">${c.value}</div>
+      </div>`).join('');
+  }
+
   // Category filter banner
   const banner = document.getElementById('sprCatBanner');
   if (banner) {
