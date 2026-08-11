@@ -3127,10 +3127,35 @@
           <span class="sc-section-title">🚚 By Route</span>
           <span class="sc-section-sub">Revenue &amp; volume comparison per delivery route</span>
           <span style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;margin-left:14px;">📍 Region:</span>
-          <select id="scRouteRegionFilter" onchange="scApplyRouteRegionFilter(this.value)" title="Filter routes down to a single region"
-            style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;max-width:190px;">
-            <option value="ALL">All Regions</option>
-          </select>
+          <div style="position:relative;">
+            <button type="button" id="scRouteRegionFilterBtn" onclick="toggleScRouteRegionDropdown(event)" title="Filter routes down to one or more regions"
+              style="padding:5px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;max-width:190px;display:flex;align-items:center;gap:6px;">
+              <span id="scRouteRegionFilterLabel" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">All Regions</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6;"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="scRouteRegionDropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.18);min-width:200px;max-height:260px;overflow-y:auto;padding:6px;">
+              <div style="display:flex;gap:14px;padding:4px 6px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+                <button type="button" onclick="selectAllScRouteRegion()" style="background:none;border:none;color:#0f2744;font-size:11px;font-weight:700;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;">Select all</button>
+                <button type="button" onclick="clearScRouteRegionOptions()" style="background:none;border:none;color:#E1245A;font-size:11px;font-weight:700;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;">Clear</button>
+              </div>
+              <div id="scRouteRegionOptionsList"></div>
+            </div>
+          </div>
+          <span style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;margin-left:10px;">🏷️ Category:</span>
+          <div style="position:relative;">
+            <button type="button" id="scRouteCatFilterBtn" onclick="toggleScRouteCatDropdown(event)" title="Filter routes down to one or more categories"
+              style="padding:5px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;max-width:190px;display:flex;align-items:center;gap:6px;">
+              <span id="scRouteCatFilterLabel" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">All Categories</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6;"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="scRouteCatDropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.18);min-width:200px;max-height:260px;overflow-y:auto;padding:6px;">
+              <div style="display:flex;gap:14px;padding:4px 6px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+                <button type="button" onclick="selectAllScRouteCat()" style="background:none;border:none;color:#0f2744;font-size:11px;font-weight:700;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;">Select all</button>
+                <button type="button" onclick="clearScRouteCatOptions()" style="background:none;border:none;color:#E1245A;font-size:11px;font-weight:700;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;">Clear</button>
+              </div>
+              <div id="scRouteCatOptionsList"></div>
+            </div>
+          </div>
           <div class="sc-export-wrap" onclick="event.stopPropagation()">
             <button class="btn-sc-export" onclick="scToggleExportMenu('scTableRoute_menu')">⬇ Export ▾</button>
             <div class="sc-export-menu" id="scTableRoute_menu">
@@ -9207,11 +9232,12 @@ function scReset() {
   // Destroy comparison charts
   Object.values(_scChartInstances).forEach(c => c.destroy());
   _scChartInstances = {};
-  _scRouteRegionFilter = 'ALL';
+  _scRouteRegionFilter = new Set();
+  _scRouteCatFilter = new Set();
 }
 
-// ── By Route table (region-filterable) ──────────────────
-let _scRouteRegionFilter = 'ALL';
+// ── By Route table (region-filterable, multi-select) ──────────────
+let _scRouteRegionFilter = new Set(); // empty set = "All Regions"
 
 function scSumByDim(txns, key) {
   const m = {};
@@ -9238,21 +9264,152 @@ function scDeltaPillGlobal(v1, v2) {
   return `<span class="sc-delta-pill ${cls}">${arrow} ${(diff > 0 ? '+' : '')}${p}%</span>`;
 }
 
-// Rebuilds the Region dropdown for the By Route table from the two loaded periods' transactions.
+// Rebuilds the Region checkbox list for the By Route table from the two loaded periods' transactions.
 function scPopulateRouteRegionFilter() {
-  const sel = document.getElementById('scRouteRegionFilter');
+  const list = document.getElementById('scRouteRegionOptionsList');
   const d1 = window._scCompareD1, d2 = window._scCompareD2;
-  if (!sel || !d1 || !d2) return;
+  if (!list || !d1 || !d2) return;
   const regions = new Set();
   d1.transactions.forEach(t => regions.add((t.region || 'UNKNOWN').toUpperCase()));
   d2.transactions.forEach(t => regions.add((t.region || 'UNKNOWN').toUpperCase()));
   const sorted = [...regions].sort();
-  const prevSelection = _scRouteRegionFilter;
-  sel.innerHTML = '<option value="ALL">All Regions</option>'
-    + sorted.map(r => `<option value="${r}">${r}</option>`).join('');
-  sel.value = sorted.includes(prevSelection) ? prevSelection : 'ALL';
-  _scRouteRegionFilter = sel.value;
+
+  // Drop any previously-selected regions that no longer exist in the data
+  [..._scRouteRegionFilter].forEach(r => { if (!sorted.includes(r)) _scRouteRegionFilter.delete(r); });
+
+  list.innerHTML = sorted.map(r => {
+    const checked = _scRouteRegionFilter.has(r) ? 'checked' : '';
+    const safeId  = 'scregion-' + r.replace(/[^a-zA-Z0-9]/g, '_');
+    const safeVal = r.replace(/'/g, "\\'");
+    return `<label for="${safeId}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:13px;color:var(--text);cursor:pointer;" onmouseover="this.style.background='var(--th-bg)'" onmouseout="this.style.background='transparent'">
+      <input type="checkbox" id="${safeId}" value="${r}" ${checked} onchange="toggleScRouteRegionOption('${safeVal}')" style="cursor:pointer;">
+      <span style="overflow:hidden;text-overflow:ellipsis;">${r}</span>
+    </label>`;
+  }).join('') || '<div style="padding:8px;font-size:12px;color:var(--text-muted);">No regions</div>';
+
+  updateScRouteRegionLabel();
 }
+
+function toggleScRouteRegionOption(region) {
+  if (_scRouteRegionFilter.has(region)) _scRouteRegionFilter.delete(region);
+  else _scRouteRegionFilter.add(region);
+  updateScRouteRegionLabel();
+  scRenderRouteTable();
+}
+
+function selectAllScRouteRegion() {
+  document.querySelectorAll('#scRouteRegionOptionsList input[type=checkbox]').forEach(cb => {
+    _scRouteRegionFilter.add(cb.value);
+    cb.checked = true;
+  });
+  updateScRouteRegionLabel();
+  scRenderRouteTable();
+}
+
+function clearScRouteRegionOptions() {
+  _scRouteRegionFilter.clear();
+  document.querySelectorAll('#scRouteRegionOptionsList input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateScRouteRegionLabel();
+  scRenderRouteTable();
+}
+
+function updateScRouteRegionLabel() {
+  const label = document.getElementById('scRouteRegionFilterLabel');
+  if (!label) return;
+  if (_scRouteRegionFilter.size === 0)      label.textContent = 'All Regions';
+  else if (_scRouteRegionFilter.size === 1) label.textContent = [..._scRouteRegionFilter][0];
+  else                                        label.textContent = _scRouteRegionFilter.size + ' regions selected';
+}
+
+function toggleScRouteRegionDropdown(e) {
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('scRouteRegionDropdown');
+  if (!dd) return;
+  dd.style.display = (dd.style.display === 'none' || !dd.style.display) ? 'block' : 'none';
+}
+
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('scRouteRegionDropdown');
+  const btn = document.getElementById('scRouteRegionFilterBtn');
+  if (!dd || dd.style.display === 'none') return;
+  if (dd.contains(e.target) || (btn && btn.contains(e.target))) return;
+  dd.style.display = 'none';
+});
+
+// ── By Route table: Category multi-select filter ──────────────
+let _scRouteCatFilter = new Set(); // empty set = "All Categories"
+
+// Rebuilds the Category checkbox list for the By Route table from the two loaded periods' transactions.
+function scPopulateRouteCatFilter() {
+  const list = document.getElementById('scRouteCatOptionsList');
+  const d1 = window._scCompareD1, d2 = window._scCompareD2;
+  if (!list || !d1 || !d2) return;
+  const cats = new Set();
+  d1.transactions.forEach(t => cats.add((t.category || 'OTHER').toUpperCase()));
+  d2.transactions.forEach(t => cats.add((t.category || 'OTHER').toUpperCase()));
+  const sorted = [...cats].sort();
+
+  // Drop any previously-selected categories that no longer exist in the data
+  [..._scRouteCatFilter].forEach(c => { if (!sorted.includes(c)) _scRouteCatFilter.delete(c); });
+
+  list.innerHTML = sorted.map(c => {
+    const checked = _scRouteCatFilter.has(c) ? 'checked' : '';
+    const safeId  = 'sccat-' + c.replace(/[^a-zA-Z0-9]/g, '_');
+    const safeVal = c.replace(/'/g, "\\'");
+    return `<label for="${safeId}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:13px;color:var(--text);cursor:pointer;" onmouseover="this.style.background='var(--th-bg)'" onmouseout="this.style.background='transparent'">
+      <input type="checkbox" id="${safeId}" value="${c}" ${checked} onchange="toggleScRouteCatOption('${safeVal}')" style="cursor:pointer;">
+      <span style="overflow:hidden;text-overflow:ellipsis;">${c}</span>
+    </label>`;
+  }).join('') || '<div style="padding:8px;font-size:12px;color:var(--text-muted);">No categories</div>';
+
+  updateScRouteCatLabel();
+}
+
+function toggleScRouteCatOption(cat) {
+  if (_scRouteCatFilter.has(cat)) _scRouteCatFilter.delete(cat);
+  else _scRouteCatFilter.add(cat);
+  updateScRouteCatLabel();
+  scRenderRouteTable();
+}
+
+function selectAllScRouteCat() {
+  document.querySelectorAll('#scRouteCatOptionsList input[type=checkbox]').forEach(cb => {
+    _scRouteCatFilter.add(cb.value);
+    cb.checked = true;
+  });
+  updateScRouteCatLabel();
+  scRenderRouteTable();
+}
+
+function clearScRouteCatOptions() {
+  _scRouteCatFilter.clear();
+  document.querySelectorAll('#scRouteCatOptionsList input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateScRouteCatLabel();
+  scRenderRouteTable();
+}
+
+function updateScRouteCatLabel() {
+  const label = document.getElementById('scRouteCatFilterLabel');
+  if (!label) return;
+  if (_scRouteCatFilter.size === 0)      label.textContent = 'All Categories';
+  else if (_scRouteCatFilter.size === 1) label.textContent = [..._scRouteCatFilter][0];
+  else                                     label.textContent = _scRouteCatFilter.size + ' categories selected';
+}
+
+function toggleScRouteCatDropdown(e) {
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('scRouteCatDropdown');
+  if (!dd) return;
+  dd.style.display = (dd.style.display === 'none' || !dd.style.display) ? 'block' : 'none';
+}
+
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('scRouteCatDropdown');
+  const btn = document.getElementById('scRouteCatFilterBtn');
+  if (!dd || dd.style.display === 'none') return;
+  if (dd.contains(e.target) || (btn && btn.contains(e.target))) return;
+  dd.style.display = 'none';
+});
 
 // Renders scTableRoute scoped to the currently selected region (or all regions).
 function scRenderRouteTable() {
@@ -9260,11 +9417,15 @@ function scRenderRouteTable() {
   const tbl = document.getElementById('scTableRoute');
   if (!d1 || !d2 || !tbl) return;
 
-  const regFilter = _scRouteRegionFilter;
-  const tx1 = regFilter === 'ALL' ? d1.transactions
-    : d1.transactions.filter(t => (t.region || 'UNKNOWN').toUpperCase() === regFilter);
-  const tx2 = regFilter === 'ALL' ? d2.transactions
-    : d2.transactions.filter(t => (t.region || 'UNKNOWN').toUpperCase() === regFilter);
+  const regFilter = _scRouteRegionFilter; // Set of selected regions (empty = all regions)
+  const catFilter = _scRouteCatFilter;    // Set of selected categories (empty = all categories)
+  const passFilters = t => {
+    if (regFilter.size > 0 && !regFilter.has((t.region || 'UNKNOWN').toUpperCase())) return false;
+    if (catFilter.size > 0 && !catFilter.has((t.category || 'OTHER').toUpperCase())) return false;
+    return true;
+  };
+  const tx1 = d1.transactions.filter(passFilters);
+  const tx2 = d2.transactions.filter(passFilters);
   // Stash the (region-filtered) transactions so row clicks can drill into a route's category mix.
   window._scRouteTx1 = tx1;
   window._scRouteTx2 = tx2;
@@ -9517,11 +9678,8 @@ function scBuildRouteCustomerDetailRows() {
   return rows;
 }
 
-// Called when the user picks a region from the By Route filter dropdown.
-function scApplyRouteRegionFilter(value) {
-  _scRouteRegionFilter = value || 'ALL';
-  scRenderRouteTable();
-}
+// (Region filtering for By Route is now handled by the multi-select checkbox
+// functions above: toggleScRouteRegionOption / selectAllScRouteRegion / clearScRouteRegionOptions)
 
 // Expands/collapses a route's category breakdown detail row (built lazily on first open).
 function scToggleRouteDetail(routeKey, rid) {
@@ -9763,6 +9921,7 @@ function scRunComparison() {
     window._scCompareD1 = d1;
     window._scCompareD2 = d2;
     scPopulateRouteRegionFilter();
+    scPopulateRouteCatFilter();
     scRenderRouteTable();
 
     // ── By Region × Category ──
