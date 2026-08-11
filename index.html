@@ -3126,6 +3126,12 @@
         <div class="sc-section-head">
           <span class="sc-section-title">🚚 By Route</span>
           <span class="sc-section-sub">Revenue &amp; volume comparison per delivery route</span>
+          <div id="scRouteViewToggle" style="display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-left:10px;">
+            <button type="button" id="scRouteViewBtnRevenue" onclick="scSetRouteViewMode('revenue')" title="Show revenue figures only"
+              style="padding:5px 12px;border:none;background:#0f2744;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;">💰 Sales by Revenue</button>
+            <button type="button" id="scRouteViewBtnVolume" onclick="scSetRouteViewMode('volume')" title="Show volume figures only"
+              style="padding:5px 12px;border:none;background:var(--bg);color:var(--text-muted);font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;border-left:1px solid var(--border);">📦 Sales by Volume</button>
+          </div>
           <span style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;margin-left:14px;">📍 Region:</span>
           <div style="position:relative;">
             <button type="button" id="scRouteRegionFilterBtn" onclick="toggleScRouteRegionDropdown(event)" title="Filter routes down to one or more regions"
@@ -9411,7 +9417,27 @@ document.addEventListener('click', function(e) {
   dd.style.display = 'none';
 });
 
-// Renders scTableRoute scoped to the currently selected region (or all regions).
+// ── By Route table: Revenue / Volume view toggle ──────────────
+// Only one metric group (Revenue or Volume) is shown at a time so the
+// Customers Trading columns (and any future columns) aren't pushed off-screen.
+let _scRouteViewMode = 'revenue'; // 'revenue' | 'volume'
+
+function scSetRouteViewMode(mode) {
+  _scRouteViewMode = (mode === 'volume') ? 'volume' : 'revenue';
+  const revBtn = document.getElementById('scRouteViewBtnRevenue');
+  const volBtn = document.getElementById('scRouteViewBtnVolume');
+  if (revBtn && volBtn) {
+    const active   = { background: '#0f2744', color: '#fff' };
+    const inactive = { background: 'var(--bg)', color: 'var(--text-muted)' };
+    const applyStyle = (btn, s) => { btn.style.background = s.background; btn.style.color = s.color; };
+    applyStyle(revBtn, _scRouteViewMode === 'revenue' ? active : inactive);
+    applyStyle(volBtn, _scRouteViewMode === 'volume'  ? active : inactive);
+  }
+  scRenderRouteTable();
+}
+
+// Renders scTableRoute scoped to the currently selected region/category (or all)
+// and to the currently selected Revenue/Volume view mode.
 function scRenderRouteTable() {
   const d1 = window._scCompareD1, d2 = window._scCompareD2;
   const tbl = document.getElementById('scTableRoute');
@@ -9467,20 +9493,22 @@ function scRenderRouteTable() {
     const cust1 = m1[k]?.custs?.size || 0, cust2 = m2[k]?.custs?.size || 0;
     const rid = 'rt_' + k.replace(/[^A-Za-z0-9]/g, '_');
     const kEsc = k.replace(/'/g, "\\'");
+    const metricCells = _scRouteViewMode === 'volume'
+      ? `<td class="num">${fmt(l1)}</td>
+         <td class="num">${fmt(l2)}</td>
+         <td class="num">${scDeltaPillGlobal(l1, l2)}</td>`
+      : `<td class="num">${fmt(a1)}</td>
+         <td class="num">${fmt(a2)}</td>
+         <td class="num">${scDeltaPillGlobal(a1, a2)}</td>`;
     return `<tr class="sc-route-row" onclick="scToggleRouteDetail('${kEsc}','${rid}')" style="cursor:pointer;">
       <td><span class="sc-route-chevron" id="chev_${rid}" style="display:inline-block;width:10px;margin-right:6px;font-size:10px;color:var(--text-muted);transition:transform .15s;">▶</span><strong>${k}</strong></td>
       <td><span style="font-size:12px;font-weight:600;color:var(--text-muted);background:var(--pill-bg);border:1px solid var(--border);border-radius:6px;padding:2px 8px;white-space:nowrap;">${routeRegionLabel(k)}</span></td>
-      <td class="num">${fmt(a1)}</td>
-      <td class="num">${fmt(a2)}</td>
-      <td class="num">${scDeltaPillGlobal(a1, a2)}</td>
+      ${metricCells}
       <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('${kEsc}','1',event)" title="View customers trading on this route">${fmt(cust1)}</span></td>
       <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('${kEsc}','2',event)" title="View customers trading on this route">${fmt(cust2)}</span></td>
-      <td class="num">${fmt(l1)}</td>
-      <td class="num">${fmt(l2)}</td>
-      <td class="num">${scDeltaPillGlobal(l1, l2)}</td>
     </tr>
     <tr class="sc-route-detail" id="det_${rid}" style="display:none;">
-      <td colspan="10" style="padding:0;background:var(--th-bg);">
+      <td colspan="7" style="padding:0;background:var(--th-bg);">
         <div id="detBody_${rid}" style="padding:10px 14px 14px 32px;"></div>
       </td>
     </tr>`;
@@ -9502,38 +9530,45 @@ function scRenderRouteTable() {
   const p1Lbl = window._scP1Lbl || 'Current Period';
   const p2Lbl = window._scP2Lbl || 'Previous Period';
 
+  const metricGroupHeader = _scRouteViewMode === 'volume'
+    ? `<th colspan="3" style="text-align:center;border-bottom:2px solid rgba(59,130,246,0.5);color:#93c5fd;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">SALES IN VOLUME</th>`
+    : `<th colspan="3" style="text-align:center;border-bottom:2px solid rgba(225,36,90,0.5);color:#f9a8d4;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">SALES IN REVENUE</th>`;
+  const metricColHeaders = _scRouteViewMode === 'volume'
+    ? `<th class="num p2h">Current<br>${p1Lbl}<br>(Ltrs/Kgs)</th>
+       <th class="num p1h">Previous<br>${p2Lbl}<br>(Ltrs/Kgs)</th>
+       <th class="num" style="color:#f59e0b;letter-spacing:0.04em;">% Growth / Decline</th>`
+    : `<th class="num p2h">Current<br>${p1Lbl}<br>(KSH)</th>
+       <th class="num p1h">Previous<br>${p2Lbl}<br>(KSH)</th>
+       <th class="num" style="color:#f59e0b;letter-spacing:0.04em;">% Growth / Decline</th>`;
+  const metricTotalCells = _scRouteViewMode === 'volume'
+    ? `<td class="num">${fmt(tot1l)}</td>
+       <td class="num">${fmt(tot2l)}</td>
+       <td class="num">${scDeltaPillGlobal(tot1l, tot2l)}</td>`
+    : `<td class="num">${fmt(tot1a)}</td>
+       <td class="num">${fmt(tot2a)}</td>
+       <td class="num">${scDeltaPillGlobal(tot1a, tot2a)}</td>`;
+
   tbl.innerHTML = `
     <thead>
       <tr>
         <th rowspan="2" style="vertical-align:bottom;background:#0f2744;color:rgba(255,255,255,0.9);font-size:11px;font-weight:700;letter-spacing:0.07em;padding:9px 14px;text-align:left;">Route</th>
         <th rowspan="2" style="vertical-align:bottom;background:#0f2744;color:rgba(255,255,255,0.9);font-size:11px;font-weight:700;letter-spacing:0.07em;padding:9px 14px;text-align:left;">Region</th>
-        <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(225,36,90,0.5);color:#f9a8d4;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">SALES IN REVENUE</th>
+        ${metricGroupHeader}
         <th colspan="2" style="text-align:center;border-bottom:2px solid rgba(29,184,122,0.5);color:#86efac;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">CUSTOMERS TRADING</th>
-        <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(59,130,246,0.5);color:#93c5fd;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">SALES IN VOLUME</th>
       </tr>
       <tr>
-        <th class="num p2h">Current<br>${p1Lbl}<br>(KSH)</th>
-        <th class="num p1h">Previous<br>${p2Lbl}<br>(KSH)</th>
-        <th class="num" style="color:#f59e0b;letter-spacing:0.04em;">% Growth / Decline</th>
+        ${metricColHeaders}
         <th class="num p2h">Current<br>${p1Lbl}</th>
         <th class="num p1h">Previous<br>${p2Lbl}</th>
-        <th class="num p2h">Current<br>${p1Lbl}<br>(Ltrs/Kgs)</th>
-        <th class="num p1h">Previous<br>${p2Lbl}<br>(Ltrs/Kgs)</th>
-        <th class="num" style="color:#f59e0b;letter-spacing:0.04em;">% Growth / Decline</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
     <tfoot><tr>
       <td>TOTAL</td>
       <td></td>
-      <td class="num">${fmt(tot1a)}</td>
-      <td class="num">${fmt(tot2a)}</td>
-      <td class="num">${scDeltaPillGlobal(tot1a, tot2a)}</td>
+      ${metricTotalCells}
       <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('__ALL__','1',event)" title="View all customers trading">${fmt(totCust1)}</span></td>
       <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('__ALL__','2',event)" title="View all customers trading">${fmt(totCust2)}</span></td>
-      <td class="num">${fmt(tot1l)}</td>
-      <td class="num">${fmt(tot2l)}</td>
-      <td class="num">${scDeltaPillGlobal(tot1l, tot2l)}</td>
     </tr></tfoot>`;
 }
 
