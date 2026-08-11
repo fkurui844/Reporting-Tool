@@ -9270,6 +9270,15 @@ function scDeltaPillGlobal(v1, v2) {
   return `<span class="sc-delta-pill ${cls}">${arrow} ${(diff > 0 ? '+' : '')}${p}%</span>`;
 }
 
+// Same visual pill as scDeltaPillGlobal but shows the raw (current − previous)
+// count instead of a percentage — used for the Customers Trading Variance column.
+function scVariancePillGlobal(v1, v2) {
+  const diff = v1 - v2;
+  const cls  = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+  const arrow= diff > 0 ? '▲' : diff < 0 ? '▼' : '—';
+  return `<span class="sc-delta-pill ${cls}">${arrow} ${(diff > 0 ? '+' : '')}${diff}</span>`;
+}
+
 // Rebuilds the Region checkbox list for the By Route table from the two loaded periods' transactions.
 function scPopulateRouteRegionFilter() {
   const list = document.getElementById('scRouteRegionOptionsList');
@@ -9506,9 +9515,10 @@ function scRenderRouteTable() {
       ${metricCells}
       <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('${kEsc}','1',event)" title="View customers trading on this route">${fmt(cust1)}</span></td>
       <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('${kEsc}','2',event)" title="View customers trading on this route">${fmt(cust2)}</span></td>
+      <td class="num">${scVariancePillGlobal(cust1, cust2)}</td>
     </tr>
     <tr class="sc-route-detail" id="det_${rid}" style="display:none;">
-      <td colspan="7" style="padding:0;background:var(--th-bg);">
+      <td colspan="8" style="padding:0;background:var(--th-bg);">
         <div id="detBody_${rid}" style="padding:10px 14px 14px 32px;"></div>
       </td>
     </tr>`;
@@ -9554,12 +9564,13 @@ function scRenderRouteTable() {
         <th rowspan="2" style="vertical-align:bottom;background:#0f2744;color:rgba(255,255,255,0.9);font-size:11px;font-weight:700;letter-spacing:0.07em;padding:9px 14px;text-align:left;">Route</th>
         <th rowspan="2" style="vertical-align:bottom;background:#0f2744;color:rgba(255,255,255,0.9);font-size:11px;font-weight:700;letter-spacing:0.07em;padding:9px 14px;text-align:left;">Region</th>
         ${metricGroupHeader}
-        <th colspan="2" style="text-align:center;border-bottom:2px solid rgba(29,184,122,0.5);color:#86efac;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">CUSTOMERS TRADING</th>
+        <th colspan="3" style="text-align:center;border-bottom:2px solid rgba(29,184,122,0.5);color:#86efac;font-size:11px;letter-spacing:0.08em;padding-bottom:6px;">CUSTOMERS TRADING</th>
       </tr>
       <tr>
         ${metricColHeaders}
         <th class="num p2h">Current<br>${p1Lbl}</th>
         <th class="num p1h">Previous<br>${p2Lbl}</th>
+        <th class="num" style="color:#f59e0b;letter-spacing:0.04em;">Variance</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -9569,6 +9580,7 @@ function scRenderRouteTable() {
       ${metricTotalCells}
       <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('__ALL__','1',event)" title="View all customers trading">${fmt(totCust1)}</span></td>
       <td class="num"><span class="sc-cust-link" onclick="scShowRouteCustomers('__ALL__','2',event)" title="View all customers trading">${fmt(totCust2)}</span></td>
+      <td class="num">${scVariancePillGlobal(totCust1, totCust2)}</td>
     </tr></tfoot>`;
 }
 
@@ -11281,24 +11293,24 @@ async function scExportExcel(tableId, label) {
     const ttl = label + '   |   ' + p1 + ' (Current) vs ' + p2 + ' (Previous)   |   Exported: ' + new Date().toLocaleDateString();
     ws.addRow([ttl]);
     applyCell(ws.getCell(1,1), ttl, { bold:true, size:11, color:WHITE, fill:NAVY });
-    ws.mergeCells(1,1,1,10);
+    ws.mergeCells(1,1,1,11);
     ws.addRow([]);
 
-    ws.addRow(['Route', '', 'SALES IN REVENUE', '', '', 'CUSTOMERS TRADING', '', 'SALES IN VOLUME', '', '']);
+    ws.addRow(['Route', '', 'SALES IN REVENUE', '', '', 'CUSTOMERS TRADING', '', '', 'SALES IN VOLUME', '', '']);
     applyCell(ws.getCell(3,1), 'Route', { bold:true, color:WHITE, fill:NAVY });
     applyCell(ws.getCell(3,2), 'Region', { bold:true, color:WHITE, fill:NAVY });
     applyCell(ws.getCell(3,3), 'SALES IN REVENUE', { bold:true, color:PINK, fill:NAVY, center:true });
     ws.mergeCells(3,3,3,5);
     applyCell(ws.getCell(3,6), 'CUSTOMERS TRADING', { bold:true, color:GREEN, fill:NAVY, center:true });
-    ws.mergeCells(3,6,3,7);
-    applyCell(ws.getCell(3,8), 'SALES IN VOLUME', { bold:true, color:BLUE, fill:NAVY, center:true });
-    ws.mergeCells(3,8,3,10);
+    ws.mergeCells(3,6,3,8);
+    applyCell(ws.getCell(3,9), 'SALES IN VOLUME', { bold:true, color:BLUE, fill:NAVY, center:true });
+    ws.mergeCells(3,9,3,11);
     ws.getRow(3).height = 20;
 
     const HDRSR = [
       'Route', 'Region',
       'Current\n' + p1 + '\n(KSH)', 'Previous\n' + p2 + '\n(KSH)', '% Growth / Decline',
-      'Current\n' + p1, 'Previous\n' + p2,
+      'Current\n' + p1, 'Previous\n' + p2, 'Variance',
       'Current\n' + p1 + '\n(Ltrs/Kgs)', 'Previous\n' + p2 + '\n(Ltrs/Kgs)', '% Growth / Decline'
     ];
     ws.addRow(HDRSR);
@@ -11309,14 +11321,16 @@ async function scExportExcel(tableId, label) {
     hCell(ws.getCell(4,5), HDRSR[4], { color:AMBER, right:true });
     hCell(ws.getCell(4,6), HDRSR[5], { color:GREEN, right:true });
     hCell(ws.getCell(4,7), HDRSR[6], { color:GREEN, right:true });
-    hCell(ws.getCell(4,8), HDRSR[7], { color:BLUE,  right:true });
+    hCell(ws.getCell(4,8), HDRSR[7], { color:AMBER, right:true });
     hCell(ws.getCell(4,9), HDRSR[8], { color:BLUE,  right:true });
-    hCell(ws.getCell(4,10), HDRSR[9], { color:AMBER, right:true });
+    hCell(ws.getCell(4,10), HDRSR[9], { color:BLUE,  right:true });
+    hCell(ws.getCell(4,11), HDRSR[10], { color:AMBER, right:true });
     ws.getRow(4).height = 52;
 
     src.rows.forEach(({ name, region, a1, a2, l1, l2, cust1, cust2 }, idx) => {
       const fill = idx % 2 === 1 ? LIGHT_ROW : undefined;
-      const dr = ws.addRow([name, region || '—', a1, a2, pctStrR(a1,a2), cust1, cust2, l1, l2, pctStrR(l1,l2)]);
+      const custVar = cust1 - cust2;
+      const dr = ws.addRow([name, region || '—', a1, a2, pctStrR(a1,a2), cust1, cust2, custVar, l1, l2, pctStrR(l1,l2)]);
       applyCell(dr.getCell(1), name, { fill });
       applyCell(dr.getCell(2), region || '—', { fill });
       applyCell(dr.getCell(3), a1,   { fill });
@@ -11324,14 +11338,16 @@ async function scExportExcel(tableId, label) {
       applyCell(dr.getCell(5), pctStrR(a1,a2), { fill, right:true });
       applyCell(dr.getCell(6), cust1, { fill });
       applyCell(dr.getCell(7), cust2, { fill });
-      applyCell(dr.getCell(8), l1,   { fill });
-      applyCell(dr.getCell(9), l2,   { fill });
-      applyCell(dr.getCell(10), pctStrR(l1,l2), { fill, right:true });
+      applyCell(dr.getCell(8), (custVar > 0 ? '+' : '') + custVar, { fill, right:true });
+      applyCell(dr.getCell(9), l1,   { fill });
+      applyCell(dr.getCell(10), l2,   { fill });
+      applyCell(dr.getCell(11), pctStrR(l1,l2), { fill, right:true });
     });
 
     ws.addRow([]);
+    const totCustVar = src.totCust1 - src.totCust2;
     const tr = ws.addRow(['TOTAL', '', src.tot1a, src.tot2a, pctStrR(src.tot1a,src.tot2a),
-                          src.totCust1, src.totCust2, src.tot1l, src.tot2l, pctStrR(src.tot1l,src.tot2l)]);
+                          src.totCust1, src.totCust2, (totCustVar > 0 ? '+' : '') + totCustVar, src.tot1l, src.tot2l, pctStrR(src.tot1l,src.tot2l)]);
     applyCell(tr.getCell(1), 'TOTAL',      { bold:true, color:WHITE, fill:NAVY });
     applyCell(tr.getCell(2), '',           { bold:true, color:WHITE, fill:NAVY });
     applyCell(tr.getCell(3), src.tot1a,    { bold:true, color:WHITE, fill:NAVY });
@@ -11339,11 +11355,12 @@ async function scExportExcel(tableId, label) {
     applyCell(tr.getCell(5), pctStrR(src.tot1a,src.tot2a), { bold:true, color:AMBER, fill:NAVY, right:true });
     applyCell(tr.getCell(6), src.totCust1, { bold:true, color:WHITE, fill:NAVY });
     applyCell(tr.getCell(7), src.totCust2, { bold:true, color:WHITE, fill:NAVY });
-    applyCell(tr.getCell(8), src.tot1l,    { bold:true, color:WHITE, fill:NAVY });
-    applyCell(tr.getCell(9), src.tot2l,    { bold:true, color:WHITE, fill:NAVY });
-    applyCell(tr.getCell(10), pctStrR(src.tot1l,src.tot2l), { bold:true, color:AMBER, fill:NAVY, right:true });
+    applyCell(tr.getCell(8), (totCustVar > 0 ? '+' : '') + totCustVar, { bold:true, color:AMBER, fill:NAVY, right:true });
+    applyCell(tr.getCell(9), src.tot1l,    { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(10), src.tot2l,    { bold:true, color:WHITE, fill:NAVY });
+    applyCell(tr.getCell(11), pctStrR(src.tot1l,src.tot2l), { bold:true, color:AMBER, fill:NAVY, right:true });
 
-    [22, 16, 20, 20, 16, 14, 14, 20, 20, 16].forEach((w,i) => { ws.getColumn(i+1).width = w; });
+    [22, 16, 20, 20, 16, 14, 14, 12, 20, 20, 16].forEach((w,i) => { ws.getColumn(i+1).width = w; });
 
     // ── Sheet 2: Customer Detail — every customer, route, period, revenue, volume ──
     const wsC = wb.addWorksheet('Customer Detail');
